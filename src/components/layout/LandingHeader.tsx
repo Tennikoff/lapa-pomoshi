@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { User } from "lucide-react";
 import s from "@/src/app/landing.module.css";
 
 export function LandingHeader() {
@@ -26,7 +27,7 @@ export function LandingHeader() {
           </div>
 
           <Link href="/profile" className={s.profile}>
-            👤
+            <User size={26} strokeWidth={2} />
           </Link>
         </nav>
       </div>
