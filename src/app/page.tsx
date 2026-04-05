@@ -38,7 +38,9 @@ export default function HomePage() {
               </p>
 
               <div className={s.heroAction}>
-                <div className={s.heroCat}>🐱</div>
+                <div className={s.heroCat}>
+                  <img src="/images/кися.svg" alt="Иллюстрация кошки" />
+                </div>
                 <Link href="/animals" className={s.btn}>
                   Сообщить о животном
                 </Link>

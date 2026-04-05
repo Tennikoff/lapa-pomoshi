@@ -191,13 +191,20 @@
 }
 
 .heroCat {
-  width: 180px;
-  height: 160px;
-  background: transparent;
+  width: 240px;
+  height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 80px;
+  flex-shrink: 0;
+}
+
+.heroCat img {
+  width: 300%;
+  height: 300%;
+  object-fit: contain;
+  display: block;
+  transform: translateY(-40px);
 }
 
 .btn {
