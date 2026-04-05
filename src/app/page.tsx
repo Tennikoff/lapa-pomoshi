@@ -65,10 +65,10 @@ export default function HomePage() {
             <div className={s.galleryGrid}>
               <div className={`${s.galleryImageWrap} ${s.rabbit}`}>
                 <Image
-                  src="/images/Кроля.png"
+                  src="/images/Кроля1.png"
                   alt="Кролик ищет дом"
                   fill
-                  className={s.galleryImage}
+                  className={s.galleryImageContain}
                 />
               </div>
 
@@ -96,7 +96,7 @@ export default function HomePage() {
                 <div className={s.galleryRow}>
                   <div className={`${s.galleryImageWrap} ${s.dog}`}>
                     <Image
-                      src="/images/Дог.png"
+                      src="/images/Дог1.png"
                       alt="Собака ищет дом"
                       fill
                       className={s.galleryImage}

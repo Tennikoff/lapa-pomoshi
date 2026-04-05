@@ -276,8 +276,13 @@
   object-fit: cover;
 }
 
+.galleryImageContain {
+  object-fit: contain;
+  background: #f3f3f3;
+}
+
 .rabbit {
-  width: 380px;
+  width: 321.2328px;
   height: 600px;
 }
 
@@ -528,7 +533,7 @@
 
   .rabbit {
     width: 100%;
-    max-width: 380px;
+    max-width: 340px;
     height: 500px;
   }
 
