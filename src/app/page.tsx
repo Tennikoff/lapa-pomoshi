@@ -18,12 +18,43 @@ export default function HomePage() {
           <div className={`${s.container} ${s.heroInner}`}>
             <div className={s.heroCollage}>
               <div className={s.heroCollageCol}>
-                <div className={`${s.heroImg} ${s.heroImg1}`} />
-                <div className={`${s.heroImg} ${s.heroImg3}`} />
+                <div className={s.heroImg}>
+                  <Image
+                    src="/images/Вол1.png"
+                    alt="Фото животного 1"
+                    fill
+                    className={s.heroImgTag}
+                  />
+                </div>
+
+                <div className={s.heroImg}>
+                  <Image
+                    src="/images/Вол3.png"
+                    alt="Фото животного 3"
+                    fill
+                    className={s.heroImgTag}
+                  />
+                </div>
               </div>
+
               <div className={s.heroCollageCol}>
-                <div className={`${s.heroImg} ${s.heroImg2}`} />
-                <div className={`${s.heroImg} ${s.heroImg4}`} />
+                <div className={s.heroImg}>
+                  <Image
+                    src="/images/Вол2.png"
+                    alt="Фото животного 2"
+                    fill
+                    className={s.heroImgTag}
+                  />
+                </div>
+
+                <div className={s.heroImg}>
+                  <Image
+                    src="/images/Вол4.png"
+                    alt="Фото животного 4"
+                    fill
+                    className={s.heroImgTag}
+                  />
+                </div>
               </div>
             </div>
 

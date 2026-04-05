@@ -129,35 +129,30 @@
 }
 
 .heroCollageCol:first-child {
-  margin-top: 40px;
+  margin-top: -40px;
 }
 
 .heroImg {
-  border-radius: 20px;
-  object-fit: cover;
-  display: block;
-  width: 100%;
-  background: linear-gradient(135deg, #d9d9d9, #bdbdbd);
-}
-
-.heroImg1 {
-  width: 220px;
-  height: 260px;
-}
-
-.heroImg2 {
   width: 260px;
   height: 180px;
+  border-radius: 20px;
+  overflow: hidden;
+  position: relative;
+  background: #d9d9d9;
+  transform: translateY(10px);
 }
 
-.heroImg3 {
-  width: 220px;
-  height: 180px;
+.heroImgTag {
+  object-fit: cover;
 }
 
+.heroImg1,
+.heroImg2,
+.heroImg3,
 .heroImg4 {
   width: 260px;
-  height: 220px;
+  height: 180px;
+  transform: translateY(20px);
 }
 
 .heroContent {
