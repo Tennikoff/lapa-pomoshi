@@ -50,66 +50,68 @@ export default function HomePage() {
         {/* ИЩУТ ДОМ */}
         <section className={s.gallery}>
           <div className={s.container}>
-            <div className={s.galleryHeader}>
-              <div className={s.galleryTitle}>
-                <h2>Ищут дом</h2>
-                <p>Помоги найти семью тем, кто ждёт</p>
-              </div>
-
-              <div className={s.galleryArrows}>
-                <button className={s.arrowBtn}>←</button>
-                <button className={s.arrowBtn}>→</button>
-              </div>
-            </div>
-
-            <div className={s.galleryGrid}>
-              <div className={`${s.galleryImageWrap} ${s.rabbit}`}>
-                <Image
-                  src="/images/Кроля1.png"
-                  alt="Кролик ищет дом"
-                  fill
-                  className={s.galleryImageContain}
-                />
-              </div>
-
-              <div className={s.galleryRightCol}>
-                <div className={s.galleryRow}>
-                  <div className={`${s.galleryImageWrap} ${s.puppy}`}>
-                    <Image
-                      src="/images/Щенок.jpg"
-                      alt="Щенок ищет дом"
-                      fill
-                      className={s.galleryImage}
-                    />
-                  </div>
-
-                  <div className={`${s.galleryImageWrap} ${s.parrot}`}>
-                    <Image
-                      src="/images/Попугай.jpg"
-                      alt="Попугай ищет дом"
-                      fill
-                      className={s.galleryImage}
-                    />
-                  </div>
+            <div className={s.galleryInner}>
+              <div className={s.galleryHeader}>
+                <div className={s.galleryTitle}>
+                  <h2>Ищут дом</h2>
+                  <p>Помоги найти семью тем, кто ждёт</p>
                 </div>
 
-                <div className={s.galleryRow}>
-                  <div className={`${s.galleryImageWrap} ${s.dog}`}>
-                    <Image
-                      src="/images/Дог1.png"
-                      alt="Собака ищет дом"
-                      fill
-                      className={s.galleryImage}
-                    />
+                <div className={s.galleryArrows}>
+                  <button className={s.arrowBtn}>←</button>
+                  <button className={s.arrowBtn}>→</button>
+                </div>
+              </div>
+
+              <div className={s.galleryGrid}>
+                <div className={`${s.galleryImageWrap} ${s.rabbit}`}>
+                  <Image
+                    src="/images/Кроля1.png"
+                    alt="Кролик ищет дом"
+                    fill
+                    className={s.galleryImageContain}
+                  />
+                </div>
+
+                <div className={s.galleryRightCol}>
+                  <div className={s.galleryRow}>
+                    <div className={`${s.galleryImageWrap} ${s.puppy}`}>
+                      <Image
+                        src="/images/Щенок.jpg"
+                        alt="Щенок ищет дом"
+                        fill
+                        className={s.galleryImage}
+                      />
+                    </div>
+
+                    <div className={`${s.galleryImageWrap} ${s.parrot}`}>
+                      <Image
+                        src="/images/Попугай.jpg"
+                        alt="Попугай ищет дом"
+                        fill
+                        className={s.galleryImage}
+                      />
+                    </div>
                   </div>
 
-                  <div className={`${s.galleryImageWrap} ${s.cat}`}>
-                    <Image
-                      src="/images/Котёнок.png"
-                      alt="Кошка ищет дом"
-                      fill
-                      className={s.galleryImage}
-                    />
+                  <div className={s.galleryRow}>
+                    <div className={`${s.galleryImageWrap} ${s.dog}`}>
+                      <Image
+                        src="/images/Дог1.png"
+                        alt="Собака ищет дом"
+                        fill
+                        className={s.galleryImage}
+                      />
+                    </div>
+
+                    <div className={`${s.galleryImageWrap} ${s.cat}`}>
+                      <Image
+                        src="/images/Котёнок.png"
+                        alt="Кошка ищет дом"
+                        fill
+                        className={s.galleryImage}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
