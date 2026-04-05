@@ -259,12 +259,22 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: none;
+  border: 2px solid var(--color-dark-blue);
   background: white;
   color: var(--color-dark-blue);
   cursor: pointer;
   font-size: 18px;
+  font-weight: 800;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+}
+
+.arrowBtn:hover {
+  background: var(--color-dark-blue);
+  color: white;
 }
 
 .galleryGrid {
