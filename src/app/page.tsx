@@ -124,11 +124,27 @@ export default function HomePage() {
           <div className={s.container}>
             <div className={s.leadersWrapper}>
               <h2 className={s.leadersTitle}>Лидеры помощи марта</h2>
-
               <div className={s.leadersList}>
-                <LeaderCard emoji="👩" name="Кузнецова Анна" tasks={14} />
-                <LeaderCard emoji="👩" name="Саитова Ольга" tasks={11} />
-                <LeaderCard emoji="👨" name="Князев Олег" tasks={7} />
+                <LeaderCard
+                  image="/images/Кузнецова Анна2.png"
+                  name="Кузнецова Анна"
+                  tasks={14}
+                />
+                <LeaderCard
+                  image="/images/Саитова Ольга.png"
+                  name="Саитова Ольга"
+                  tasks={11}
+                />
+                <LeaderCard
+                  image="/images/Князев Олег.png"
+                  name="Князев Олег"
+                  tasks={7}
+                />
+                <LeaderCard
+                  image="/images/Кузнецова Анна1.png"
+                  name="Кузнецова Анна"
+                  tasks={6}
+                />
               </div>
             </div>
           </div>
