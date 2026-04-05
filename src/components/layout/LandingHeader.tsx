@@ -6,7 +6,9 @@ export function LandingHeader() {
     <header className={s.header}>
       <div className={`${s.container} ${s.headerInner}`}>
         <Link href="/" className={s.logo}>
-          <div className={s.logoIcon}>🐾</div>
+          <div className={s.logoIcon}>
+            <img src="/images/лого.svg" alt="Логотип" />
+          </div>
           <div className={s.logoText}>
             <span>ЛАПА</span>
             <br />

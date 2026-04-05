@@ -51,12 +51,19 @@
 }
 
 .logoIcon {
-  width: 40px;
-  height: 40px;
+  width: 60px;
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.logoIcon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .logoText {
