@@ -406,6 +406,7 @@
   font-size: 36px;
   color: var(--color-dark-blue);
   margin-bottom: 50px;
+  font-weight: 700;
 }
 
 .newsContent {
