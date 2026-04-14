@@ -7,7 +7,7 @@ export default function RegisterPage() {
   return (
     <div className={styles.authWrap}>
 
-      <div className={styles.authCard}>
+      <div className={`${styles.authCard} ${styles.authCardRegister}`}>
         <h1 className={styles.authTitle}>
           <Link href="/login" className={styles.titleLink}>
             Вход
@@ -35,28 +35,28 @@ export default function RegisterPage() {
             <label className={styles.fieldLabel} htmlFor="email">
               Email
             </label>
-            <input className={styles.input} id="email" name="email" type="email" />
+            <input className={styles.input} id="email" name="email" type="email" autoComplete="email" />
           </div>
 
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor="fio">
               ФИО
             </label>
-            <input className={styles.input} id="fio" name="fio" type="text" />
+            <input className={styles.input} id="fio" name="fio" type="text" autoComplete="name" />
           </div>
 
           <div className={styles.field}>
             <label className={`${styles.fieldLabel} ${styles.fieldHint}`} htmlFor="pass">
               Придумайте пароль (минимум 8 символов, латиница, цифры, спецсимвол)
             </label>
-            <input className={styles.input} id="pass" name="password" type="password" />
+            <input className={styles.input} id="pass" name="password" type="password" autoComplete="new-password" />
           </div>
 
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor="pass2">
               Повторите пароль
             </label>
-            <input className={styles.input} id="pass2" name="password2" type="password" />
+            <input className={styles.input} id="pass2" name="password2" type="password" autoComplete="new-password" />
           </div>
 
           <label className={styles.check}>
