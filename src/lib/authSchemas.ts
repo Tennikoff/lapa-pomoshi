@@ -46,3 +46,12 @@ export const loginSchema = z.object({
 });
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
+
+export const verifyEmailSchema = z.object({
+  code: z
+    .string()
+    .min(6, "Введите код подтверждения")
+    .regex(/^\d{6}$/, "Введите код подтверждения"),
+});
+
+export type VerifyEmailFormValues = z.infer<typeof verifyEmailSchema>;

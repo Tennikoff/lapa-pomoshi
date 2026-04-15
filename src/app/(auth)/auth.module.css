@@ -264,3 +264,107 @@
   /* например: */
   /* line-height: 1.2; */
 }
+
+/* ---- VERIFY EMAIL (OTP) ---- */
+.authCardVerify {
+  /* базовый размер окна подтверждения */
+  min-height: 320px;
+}
+
+.verifyTitle {
+  /* чтобы было как на других auth страницах */
+  text-align: center;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+
+.verifyDescription {
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #4a4a4a;
+  margin: 0 0 18px;
+}
+
+.otpRow {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  margin-top: 12px;     /* добавили: опустит блок ниже */
+}
+
+.otpInput {
+  width: 56px;
+  height: 55px;
+  border: none;
+  border-radius: 12px;
+
+  background: #e9d4fd; /* как твои input */
+  text-align: center;
+  font-size: 28px;
+  font-weight: 600;
+  outline: none;
+
+  transition: box-shadow 0.2s ease;
+}
+
+.otpInput:focus {
+  box-shadow: 0 0 0 2px #b892e6 inset; /* как твой focus */
+}
+
+.otpInputError {
+  box-shadow: 0 0 0 2px rgba(180, 35, 24, 0.35) inset;
+}
+
+/* Ошибка под OTP рядом с иконкой */
+.otpErrorSlot {
+  min-height: 22px; /* регулируй “высоту” области под ошибку кода */
+}
+
+/* Ресенд */
+.resendInfo {
+  text-align: center;
+  font-size: 14px;
+  color: #4a4a4a;
+  margin: 12px 0 18px;
+}
+
+.resendLink {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-left: 6px;
+
+  color: #1a1a1a;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.resendLinkDisabled {
+  text-decoration: none;
+  color: #4a4a4a;
+  cursor: not-allowed;
+}
+
+.timer {
+  margin-left: 6px;
+}
+
+/* Поднять блок "Не пришло письмо? ..." выше (меньше отступов) */
+.authCardVerify .resendInfo {
+  margin-top: -4px;     /* было больше — уменьшаем */
+  margin-bottom: 10px; /* было больше — уменьшаем */
+}
+
+/* Поднять кнопку "ПОДТВЕРДИТЬ" выше (только на verify) */
+.authCardVerify .btn {
+  margin-top: 6px; /* если нужно ещё выше: -10px, -14px */
+}
+
+/* Если хочешь поднять ещё сильнее — уменьши "резерв" под ошибку кода */
+.authCardVerify .otpErrorSlot {
+  min-height: 14px; /* было 22px; можно 0–18px */
+}
