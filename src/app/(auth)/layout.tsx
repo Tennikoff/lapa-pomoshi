@@ -10,7 +10,7 @@ type ModalVars = React.CSSProperties & {
 export default function AuthLayout({ children }: { children: ReactNode }) {
   const vars: ModalVars = {
     "--modal-blur": "8px", // меняй: "8px" / "18px" / "30px"
-    "--modal-dim": "0.05",  // меняй: "0.15" / "0.25" / "0.4"
+    "--modal-dim": "0.15",  // меняй: "0.15" / "0.25" / "0.4"
   };
 
   return (
