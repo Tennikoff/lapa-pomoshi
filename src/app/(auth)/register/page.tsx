@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "../auth.module.css";
 
 import { useForm } from "react-hook-form";
@@ -8,8 +9,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { registerSchema, type RegisterFormValues } from "../../../lib/authSchemas";
 import { FieldError } from "../_components/FieldError";
+import { mockRegister } from "../../../lib/mock/auth";
 
 export default function RegisterPage() {
+  const router = useRouter();
+
   const {
     register,
     handleSubmit,
@@ -30,13 +34,24 @@ export default function RegisterPage() {
 
   const onSubmit = async (values: RegisterFormValues) => {
     try {
-      // TODO: подключим API на следующем шаге
-      console.log("REGISTER SUBMIT", values);
-    } catch (e) {
-      // без any: e имеет тип unknown
-      const message =
-        e instanceof Error ? e.message : "Пользователь с таким Email уже существует";
+      const res = await mockRegister({
+        email: values.email,
+        password: values.password,
+        role: values.role,
+      });
 
+      if (!res.ok) {
+        if (res.errorCode === "EMAIL_EXISTS") {
+          setError("root", { message: "Пользователь с таким Email уже существует" });
+          return;
+        }
+      }
+
+      // успех -> на verify-email
+      router.push(`/verify-email?email=${encodeURIComponent(values.email.trim())}`);
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Не удалось зарегистрироваться";
       setError("root", { message });
     }
   };
@@ -52,10 +67,18 @@ export default function RegisterPage() {
         </h1>
 
         <form noValidate onSubmit={handleSubmit(onSubmit)}>
-          {/* Общая ошибка формы (обычно от API) */}
+          {/* Общая ошибка формы */}
           {errors.root?.message && (
             <div className={styles.formError}>
               <FieldError message={errors.root.message} />
+              <div style={{ marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <Link href="/login" className={styles.titleLink} style={{ textDecoration: "underline" }}>
+                  Перейти на вход
+                </Link>
+                <Link href="/reset-password" className={styles.titleLink} style={{ textDecoration: "underline" }}>
+                  Восстановить пароль
+                </Link>
+              </div>
             </div>
           )}
 
@@ -139,13 +162,9 @@ export default function RegisterPage() {
             <span>Я принимаю пользовательское соглашение</span>
           </label>
 
-          {/* СЛОТ: здесь настраиваешь "высоту" сообщения через CSS (min-height) */}
           <div className={styles.termsErrorSlot}>
             {errors.terms?.message ? (
-              <FieldError
-                message={errors.terms.message}
-                className={styles.termsErrorText}
-              />
+              <FieldError message={errors.terms.message} className={styles.termsErrorText} />
             ) : null}
           </div>
 

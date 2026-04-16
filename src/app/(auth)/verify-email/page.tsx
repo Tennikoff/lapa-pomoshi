@@ -2,21 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import styles from "../auth.module.css";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import {
-  verifyEmailSchema,
-  type VerifyEmailFormValues,
-} from "../../../lib/authSchemas";
-
+import { verifyEmailSchema, type VerifyEmailFormValues } from "../../../lib/authSchemas";
 import { FieldError } from "../_components/FieldError";
-import {
-  mockResendVerifyEmailCode,
-  mockVerifyEmailCode,
-} from "../../../lib/mock/auth";
+import { mockResendVerifyEmailCode, mockVerifyEmailCode } from "../../../lib/mock/auth";
 
 const OTP_LEN = 6;
 
@@ -24,6 +18,9 @@ const INVALID_CODE_TEXT = "Неверный код. Попробуйте ещё 
 const EXPIRED_CODE_TEXT = "Срок действия кода истёк. Запросите новый код.";
 
 export default function VerifyEmailPage() {
+  const searchParams = useSearchParams();
+  const emailFromQuery = (searchParams.get("email") || "").trim();
+
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [digits, setDigits] = useState<string[]>(Array(OTP_LEN).fill(""));
   const [timeLeft, setTimeLeft] = useState<number>(59);
@@ -44,16 +41,13 @@ export default function VerifyEmailPage() {
   });
 
   const code = useMemo(() => digits.join(""), [digits]);
-
   const isExpiredError = errors.code?.message === EXPIRED_CODE_TEXT;
   const isInvalidError = errors.code?.message === INVALID_CODE_TEXT;
 
-  // синхронизируем code в RHF
   useEffect(() => {
     setValue("code", code, { shouldDirty: true, shouldValidate: false });
   }, [code, setValue]);
 
-  // таймер
   useEffect(() => {
     if (timeLeft <= 0) return;
     const id = setInterval(() => setTimeLeft((t) => t - 1), 1000);
@@ -112,14 +106,18 @@ export default function VerifyEmailPage() {
   const onSubmit = async (values: VerifyEmailFormValues) => {
     clearErrors();
 
-    const res = await mockVerifyEmailCode(values.code);
+    if (!emailFromQuery) {
+      setError("code", { message: "Не указан email для подтверждения" });
+      return;
+    }
+
+    const res = await mockVerifyEmailCode({ email: emailFromQuery, code: values.code });
 
     if (res.ok) {
       setIsVerified(true);
       return;
     }
 
-    // Ошибки показываем ПОД кодом (над resend)
     if (res.errorCode === "INVALID_CODE") {
       setError("code", { message: INVALID_CODE_TEXT });
       return;
@@ -129,18 +127,21 @@ export default function VerifyEmailPage() {
       setError("code", { message: EXPIRED_CODE_TEXT });
       return;
     }
+
+    setError("code", { message: "Не удалось подтвердить email" });
   };
 
   const onResend = async () => {
     if (!canResend) return;
 
     clearErrors("code");
-    await mockResendVerifyEmailCode();
+    if (emailFromQuery) {
+      await mockResendVerifyEmailCode({ email: emailFromQuery });
+    }
     setTimeLeft(59);
   };
 
-  const timerText =
-    timeLeft > 0 ? `(0:${String(timeLeft).padStart(2, "0")})` : "";
+  const timerText = timeLeft > 0 ? `(0:${String(timeLeft).padStart(2, "0")})` : "";
 
   return (
     <div className={styles.authWrap}>
@@ -160,7 +161,6 @@ export default function VerifyEmailPage() {
             </p>
 
             <form noValidate onSubmit={handleSubmit(onSubmit)}>
-              {/* Всё внутри otpGroup => выравнивание по первой ячейке */}
               <div className={styles.otpGroup}>
                 <div className={styles.otpRow}>
                   {Array.from({ length: OTP_LEN }).map((_, idx) => (
@@ -169,9 +169,7 @@ export default function VerifyEmailPage() {
                       ref={(el) => {
                         inputRefs.current[idx] = el;
                       }}
-                      className={`${styles.otpInput} ${
-                        errors.code ? styles.otpInputError : ""
-                      }`}
+                      className={`${styles.otpInput} ${errors.code ? styles.otpInputError : ""}`}
                       value={digits[idx]}
                       onChange={(e) => setDigit(idx, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(idx, e)}
@@ -185,7 +183,6 @@ export default function VerifyEmailPage() {
                   ))}
                 </div>
 
-                {/* Ошибка под кодом и над resend */}
                 <div
                   className={[
                     styles.otpErrorSlot,
@@ -193,20 +190,15 @@ export default function VerifyEmailPage() {
                     isInvalidError ? styles.otpErrorInvalid : "",
                   ].join(" ")}
                 >
-                  {errors.code?.message ? (
-                    <FieldError message={errors.code.message} />
-                  ) : null}
+                  {errors.code?.message ? <FieldError message={errors.code.message} /> : null}
                 </div>
 
-                {/* Resend выравнивается по первой ячейке */}
                 <p className={styles.resendInfo}>
                   Не пришло письмо?
                   <button
                     type="button"
                     onClick={onResend}
-                    className={`${styles.resendLink} ${
-                      !canResend ? styles.resendLinkDisabled : ""
-                    }`}
+                    className={`${styles.resendLink} ${!canResend ? styles.resendLinkDisabled : ""}`}
                     disabled={!canResend}
                   >
                     Отправить повторно
