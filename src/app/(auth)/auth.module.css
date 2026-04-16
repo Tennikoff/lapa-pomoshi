@@ -11,7 +11,7 @@
   --modal-dim: 0.25;
 }
 
-/* Фон: главная страница (размываем стабильно через filter) */
+/* Фон: главная страница (размываем через filter) */
 .modalBg {
   position: fixed;
   inset: 0;
@@ -19,7 +19,7 @@
 
   filter: blur(var(--modal-blur));
   transform: scale(1.03);
-  pointer-events: none; /* фон не кликается */
+  pointer-events: none;
 }
 
 /* затемнение */
@@ -54,6 +54,7 @@
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Arial, sans-serif;
 }
 
+/* оставляю класс, даже если вы его больше не используете в страницах */
 .authLabel {
   position: absolute;
   top: -24px;
@@ -66,7 +67,7 @@
   width: 480px;
   max-width: 100%;
 
-  /* диагональный градиент */
+  /* ТВОЙ ГРАДИЕНТ */
   background: linear-gradient(135deg, #d5a9ff 0%, #e4c8ff 55%, #dec8ff 100%);
 
   border-radius: 26px;
@@ -74,14 +75,23 @@
   color: #1a1a1a;
 
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
-  transition: height 200ms ease, padding 200ms ease;
-  height: auto; /* важно: пусть высота считается по контенту */
-  max-height: calc(100vh - 48px); /* чтобы не вылезала за экран */
-  overflow-y: auto; /* если ошибок много — появится прокрутка внутри карточки */
+
+  /* чтобы карточка растягивалась под ошибки */
+  height: auto;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+
+  transition: padding 200ms ease;
 }
 
+/* Базовые размеры (карточка растягивается выше этих значений) */
 .authCardRegister { min-height: 645px; }
 .authCardLogin { min-height: 390px; }
+
+/* ---- VERIFY EMAIL (OTP) ---- */
+.authCardVerify {
+  min-height: 320px;
+}
 
 .authTitle {
   text-align: center;
@@ -211,6 +221,7 @@
 .btn:active { transform: translateY(1px); }
 
 .forgotRow { margin-top: 10px; margin-bottom: 18px; }
+
 .forgotLink {
   font-size: 14px;
   color: inherit;
@@ -218,13 +229,9 @@
 }
 .forgotLink:hover { text-decoration: underline; }
 
-/* На низких экранах, чтобы не вылезало */
-@media (max-height: 760px) {
-  .authCardRegister,
-  .authCardLogin {
-    height: auto;
-  }
-}
+/* =======================
+   Errors (общие)
+   ======================= */
 
 .inputError {
   box-shadow: 0 0 0 2px rgba(180, 35, 24, 0.35) inset;
@@ -253,26 +260,21 @@
   border: 1px solid rgba(180, 35, 24, 0.25);
 }
 
-/* Слот под ошибку соглашения — НАСТРАИВАЕМАЯ "ВЫСОТА" */
+/* Слот под ошибку соглашения (в register) */
 .termsErrorSlot {
-  min-height: 26px; /* <-- меняй это значение: 0 / 18 / 22 / 30... */
-  margin-top: -10px; /* <-- если хочешь ближе/дальше от чекбокса, меняй */
+  min-height: 22px; /* настраиваешь высоту/резерв */
+  margin-top: -10px;
 }
 
-/* Доп. точечная настройка текста именно этой ошибки (опционально) */
 .termsErrorText {
-  /* например: */
-  /* line-height: 1.2; */
+  /* опционально */
 }
 
-/* ---- VERIFY EMAIL (OTP) ---- */
-.authCardVerify {
-  /* базовый размер окна подтверждения */
-  min-height: 320px;
-}
+/* =======================
+   VERIFY EMAIL (OTP)
+   ======================= */
 
 .verifyTitle {
-  /* чтобы было как на других auth страницах */
   text-align: center;
   font-size: 28px;
   font-weight: 700;
@@ -287,12 +289,18 @@
   margin: 0 0 18px;
 }
 
+/* Группа шириной ровно как OTP-ряд, сама группа по центру карточки */
+.otpGroup {
+  width: fit-content;
+  margin: 0 auto;
+}
+
 .otpRow {
   display: flex;
   justify-content: center;
   gap: 10px;
   margin-bottom: 10px;
-  margin-top: 12px;     /* добавили: опустит блок ниже */
+  margin-top: 12px;
 }
 
 .otpInput {
@@ -301,7 +309,7 @@
   border: none;
   border-radius: 12px;
 
-  background: #e9d4fd; /* как твои input */
+  background: #e9d4fd;
   text-align: center;
   font-size: 28px;
   font-weight: 600;
@@ -311,23 +319,55 @@
 }
 
 .otpInput:focus {
-  box-shadow: 0 0 0 2px #b892e6 inset; /* как твой focus */
+  box-shadow: 0 0 0 2px #b892e6 inset;
 }
 
 .otpInputError {
   box-shadow: 0 0 0 2px rgba(180, 35, 24, 0.35) inset;
 }
 
-/* Ошибка под OTP рядом с иконкой */
+/* Ошибка под OTP: начинается от первой ячейки (не по центру) */
 .otpErrorSlot {
-  min-height: 22px; /* регулируй “высоту” области под ошибку кода */
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+
+  /* настраиваемые отступы (если понадобятся) */
+  padding-top: var(--otp-error-pt, 0px);
+  padding-bottom: var(--otp-error-pb, 0px);
+
+  min-height: 14px;
 }
 
-/* Ресенд */
+/* чтобы высота контролировалась padding'ами слота, а не margin'ом текста */
+.otpErrorSlot .errorText {
+  margin-top: 0;
+}
+
+/* Если хочешь разные отступы под разные сообщения — настраивай тут */
+.otpErrorExpired {
+  --otp-error-pt: 6px;   /* отступ сверху */
+  --otp-error-pb: 10px;  /* отступ снизу */
+}
+
+.otpErrorInvalid {
+  --otp-error-pt: 6px;
+  --otp-error-pb: 10px;
+}
+
+/* Resend: выравнивается по первой ячейке (т.к. внутри otpGroup) */
 .resendInfo {
-  text-align: center;
+  width: 100%;
+  text-align: left;
   font-size: 14px;
   color: #4a4a4a;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+
   margin: 12px 0 18px;
 }
 
@@ -335,7 +375,7 @@
   background: transparent;
   border: none;
   padding: 0;
-  margin-left: 6px;
+  margin-left: 0;
 
   color: #1a1a1a;
   text-decoration: underline;
@@ -350,21 +390,33 @@
 }
 
 .timer {
-  margin-left: 6px;
+  margin-left: 0;
 }
 
-/* Поднять блок "Не пришло письмо? ..." выше (меньше отступов) */
+/* Твои подстройки положения на verify */
 .authCardVerify .resendInfo {
-  margin-top: -4px;     /* было больше — уменьшаем */
-  margin-bottom: 10px; /* было больше — уменьшаем */
+  margin-top: -4px;
+  margin-bottom: 10px;
 }
 
-/* Поднять кнопку "ПОДТВЕРДИТЬ" выше (только на verify) */
 .authCardVerify .btn {
-  margin-top: 6px; /* если нужно ещё выше: -10px, -14px */
+  margin-top: 6px;
 }
 
-/* Если хочешь поднять ещё сильнее — уменьши "резерв" под ошибку кода */
-.authCardVerify .otpErrorSlot {
-  min-height: 14px; /* было 22px; можно 0–18px */
+/* Меньшая карточка ТОЛЬКО для успеха */
+.authCardVerifySuccess {
+  min-height: 190px; /* <-- уменьшаешь/увеличиваешь тут */
+  padding-top: 22px; /* опционально */
+  padding-bottom: 22px; /* опционально */
 }
+
+/* На низких экранах — карточки будут auto по высоте благодаря height:auto;
+   но max-height уже ограничивает */
+@media (max-height: 760px) {
+  .authCardRegister,
+  .authCardLogin,
+  .authCardVerify {
+    min-height: auto;
+  }
+}
+
