@@ -136,3 +136,65 @@ export async function mockResendVerifyEmailCode(params: { email: string }) {
   // можно было бы проверять, что юзер существует, но не обязательно
   return { ok: true as const };
 }
+
+export type ResetRequestResult =
+  | { ok: true }
+  | { ok: false; errorCode: "EMAIL_NOT_FOUND" };
+
+export async function mockRequestPasswordResetCode(params: { email: string }): Promise<ResetRequestResult> {
+  await new Promise((r) => setTimeout(r, 450));
+
+  const email = params.email.trim().toLowerCase();
+  const user = findUserByEmail(email);
+
+  if (!user) return { ok: false, errorCode: "EMAIL_NOT_FOUND" };
+
+  return { ok: true };
+}
+
+export type ResetVerifyResult =
+  | { ok: true }
+  | { ok: false; errorCode: "INVALID_CODE" | "EXPIRED_CODE" };
+
+export async function mockVerifyPasswordResetCode(params: {
+  email: string;
+  code: string;
+}): Promise<ResetVerifyResult> {
+  await new Promise((r) => setTimeout(r, 450));
+
+  // Тестовые коды (6 цифр):
+  // 111111 -> успех
+  // 222222 -> срок истёк
+  // другое -> неверный
+  if (params.code === "111111") return { ok: true };
+  if (params.code === "222222") return { ok: false, errorCode: "EXPIRED_CODE" };
+  return { ok: false, errorCode: "INVALID_CODE" };
+}
+
+export type ResetSetPasswordResult =
+  | { ok: true }
+  | { ok: false; errorCode: "EMAIL_NOT_FOUND" };
+
+export async function mockSetNewPassword(params: {
+  email: string;
+  newPassword: string;
+}): Promise<ResetSetPasswordResult> {
+  await new Promise((r) => setTimeout(r, 450));
+
+  const email = params.email.trim().toLowerCase();
+  const users = loadUsers();
+  const idx = users.findIndex((u) => u.email.toLowerCase() === email);
+
+  if (idx === -1) return { ok: false, errorCode: "EMAIL_NOT_FOUND" };
+
+  const next = [...users];
+  next[idx] = { ...next[idx], password: params.newPassword };
+  saveUsers(next);
+
+  return { ok: true };
+}
+
+export async function mockResendPasswordResetCode(_params: { email: string }) {
+  await new Promise((r) => setTimeout(r, 400));
+  return { ok: true as const };
+}

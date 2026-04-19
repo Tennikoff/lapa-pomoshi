@@ -416,3 +416,38 @@
   }
 }
 
+/* ---- RESET PASSWORD ---- */
+.authCardReset {
+  min-height: 360px; /* базовый размер окна восстановления */
+}
+
+.authCardResetSuccess {
+  min-height: 190px; /* компактный success, как у verify-success */
+  padding-top: 22px;
+  padding-bottom: 22px;
+}
+
+/* RESET PASSWORD: отдельные размеры под шаги (чтобы настраивать) */
+.authCardResetStep1 {
+  min-height: 300px; /* <-- РЕГУЛИРУЕШЬ высоту окна шага 1 */
+}
+
+.authCardResetStep2 {
+  min-height: 320px; /* <-- РЕГУЛИРУЕШЬ высоту окна шага 2 */
+}
+
+/* Положение "Не пришло письмо?..." на шаге 2 */
+.authCardResetStep2 .resendInfo {
+  margin-top: -4px;   /* <-- РЕГУЛИРУЕШЬ: выше/ниже (например -10px / 0px / 6px) */
+  margin-bottom: 10px;/* <-- РЕГУЛИРУЕШЬ */
+}
+
+/* Положение кнопки "ПОДТВЕРДИТЬ" на шаге 2 */
+.authCardResetStep2 .btn {
+  margin-top: 6px;    /* <-- РЕГУЛИРУЕШЬ */
+}
+
+.authCardResetStep3 {
+  min-height: 360px; /* <-- РЕГУЛИРУЕШЬ высоту окна шага 3 (новый пароль) */
+}
+

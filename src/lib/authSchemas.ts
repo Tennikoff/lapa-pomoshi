@@ -55,3 +55,41 @@ export const verifyEmailSchema = z.object({
 });
 
 export type VerifyEmailFormValues = z.infer<typeof verifyEmailSchema>;
+
+export const resetEmailSchema = z.object({
+  email: z.string().min(1, "Обязательное поле").email("Введите корректный email"),
+});
+export type ResetEmailFormValues = z.infer<typeof resetEmailSchema>;
+
+export const resetCodeSchema = z.object({
+  code: z
+    .string()
+    .min(5, "Введите код восстановления")
+    .regex(/^\d{6}$/, "Введите код восстановления"),
+});
+export type ResetCodeFormValues = z.infer<typeof resetCodeSchema>;
+
+/** те же правила пароля, что и в регистрации */
+
+export const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "минимум 8 символов")
+      .refine((v) => !hasCyrillic.test(v), "Пароль должен быть на латинице")
+      .refine((v) => hasLatinLetter.test(v), "Пароль должен содержать латиницу")
+      .refine((v) => hasDigit.test(v), "Пароль должен содержать цифру")
+      .refine((v) => hasSpecial.test(v), "Пароль должен содержать спецсимвол"),
+    password2: z.string().min(1, "Обязательное поле"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.password !== data.password2) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["password2"],
+        message: "Пароли не совпадают",
+      });
+    }
+  });
+
+export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
