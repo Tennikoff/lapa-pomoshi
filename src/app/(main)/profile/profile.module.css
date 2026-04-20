@@ -41,8 +41,9 @@
 }
 
 .profileInfo p {
-  font-size: 18px;
-  color: #6c757d;
+  font-size: 22px;
+  color: #06355e;
+  font-weight: 500;
 }
 
 .btnLogout {
@@ -70,6 +71,7 @@
   font-size: 18px;
   font-weight: 500;
   margin-bottom: 15px;
+  color: #06355e;
 }
 
 .sectionSubtitle {
@@ -92,6 +94,7 @@
   padding: 8px 18px;
   border-radius: 20px;
   font-size: 14px;
+  font-weight: 500;
 }
 
 /* Pets */
@@ -160,6 +163,8 @@
   height: 30px;
   margin-bottom: 10px;
   color: #333;
+  margin-top: 20px;
+  margin-bottom: 0px;
 }
 
 /* Rating / Reviews */
@@ -262,3 +267,4 @@
     text-align: center;
   }
 }
+

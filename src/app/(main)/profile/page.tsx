@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import s from "./profile.module.css";
 
@@ -77,9 +78,10 @@ export default function ProfilePage() {
 
   const rating = useMemo(() => {
     if (!profile || !profile.countRating) return { avg: "5.0", count: 4 };
-    const avg = profile.sumRating && profile.countRating
-      ? (profile.sumRating / profile.countRating).toFixed(1)
-      : "0.0";
+    const avg =
+      profile.sumRating && profile.countRating
+        ? (profile.sumRating / profile.countRating).toFixed(1)
+        : "0.0";
     return { avg, count: profile.countRating };
   }, [profile]);
 
@@ -175,7 +177,7 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className={s.section}>
+        <section className={`${s.section} ${s.petsSection}`}>
           <h3 className={s.sectionTitle}>Мои питомцы</h3>
           <div className={s.petsGrid}>
             <div className={s.petCard}>
@@ -196,7 +198,6 @@ export default function ProfilePage() {
           <p style={{ color: "#6C757D", fontSize: 14 }}>Выполненные задачи: x</p>
         </section>
 
-        {/* Рейтинг: звёзды + текст справа, всё по центру */}
         <section className={s.section}>
           <h3 className={s.sectionTitle}>Рейтинг</h3>
 
@@ -247,7 +248,10 @@ export default function ProfilePage() {
           </a>
         </section>
 
-        <button className={s.btnLarge}>РЕДАКТИРОВАТЬ ПРОФИЛЬ</button>
+        {/* Кнопка теперь ведёт на /profile/edit */}
+        <Link href="/profile/edit" className={s.btnLarge}>
+          РЕДАКТИРОВАТЬ ПРОФИЛЬ
+        </Link>
       </div>
     </div>
   );

@@ -1,0 +1,162 @@
+.page {
+  background: #fafafc;
+  color: #212529;
+}
+
+.container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.form {
+  max-width: 650px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+}
+
+/* верхний блок с аватаром/именем */
+.profileInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: #333;
+}
+
+.name {
+  font-size: 24px;
+  font-weight: 600; /* как в профиле */
+  margin: 0;
+}
+
+.role {
+  margin: -15px 0 0;
+  font-size: 22px;
+  color: #06355e;
+  font-weight: 500;
+}
+
+/* секции */
+.section {
+  width: 100%;
+  text-align: center;
+}
+
+.sectionTitle {
+  font-size: 18px;  /* как sectionTitle в профиле */
+  font-weight: 500;
+  margin-bottom: 15px;
+  color: #06355e;
+}
+
+/* textarea — в стиле проекта */
+.textarea {
+  width: 100%;
+  min-height: 80px;
+  border: none;
+  border-radius: 25px;
+  background: #e5eef7;
+  padding: 15px 25px;
+  box-sizing: border-box;
+  font-size: 14px;
+  resize: vertical;
+  outline: none;
+}
+
+.textarea:focus {
+  box-shadow: 0 0 0 2px rgba(0, 77, 122, 0.18);
+}
+
+.city {
+  font-size: 14px;
+  color: #6c757d;
+  margin-top: -10px;
+  margin-bottom: 15px;
+  font-weight: 400;
+}
+
+/* ---------- ТЕГИ (интерактивные кнопки) ---------- */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.tagItem {
+  display: inline-flex;
+}
+
+.tagInput {
+  display: none;
+}
+
+/* по умолчанию — пастельный голубой как на профиле */
+.tagLabel {
+  display: inline-block;
+  background: #d4e8f8;
+  color: #212529;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+
+  border: 1px solid transparent;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.05s;
+}
+
+/* hover — чуть выразительнее */
+.tagLabel:hover {
+  background: #c4def3; /* более “взрачный” пастельный */
+}
+
+/* active click */
+.tagLabel:active {
+  transform: translateY(1px);
+}
+
+/* выбранный — насыщенный голубой */
+.tagInput:checked + .tagLabel {
+  background: #0077b6;
+  color: #fff;
+  border-color: #0077b6;
+}
+
+/* hover на выбранном */
+.tagInput:checked + .tagLabel:hover {
+  background: #006aa2;
+  border-color: #006aa2;
+}
+
+/* кнопка сохранить — как “персиковые” кнопки у вас */
+.saveButton {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  background: #e9b8a7;
+  color: #333;
+  border: none;
+  padding: 18px 0;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.saveButton:hover {
+  background: #dda693;
+}
