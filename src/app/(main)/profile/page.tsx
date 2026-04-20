@@ -177,19 +177,20 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className={`${s.section} ${s.petsSection}`}>
+        <section className={s.section}>
           <h3 className={s.sectionTitle}>Мои питомцы</h3>
           <div className={s.petsGrid}>
             <div className={s.petCard}>
               <span>Ричи</span>
             </div>
 
-            <div className={s.addPet}>
+            {/* Был div, стал Link — внешний вид сохраняем классом */}
+            <Link href="/animals/new" className={s.addPet}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 5v14M5 12h14" />
               </svg>
               Добавить
-            </div>
+            </Link>
           </div>
         </section>
 
@@ -248,7 +249,6 @@ export default function ProfilePage() {
           </a>
         </section>
 
-        {/* Кнопка теперь ведёт на /profile/edit */}
         <Link href="/profile/edit" className={s.btnLarge}>
           РЕДАКТИРОВАТЬ ПРОФИЛЬ
         </Link>

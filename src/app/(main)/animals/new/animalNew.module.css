@@ -1,0 +1,148 @@
+.page {
+  background: #fafafc;
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.formCard {
+  max-width: 700px;
+  width: 100%;
+  background: #e8edf3;          /* как карточки отзывов */
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+}
+
+.title {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;             /* как заголовки в профиле */
+  margin: 0 0 40px;
+  color: #212529;
+}
+
+.field {
+  margin-bottom: 25px;
+  text-align: left;
+}
+
+.label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #06355e;               /* как ты сделал в edit-профиле для заголовков */
+  margin-bottom: 8px;
+}
+
+.input {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 16px;
+  border: none;
+  background: #d4e3f3;          /* как textarea в edit профиле */
+  border-radius: 12px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.input:focus {
+  box-shadow: 0 0 0 2px rgba(0, 77, 122, 0.18);
+}
+
+.textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 14px 18px;
+  font-size: 14px;
+  border: none;
+  background: #d4e3f3;
+  border-radius: 12px;
+  box-sizing: border-box;
+  outline: none;
+  resize: vertical;
+}
+
+.textarea:focus {
+  box-shadow: 0 0 0 2px rgba(0, 77, 122, 0.18);
+}
+
+/* Фото */
+.photoRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.photoUpload {
+  width: 120px;
+  height: 120px;
+  border-radius: 12px;
+  background: #d4e3f3;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: background-color 0.2s;
+}
+
+.photoUpload:hover {
+  background: #dbe7f3;
+}
+
+.photoPlaceholder {
+  text-align: center;
+  color: #5f748d;
+  font-weight: 600;
+}
+
+.plus {
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.photoText {
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.photoPreview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.fileInput {
+  display: none;
+}
+
+/* Кнопки */
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 40px;
+}
+
+.btn {
+  padding: 14px 30px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  background: #e9b8a7;  /* персиковые */
+  color: #333;
+}
+
+.btn:hover {
+  background: #dda693;
+}
