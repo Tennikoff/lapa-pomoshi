@@ -9,7 +9,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { registerSchema, type RegisterFormValues } from "../../../lib/authSchemas";
 import { FieldError } from "../_components/FieldError";
-import { mockRegister } from "../../../lib/mock/auth";
+import { apiRegister } from "../../../lib/api/auth";
+import { ApiError } from "../../../lib/api/http";
+
+const ROLE_TO_API: Record<RegisterFormValues["role"], number> = {
+  volunteer: 1,
+  curator: 2, // уточни у бэкенда: какое число у куратора/организации
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -34,24 +40,25 @@ export default function RegisterPage() {
 
   const onSubmit = async (values: RegisterFormValues) => {
     try {
-      const res = await mockRegister({
-        email: values.email,
+      await apiRegister({
+        email: values.email.trim(),
         password: values.password,
-        role: values.role,
+        role: ROLE_TO_API[values.role],
       });
 
-      if (!res.ok) {
-        if (res.errorCode === "EMAIL_EXISTS") {
-          setError("root", { message: "Пользователь с таким Email уже существует" });
-          return;
-        }
-      }
-
-      // успех -> на verify-email
+      // успех -> verify-email
       router.push(`/verify-email?email=${encodeURIComponent(values.email.trim())}`);
     } catch (e) {
-      const message =
-        e instanceof Error ? e.message : "Не удалось зарегистрироваться";
+      let message = "Не удалось зарегистрироваться";
+
+      if (e instanceof ApiError) message = e.message;
+      else if (e instanceof Error) message = e.message;
+
+      // если бек вернёт текст про существующий email — маппим на твой
+      if (message.toLowerCase().includes("существ")) {
+        message = "Пользователь с таким Email уже существует";
+      }
+
       setError("root", { message });
     }
   };
@@ -67,7 +74,6 @@ export default function RegisterPage() {
         </h1>
 
         <form noValidate onSubmit={handleSubmit(onSubmit)}>
-          {/* Общая ошибка формы */}
           {errors.root?.message && (
             <div className={styles.formError}>
               <FieldError message={errors.root.message} />
@@ -163,9 +169,7 @@ export default function RegisterPage() {
           </label>
 
           <div className={styles.termsErrorSlot}>
-            {errors.terms?.message ? (
-              <FieldError message={errors.terms.message} className={styles.termsErrorText} />
-            ) : null}
+            {errors.terms?.message ? <FieldError message={errors.terms.message} /> : null}
           </div>
 
           <button className={styles.btn} type="submit" disabled={isSubmitting}>

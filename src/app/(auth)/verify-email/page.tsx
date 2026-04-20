@@ -8,9 +8,15 @@ import styles from "../auth.module.css";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { verifyEmailSchema, type VerifyEmailFormValues } from "../../../lib/authSchemas";
+import {
+  verifyEmailSchema,
+  type VerifyEmailFormValues,
+} from "../../../lib/authSchemas";
+
 import { FieldError } from "../_components/FieldError";
-import { mockResendVerifyEmailCode, mockVerifyEmailCode } from "../../../lib/mock/auth";
+import { apiConfirmEmail } from "../../../lib/api/auth";
+import { ApiError } from "../../../lib/api/http";
+import { setAccessToken } from "../../../lib/tokenStorage";
 
 const OTP_LEN = 6;
 
@@ -41,13 +47,17 @@ export default function VerifyEmailPage() {
   });
 
   const code = useMemo(() => digits.join(""), [digits]);
+
+  // для css-классов отступов
   const isExpiredError = errors.code?.message === EXPIRED_CODE_TEXT;
   const isInvalidError = errors.code?.message === INVALID_CODE_TEXT;
 
+  // синхронизируем code в RHF
   useEffect(() => {
     setValue("code", code, { shouldDirty: true, shouldValidate: false });
   }, [code, setValue]);
 
+  // таймер
   useEffect(() => {
     if (timeLeft <= 0) return;
     const id = setInterval(() => setTimeLeft((t) => t - 1), 1000);
@@ -57,6 +67,9 @@ export default function VerifyEmailPage() {
   const focusIndex = (idx: number) => inputRefs.current[idx]?.focus();
 
   const setDigit = (idx: number, val: string) => {
+    // если хочешь сбрасывать ошибку при вводе — раскомментируй:
+    // clearErrors("code");
+
     const onlyDigit = val.replace(/\D/g, "").slice(0, 1);
 
     setDigits((prev) => {
@@ -111,37 +124,52 @@ export default function VerifyEmailPage() {
       return;
     }
 
-    const res = await mockVerifyEmailCode({ email: emailFromQuery, code: values.code });
+    try {
+      const res = await apiConfirmEmail({
+        email: emailFromQuery,
+        code: values.code,
+      });
 
-    if (res.ok) {
+      // confirm-email возвращает accessToken => сохраняем
+      setAccessToken(res.accessToken);
+
+      // показываем success-экран
       setIsVerified(true);
-      return;
-    }
+    } catch (e) {
+      let message = "Не удалось подтвердить email";
 
-    if (res.errorCode === "INVALID_CODE") {
-      setError("code", { message: INVALID_CODE_TEXT });
-      return;
-    }
+      if (e instanceof ApiError) message = e.message;
+      else if (e instanceof Error) message = e.message;
 
-    if (res.errorCode === "EXPIRED_CODE") {
-      setError("code", { message: EXPIRED_CODE_TEXT });
-      return;
-    }
+      // Маппинг под твои тексты (когда бек вернёт свои формулировки)
+      const m = message.toLowerCase();
 
-    setError("code", { message: "Не удалось подтвердить email" });
+      if (m.includes("неверн") && m.includes("код")) {
+        setError("code", { message: INVALID_CODE_TEXT });
+        return;
+      }
+      if (m.includes("истек") || m.includes("истёк") || m.includes("срок")) {
+        setError("code", { message: EXPIRED_CODE_TEXT });
+        return;
+      }
+
+      // дефолт: показываем под кодом, как ты хотел
+      setError("code", { message });
+    }
   };
 
+  // Resend: эндпоинт ты не прислал. Пока оставляем UI таймера,
+  // но по клику ничего реального не отправляем — чтобы не обманывать пользователя.
   const onResend = async () => {
     if (!canResend) return;
 
-    clearErrors("code");
-    if (emailFromQuery) {
-      await mockResendVerifyEmailCode({ email: emailFromQuery });
-    }
+    // если появится эндпоинт resend — подключим тут
+    // сейчас просто перезапускаем таймер, без реальной отправки
     setTimeLeft(59);
   };
 
-  const timerText = timeLeft > 0 ? `(0:${String(timeLeft).padStart(2, "0")})` : "";
+  const timerText =
+    timeLeft > 0 ? `(0:${String(timeLeft).padStart(2, "0")})` : "";
 
   return (
     <div className={styles.authWrap}>
@@ -169,7 +197,9 @@ export default function VerifyEmailPage() {
                       ref={(el) => {
                         inputRefs.current[idx] = el;
                       }}
-                      className={`${styles.otpInput} ${errors.code ? styles.otpInputError : ""}`}
+                      className={`${styles.otpInput} ${
+                        errors.code ? styles.otpInputError : ""
+                      }`}
                       value={digits[idx]}
                       onChange={(e) => setDigit(idx, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(idx, e)}
@@ -190,7 +220,9 @@ export default function VerifyEmailPage() {
                     isInvalidError ? styles.otpErrorInvalid : "",
                   ].join(" ")}
                 >
-                  {errors.code?.message ? <FieldError message={errors.code.message} /> : null}
+                  {errors.code?.message ? (
+                    <FieldError message={errors.code.message} />
+                  ) : null}
                 </div>
 
                 <p className={styles.resendInfo}>
@@ -198,7 +230,9 @@ export default function VerifyEmailPage() {
                   <button
                     type="button"
                     onClick={onResend}
-                    className={`${styles.resendLink} ${!canResend ? styles.resendLinkDisabled : ""}`}
+                    className={`${styles.resendLink} ${
+                      !canResend ? styles.resendLinkDisabled : ""
+                    }`}
                     disabled={!canResend}
                   >
                     Отправить повторно
@@ -216,8 +250,9 @@ export default function VerifyEmailPage() {
           <>
             <p className={styles.verifyDescription}>Аккаунт успешно подтвержден.</p>
 
+            {/* После confirm-email токен уже сохранён => можно идти на главную */}
             <Link
-              href="/login"
+              href="/"
               className={styles.btn}
               style={{ display: "block", textAlign: "center", paddingTop: 14 }}
             >

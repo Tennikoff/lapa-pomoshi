@@ -1,0 +1,11 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Вся область между хедером и футером */
+.main {
+  flex: 1;
+  background: #fafafc; /* нужный фон вместо белого */
+}
