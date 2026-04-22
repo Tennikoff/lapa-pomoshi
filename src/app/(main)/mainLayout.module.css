@@ -2,10 +2,13 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+
+  /* ТЕ ЖЕ значения, что у блюра в auth */
+  --modal-blur: 8px;
+  --modal-dim: 0.15;
 }
 
-/* Вся область между хедером и футером */
 .main {
   flex: 1;
-  background: #fafafc; /* нужный фон вместо белого */
+  background: #fafafc;
 }

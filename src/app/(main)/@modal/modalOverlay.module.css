@@ -1,0 +1,41 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  background: rgba(0, 0, 0, var(--modal-dim, 0.15));
+
+  backdrop-filter: blur(var(--modal-blur, 8px));
+  -webkit-backdrop-filter: blur(var(--modal-blur, 8px));
+
+  /* ВАЖНО: скролл должен быть тут, а не на фоне */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  /* чтобы модалка начиналась сверху, когда она высокая */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+
+  padding: 24px 20px;
+  box-sizing: border-box;
+}
+
+/* Контейнер, который ограничивает высоту модального содержимого */
+.content {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* Обёртка, которая реально скроллится, если модалка слишком высокая */
+.scrollBox {
+  width: 100%;
+  max-width: 700px; /* совпадает с твоей formCard max-width */
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+.center {
+  align-items: center;
+}
