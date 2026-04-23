@@ -1,23 +1,81 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 
-import overlay from "../../@modal/modalOverlay.module.css";
-import a from "./animalNew.module.css";
+import overlay from "../../../@modal/modalOverlay.module.css";
+import a from "../../new/animalNew.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
-import { createAnimal } from "@/src/lib/storage/animals";
 import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
+import { getAnimal, updateAnimal } from "@/src/lib/storage/animals";
 
-export default function NewAnimalPage() {
+export default function EditAnimalPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const id = String(params.id || "");
 
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+
+  const [defaults, setDefaults] = useState<{
+    name: string;
+    species: string;
+    breed: string;
+    age: string;
+    history: string;
+    health: string;
+    character: string;
+    needs: string;
+  } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const me = await fetchCurrentProfile();
+        if (!me) {
+          alert("Нужно войти в аккаунт, чтобы редактировать карточку");
+          router.push("/login");
+          return;
+        }
+
+        const animal = getAnimal(id);
+        if (!animal) {
+          alert("Карточка не найдена");
+          router.push("/profile");
+          return;
+        }
+
+        if (animal.ownerUserId !== me.userId) {
+          alert("Нет доступа к редактированию этой карточки");
+          router.push("/profile");
+          return;
+        }
+
+        setPhotoPreview(animal.photoUrl);
+        setPhotoDataUrl(animal.photoUrl);
+
+        setDefaults({
+          name: animal.name ?? "",
+          species: animal.species ?? "",
+          breed: animal.breed ?? "",
+          age: animal.age ?? "",
+          history: animal.history ?? "",
+          health: animal.health ?? "",
+          character: animal.character ?? "",
+          needs: animal.needs ?? "",
+        });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [id, router]);
 
   const onPickPhoto = () => fileRef.current?.click();
 
@@ -26,7 +84,7 @@ export default function NewAnimalPage() {
     if (!file) return;
 
     const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
+    setPhotoPreview(objectUrl);
 
     const dataUrl = await fileToDataUrl(file);
     setPhotoDataUrl(dataUrl);
@@ -44,15 +102,13 @@ export default function NewAnimalPage() {
 
     setSubmitting(true);
     try {
-      const me = await fetchCurrentProfile();
-      if (!me) {
-        alert("Нужно войти в аккаунт, чтобы создать карточку животного");
-        router.push("/login");
+      const species = String(fd.get("species") ?? "").trim();
+      if (!species) {
+        alert("Выберите вид животного");
         return;
       }
 
       const name = String(fd.get("name") ?? "").trim();
-      const species = String(fd.get("species") ?? "").trim();
       const breed = String(fd.get("breed") ?? "").trim();
       const age = String(fd.get("age") ?? "").trim();
       const history = String(fd.get("history") ?? "").trim();
@@ -60,13 +116,7 @@ export default function NewAnimalPage() {
       const character = String(fd.get("character") ?? "").trim();
       const needs = String(fd.get("needs") ?? "").trim();
 
-      if (!species) {
-        alert("Выберите вид животного");
-        return;
-      }
-
-      const created = createAnimal({
-        ownerUserId: me.userId,
+      const updated = updateAnimal(id, {
         photoUrl: photoDataUrl,
         name,
         species,
@@ -78,11 +128,36 @@ export default function NewAnimalPage() {
         needs,
       });
 
-      router.replace(`/animals/${created.id}`);
+      if (!updated) {
+        alert("Не удалось сохранить (карточка не найдена)");
+        router.push("/profile");
+        return;
+      }
+
+      router.replace(`/animals/${id}`);
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div
+        className={overlay.overlay}
+        role="dialog"
+        aria-modal="true"
+        style={{ "--modal-dim": "0.6" } as CSSProperties}
+      >
+        <div className={overlay.content}>
+          <div className={overlay.scrollBox} style={{ color: "#fff" }}>
+            Загрузка...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!defaults) return null;
 
   return (
     <div
@@ -94,7 +169,12 @@ export default function NewAnimalPage() {
       <div className={overlay.content}>
         <div className={overlay.scrollBox}>
           <form className={a.formCard} onSubmit={onSubmit}>
-            <h1 className={a.title}>Создание карточки животного</h1>
+            {/* Крестик закрыть (если ты уже добавил a.closeBtn в CSS) */}
+            <button className={a.closeBtn} type="button" onClick={onCancel} aria-label="Закрыть">
+              ×
+            </button>
+
+            <h1 className={a.title}>Редактирование карточки</h1>
 
             <div className={a.field}>
               <label className={a.label}>Фото</label>
@@ -105,8 +185,8 @@ export default function NewAnimalPage() {
                   onClick={onPickPhoto}
                   aria-label="Загрузить фото"
                 >
-                  {previewUrl ? (
-                    <img className={a.photoPreview} src={previewUrl} alt="Превью фото" />
+                  {photoPreview ? (
+                    <img className={a.photoPreview} src={photoPreview} alt="Превью фото" />
                   ) : (
                     <div className={a.photoPlaceholder}>
                       <div className={a.plus}>+</div>
@@ -133,56 +213,72 @@ export default function NewAnimalPage() {
               <label className={a.label} htmlFor="name">
                 Имя (если есть)
               </label>
-              <input id="name" name="name" type="text" className={a.input} />
+              <input id="name" name="name" type="text" className={a.input} defaultValue={defaults.name} />
             </div>
 
             <div className={a.field}>
               <label className={a.label} htmlFor="species">
                 Вид животного*
               </label>
-              <input id="species" name="species" type="text" className={a.input} />
+              <input
+                id="species"
+                name="species"
+                type="text"
+                className={a.input}
+                defaultValue={defaults.species}
+              />
             </div>
 
             <div className={a.field}>
               <label className={a.label} htmlFor="breed">
                 Порода
               </label>
-              <input id="breed" name="breed" type="text" className={a.input} />
+              <input id="breed" name="breed" type="text" className={a.input} defaultValue={defaults.breed} />
             </div>
 
             <div className={a.field}>
               <label className={a.label} htmlFor="age">
                 Возраст
               </label>
-              <input id="age" name="age" type="text" className={a.input} />
+              <input id="age" name="age" type="text" className={a.input} defaultValue={defaults.age} />
             </div>
 
             <div className={a.field}>
               <label className={a.label} htmlFor="history">
                 История
               </label>
-              <textarea id="history" name="history" className={a.textarea} />
+              <textarea
+                id="history"
+                name="history"
+                className={a.textarea}
+                defaultValue={defaults.history}
+              />
             </div>
 
             <div className={a.field}>
               <label className={a.label} htmlFor="health">
                 Состояние здоровья
               </label>
-              <textarea id="health" name="health" className={a.textarea} />
+              <textarea id="health" name="health" className={a.textarea} defaultValue={defaults.health} />
             </div>
 
             <div className={a.field}>
               <label className={a.label} htmlFor="character">
                 Характер
               </label>
-              <textarea id="character" name="character" className={a.textarea} />
+              <textarea
+                id="character"
+                name="character"
+                className={a.textarea}
+                defaultValue={defaults.character}
+              />
             </div>
 
             <div className={a.field}>
               <label className={a.label} htmlFor="needs">
                 Особые потребности
               </label>
-              <textarea id="needs" name="needs" className={a.textarea} />
+              <textarea id="needs" name="needs" className={a.textarea} defaultValue={defaults.needs} />
             </div>
 
             <div className={a.actions}>

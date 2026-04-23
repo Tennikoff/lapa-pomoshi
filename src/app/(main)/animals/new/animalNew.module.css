@@ -8,11 +8,12 @@
 .formCard {
   max-width: 700px;
   width: 100%;
-  background: #e8edf3;          /* как карточки отзывов */
+  background: #ffffff;          /* как карточки отзывов */
   border-radius: 16px;
   padding: 40px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
   box-sizing: border-box;
+  position: relative;
 }
 
 .title {
@@ -41,7 +42,7 @@
   padding: 14px 18px;
   font-size: 16px;
   border: none;
-  background: #d4e3f3;          /* как textarea в edit профиле */
+  background: #d4e8f8;          /* как textarea в edit профиле */
   border-radius: 12px;
   box-sizing: border-box;
   outline: none;
@@ -57,7 +58,7 @@
   padding: 14px 18px;
   font-size: 14px;
   border: none;
-  background: #d4e3f3;
+  background: #d4e8f8;
   border-radius: 12px;
   box-sizing: border-box;
   outline: none;
@@ -79,7 +80,7 @@
   width: 120px;
   height: 120px;
   border-radius: 12px;
-  background: #d4e3f3;
+  background: #d4e8f8;
   border: none;
   cursor: pointer;
   padding: 0;
@@ -145,4 +146,17 @@
 
 .btn:hover {
   background: #dda693;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 36px;
+  right: 38px;
+  background: none;
+  border: none;
+  font-size: 40px;
+  font-weight: 400;
+  color: #06355e;
+  cursor: pointer;
+  line-height: 1;
 }

@@ -5,7 +5,7 @@
 
   /* ТЕ ЖЕ значения, что у блюра в auth */
   --modal-blur: 8px;
-  --modal-dim: 0.15;
+  --modal-dim: 0.06;
 }
 
 .main {

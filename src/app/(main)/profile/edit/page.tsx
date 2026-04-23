@@ -1,146 +1,345 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import s from "./editProfile.module.css";
 
-export default function EditVolunteerProfilePage() {
-  // Списки ровно из твоей верстки (ничего лишнего не добавляю)
-  const competencies = [
-    { id: "comp1", label: "Ремонт" },
-    { id: "comp2", label: "Фандрайзинг" },
-    { id: "comp3", label: "Транспортировка" },
-    { id: "comp4", label: "Ветпомощь" },
-    { id: "comp5", label: "Социализация" },
-    { id: "comp6", label: "Фото/видео" },
-  ];
+import type { ProfileDto } from "@/src/types/profile";
+import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 
-  const availability = [
-    { id: "day1", label: "Пн" },
-    { id: "day2", label: "Вт" },
-    { id: "day3", label: "Ср" },
-    { id: "day4", label: "Чт" },
-    { id: "day5", label: "Пт" },
-    { id: "day6", label: "Сб" },
-    { id: "day7", label: "Вс" },
-    { id: "time1", label: "Днём" },
-    { id: "time2", label: "Вечером" },
-  ];
+import {
+  AVAILABILITY,
+  CITY_DEFAULT,
+  COMPETENCIES,
+  DISTRICTS,
+  PREF_ANIMALS,
+  PREF_INTERACTION,
+} from "@/src/lib/constants/volunteerOptions";
 
-  const animals = [
-    { id: "animal1", label: "Собаки" },
-    { id: "animal2", label: "Кошки" },
-    { id: "animal3", label: "Рыбы" },
-    { id: "animal4", label: "Кролики" },
-    { id: "animal5", label: "Птицы" },
-    { id: "animal6", label: "Грызуны" },
-    { id: "animal7", label: "Хорьки" },
-    { id: "animal8", label: "Рептилии" },
-  ];
+import { ORG_NEEDS } from "@/src/lib/constants/orgOptions";
 
-  const interaction = [
-    { id: "interact1", label: "Приюты" },
-    { id: "interact2", label: "Частные передержки" },
-  ];
+import { getVolunteerExtra, setVolunteerExtra } from "@/src/lib/storage/volunteerExtra";
+import type { VolunteerExtra } from "@/src/lib/storage/volunteerExtra";
 
-  const districts = [
-    { id: "loc1", label: "Кировский" },
-    { id: "loc2", label: "Верх-Исетский" },
-    { id: "loc3", label: "Железнодорожный" },
-    { id: "loc4", label: "Октябрьский" },
-    { id: "loc5", label: "Академический" },
-    { id: "loc6", label: "Орджоникидзевский" },
-    { id: "loc7", label: "Ленинский" },
-    { id: "loc8", label: "Чкаловский" },
-  ];
+import { getOrgExtra, setOrgExtra } from "@/src/lib/storage/orgExtra";
+import type { OrgExtra } from "@/src/lib/storage/orgExtra";
+
+function toggle(list: string[], value: string) {
+  return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
+}
+
+function TagCheckbox({
+  id,
+  label,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <div className={s.tagItem}>
+      <input
+        id={id}
+        type="checkbox"
+        className={s.tagInput}
+        checked={checked}
+        onChange={onChange}
+      />
+      <label htmlFor={id} className={s.tagLabel}>
+        {label}
+      </label>
+    </div>
+  );
+}
+
+export default function EditProfilePage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<ProfileDto | null>(null);
+
+  // volunteer state
+  const [about, setAbout] = useState("");
+  const [competencies, setCompetencies] = useState<string[]>([]);
+  const [availability, setAvailability] = useState<string[]>([]);
+  const [prefAnimals, setPrefAnimals] = useState<string[]>([]);
+  const [prefInteraction, setPrefInteraction] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<string[]>([]);
+
+  // org state
+  const [orgAbout, setOrgAbout] = useState("");
+  const [phone, setPhone] = useState("");
+  const [website, setWebsite] = useState("");
+  const [needs, setNeeds] = useState<string[]>([]);
+  const [orgDistricts, setOrgDistricts] = useState<string[]>([]);
+  const [donationRequisites, setDonationRequisites] = useState("");
+
+  const city = useMemo(() => CITY_DEFAULT, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const p = await fetchCurrentProfile();
+        setProfile(p);
+        if (!p) return;
+
+        const isOrg = p.role === 2;
+
+        if (isOrg) {
+          const extra = getOrgExtra(p.userId);
+          setOrgAbout(extra?.about ?? p.description ?? "");
+          setPhone(extra?.phone ?? "");
+          setWebsite(extra?.website ?? "");
+          setNeeds(extra?.needs ?? []);
+          setOrgDistricts(extra?.districts ?? []);
+          setDonationRequisites(extra?.donationRequisites ?? "");
+        } else {
+          const extra = getVolunteerExtra(p.userId);
+          setAbout(extra?.about ?? p.description ?? "");
+          setCompetencies(extra?.competencies ?? []);
+          setAvailability(extra?.availability ?? []);
+          setPrefAnimals(extra?.prefAnimals ?? []);
+          setPrefInteraction(extra?.prefInteraction ?? []);
+          setDistricts(extra?.districts ?? []);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+
+    const isOrg = profile.role === 2;
+
+    if (isOrg) {
+      const payload: OrgExtra = {
+        about: orgAbout,
+        phone,
+        website,
+        needs,
+        city,
+        districts: orgDistricts,
+        donationRequisites,
+      };
+      setOrgExtra(profile.userId, payload);
+      router.push("/profile");
+      return;
+    }
+
+    const payload: VolunteerExtra = {
+      about,
+      competencies,
+      availability,
+      prefAnimals,
+      prefInteraction,
+      city,
+      districts,
+    };
+
+    setVolunteerExtra(profile.userId, payload);
+    router.push("/profile");
+  };
+
+  if (loading) {
+    return (
+      <div className={s.page}>
+        <div className={s.container}>Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className={s.page}>
+        <div className={s.container}>
+          <h2 style={{ marginBottom: 10 }}>Вы не вошли в аккаунт</h2>
+          <p style={{ color: "#6C757D" }}>Войдите, чтобы редактировать профиль.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isOrg = profile.role === 2;
 
   return (
     <div className={s.page}>
       <div className={s.container}>
-        <form className={s.form}>
+        <form className={s.form} onSubmit={onSubmit}>
           <div className={s.profileInfo}>
             <div className={s.avatar} />
-            <h1 className={s.name}>Фамилия Имя</h1>
-            <p className={s.role}>Волонтёр</p>
+            <h1 className={s.name}>{profile.name ?? "Фамилия Имя"}</h1>
+            <p className={s.role}>{isOrg ? "Куратор/Организация" : "Волонтёр"}</p>
           </div>
 
+          {/* ===== ОБЩЕЕ: О себе ===== */}
           <section className={s.section}>
             <h2 className={s.sectionTitle}>О себе</h2>
             <textarea
-              className={s.textarea}
-              placeholder="Расскажите о себе: опыт, навыки, почему хотите помогать животным..."
+              className={`${s.textarea} ${s.textareaSmall}`}
+              value={isOrg ? orgAbout : about}
+              onChange={(e) => (isOrg ? setOrgAbout(e.target.value) : setAbout(e.target.value))}
+              placeholder={
+                isOrg
+                  ? "Приют для бездомных животных. Помогаем с 2015 года."
+                  : "Расскажите о себе: опыт, навыки, почему хотите помогать животным..."
+              }
             />
           </section>
 
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Компетенции</h2>
-            <div className={s.tags}>
-              {competencies.map((t) => (
-                <div key={t.id} className={s.tagItem}>
-                  <input id={t.id} type="checkbox" className={s.tagInput} />
-                  <label htmlFor={t.id} className={s.tagLabel}>
-                    {t.label}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </section>
+          {/* ===== ORG: контакты/потребности/реквизиты ===== */}
+          {isOrg ? (
+            <>
+              <section className={s.section}>
+                <h2 className={s.sectionTitle}>Контактные данные</h2>
 
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Доступность</h2>
-            <div className={s.tags}>
-              {availability.map((t) => (
-                <div key={t.id} className={s.tagItem}>
-                  <input id={t.id} type="checkbox" className={s.tagInput} />
-                  <label htmlFor={t.id} className={s.tagLabel}>
-                    {t.label}
-                  </label>
+                <div className={s.field}>
+                  <label className={s.fieldLabel}>Телефон</label>
+                  <input
+                    className={s.input}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+7 (___) ___-__-__"
+                  />
                 </div>
-              ))}
-            </div>
-          </section>
 
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Предпочтения (Животные)</h2>
-            <div className={s.tags}>
-              {animals.map((t) => (
-                <div key={t.id} className={s.tagItem}>
-                  <input id={t.id} type="checkbox" className={s.tagInput} />
-                  <label htmlFor={t.id} className={s.tagLabel}>
-                    {t.label}
-                  </label>
+                <div className={s.field} style={{ marginTop: 12 }}>
+                  <label className={s.fieldLabel}>Сайт</label>
+                  <input
+                    className={s.input}
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    placeholder="dobrydom.ru"
+                  />
                 </div>
-              ))}
-            </div>
-          </section>
+              </section>
 
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Предпочтения (Взаимодействие)</h2>
-            <div className={s.tags}>
-              {interaction.map((t) => (
-                <div key={t.id} className={s.tagItem}>
-                  <input id={t.id} type="checkbox" className={s.tagInput} />
-                  <label htmlFor={t.id} className={s.tagLabel}>
-                    {t.label}
-                  </label>
+              <section className={s.section}>
+                <h2 className={s.sectionTitle}>Постоянные потребности</h2>
+                <div className={s.tags}>
+                  {ORG_NEEDS.map((label) => (
+                    <TagCheckbox
+                      key={label}
+                      id={`need_${label}`}
+                      label={label}
+                      checked={needs.includes(label)}
+                      onChange={() => setNeeds((prev) => toggle(prev, label))}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
+              </section>
 
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Локация</h2>
-            <p className={s.city}>Город: Екатеринбург</p>
-
-            <div className={s.tags}>
-              {districts.map((t) => (
-                <div key={t.id} className={s.tagItem}>
-                  <input id={t.id} type="checkbox" className={s.tagInput} />
-                  <label htmlFor={t.id} className={s.tagLabel}>
-                    {t.label}
-                  </label>
+              <section className={s.section}>
+                <h2 className={s.sectionTitle}>Локация</h2>
+                <p className={s.city}>Город: {city}</p>
+                <div className={s.tags}>
+                  {DISTRICTS.map((label) => (
+                    <TagCheckbox
+                      key={label}
+                      id={`org_loc_${label}`}
+                      label={label}
+                      checked={orgDistricts.includes(label)}
+                      onChange={() => setOrgDistricts((prev) => toggle(prev, label))}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
+              </section>
+
+              <section className={s.section}>
+                <h2 className={s.sectionTitle}>Реквизиты для пожертвований</h2>
+                <textarea
+                  className={`${s.textarea} ${s.textareaSmall}`}
+                  value={donationRequisites}
+                  onChange={(e) => setDonationRequisites(e.target.value)}
+                  placeholder="Реквизиты"
+                />
+              </section>
+            </>
+          ) : (
+            /* ===== VOLUNTEER: компетенции/доступность/предпочтения/локация ===== */
+            <>
+              <section className={s.section}>
+                <h2 className={s.sectionTitle}>Компетенции</h2>
+                <div className={s.tags}>
+                  {COMPETENCIES.map((label) => (
+                    <TagCheckbox
+                      key={label}
+                      id={`comp_${label}`}
+                      label={label}
+                      checked={competencies.includes(label)}
+                      onChange={() => setCompetencies((prev) => toggle(prev, label))}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              <section className={s.section}>
+                <h2 className={s.sectionTitle}>Доступность</h2>
+                <div className={s.tags}>
+                  {AVAILABILITY.map((label) => (
+                    <TagCheckbox
+                      key={label}
+                      id={`avail_${label}`}
+                      label={label}
+                      checked={availability.includes(label)}
+                      onChange={() => setAvailability((prev) => toggle(prev, label))}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              <section className={s.section}>
+                <h2 className={s.sectionTitle}>Предпочтения (Животные)</h2>
+                <div className={s.tags}>
+                  {PREF_ANIMALS.map((label) => (
+                    <TagCheckbox
+                      key={label}
+                      id={`pa_${label}`}
+                      label={label}
+                      checked={prefAnimals.includes(label)}
+                      onChange={() => setPrefAnimals((prev) => toggle(prev, label))}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              <section className={s.section}>
+                <h2 className={s.sectionTitle}>Предпочтения (Взаимодействие)</h2>
+                <div className={s.tags}>
+                  {PREF_INTERACTION.map((label) => (
+                    <TagCheckbox
+                      key={label}
+                      id={`pi_${label}`}
+                      label={label}
+                      checked={prefInteraction.includes(label)}
+                      onChange={() => setPrefInteraction((prev) => toggle(prev, label))}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              <section className={s.section}>
+                <h2 className={s.sectionTitle}>Локация</h2>
+                <p className={s.city}>Город: {city}</p>
+                <div className={s.tags}>
+                  {DISTRICTS.map((label) => (
+                    <TagCheckbox
+                      key={label}
+                      id={`vol_loc_${label}`}
+                      label={label}
+                      checked={districts.includes(label)}
+                      onChange={() => setDistricts((prev) => toggle(prev, label))}
+                    />
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
 
           <button type="submit" className={s.saveButton}>
             СОХРАНИТЬ

@@ -157,6 +157,40 @@
   transition: background-color 0.2s;
 }
 
+/* размеры textarea как в твоей верстке */
+.textareaSmall { min-height: 50px; }
+.textareaMedium { min-height: 80px; }
+
 .saveButton:hover {
   background: #dda693;
+}
+
+/* поля контактов (input) */
+.field {
+  width: 100%;
+  text-align: left;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #06355e;
+  margin-bottom: 8px;
+}
+
+.input {
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: 25px;
+  background: #e5eef7;
+  padding: 0 25px;
+  box-sizing: border-box;
+  font-size: 14px;
+  outline: none;
+}
+
+.input:focus {
+  box-shadow: 0 0 0 2px rgba(0, 77, 122, 0.18);
 }

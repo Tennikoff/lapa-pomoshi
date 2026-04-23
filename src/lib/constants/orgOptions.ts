@@ -1,0 +1,1 @@
+export const ORG_NEEDS = ["Корма", "Медикаменты", "Волонтёры"] as const;

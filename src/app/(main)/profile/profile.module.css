@@ -236,6 +236,11 @@
   text-align: left;
   display: block;
   margin-top: 10px;
+
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .allReviews:hover {
@@ -299,5 +304,28 @@
   width: 18px;
   height: 18px;
   color: #ffffff; /* белая мусорка */
+}
+
+.contactDetails {
+  display: flex;
+  flex-direction: column;
+  align-items: center;   /* центр по горизонтали */
+  gap: 6px;
+  text-align: center;    /* центр текста */
+}
+
+.contactRow {
+  margin: 0;             /* чтобы строки не разъезжались */
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.contactLabel {
+  color: #6c757d;
+  margin-right: 6px;
+}
+
+.muted {
+  color: #6c757d;
 }
 
