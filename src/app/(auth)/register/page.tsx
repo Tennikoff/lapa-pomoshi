@@ -3,18 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "../auth.module.css";
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
 import { registerSchema, type RegisterFormValues } from "../../../lib/authSchemas";
 import { FieldError } from "../_components/FieldError";
 import { apiRegister } from "../../../lib/api/auth";
 import { ApiError } from "../../../lib/api/http";
 
+import { setPendingFullNameByEmail } from "../../../lib/storage/userMeta";
+
 const ROLE_TO_API: Record<RegisterFormValues["role"], number> = {
   volunteer: 1,
-  curator: 2, // уточни у бэкенда: какое число у куратора/организации
+  curator: 2,
 };
 
 export default function RegisterPage() {
@@ -46,19 +46,18 @@ export default function RegisterPage() {
         role: ROLE_TO_API[values.role],
       });
 
-      // успех -> verify-email
+      // сохраняем ФИО локально до момента confirm-email (пока нет userId)
+      setPendingFullNameByEmail(values.email.trim(), values.fio.trim());
+
       router.push(`/verify-email?email=${encodeURIComponent(values.email.trim())}`);
     } catch (e) {
       let message = "Не удалось зарегистрироваться";
-
       if (e instanceof ApiError) message = e.message;
       else if (e instanceof Error) message = e.message;
 
-      // если бек вернёт текст про существующий email — маппим на твой
       if (message.toLowerCase().includes("существ")) {
         message = "Пользователь с таким Email уже существует";
       }
-
       setError("root", { message });
     }
   };
@@ -78,10 +77,18 @@ export default function RegisterPage() {
             <div className={styles.formError}>
               <FieldError message={errors.root.message} />
               <div style={{ marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Link href="/login" className={styles.titleLink} style={{ textDecoration: "underline" }}>
+                <Link
+                  href="/login"
+                  className={styles.titleLink}
+                  style={{ textDecoration: "underline" }}
+                >
                   Перейти на вход
                 </Link>
-                <Link href="/reset-password" className={styles.titleLink} style={{ textDecoration: "underline" }}>
+                <Link
+                  href="/reset-password"
+                  className={styles.titleLink}
+                  style={{ textDecoration: "underline" }}
+                >
                   Восстановить пароль
                 </Link>
               </div>
@@ -95,7 +102,6 @@ export default function RegisterPage() {
                 <input type="radio" value="curator" {...register("role")} />
                 <span>Куратор/Организация</span>
               </label>
-
               <label className={styles.radio}>
                 <input type="radio" value="volunteer" {...register("role")} />
                 <span>Волонтёр</span>

@@ -19,14 +19,28 @@ export function LandingHeader() {
 
         <nav className={s.headerNav}>
           <div className={s.navLinks}>
-            <Link href="/" className={s.navLink}>Главная</Link>
-            <Link href="/knowledge" className={s.navLink}>Медиатека</Link>
-            <Link href="/tasks" className={s.navLink}>Задачи</Link>
-            <Link href="/chat" className={s.navLink}>Чат</Link>
-            <Link href="/calendar" className={s.navLink}>Календарь</Link>
+            <Link href="/" className={s.navLink}>
+              Главная
+            </Link>
+
+            <Link id="nav-knowledge" href="/knowledge" className={s.navLink}>
+              Медиатека
+            </Link>
+
+            <Link id="nav-tasks" href="/tasks" className={s.navLink}>
+              Задачи
+            </Link>
+
+            <Link id="nav-chat" href="/chat" className={s.navLink}>
+              Чат
+            </Link>
+
+            <Link id="nav-calendar" href="/calendar" className={s.navLink}>
+              Календарь
+            </Link>
           </div>
 
-          <Link href="/profile" className={s.profile}>
+          <Link id="nav-profile" href="/profile" className={s.profile}>
             <User size={26} strokeWidth={2} />
           </Link>
         </nav>

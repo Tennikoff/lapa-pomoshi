@@ -31,7 +31,7 @@ export default function LoginPage() {
     try {
       const res = await apiLogin(values);
       setAccessToken(res.accessToken);
-      router.push("/");
+      router.push("/post-auth");
     } catch (e) {
       let message = "Ошибка входа";
 

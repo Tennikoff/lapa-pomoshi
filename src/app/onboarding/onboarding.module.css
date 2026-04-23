@@ -1,0 +1,153 @@
+:global(*),
+:global(*::before),
+:global(*::after) {
+  box-sizing: border-box;
+}
+
+:global(html),
+:global(body) {
+  margin: 0;
+  padding: 0;
+}
+
+/* ===== Root / background ===== */
+.modalRoot {
+  position: relative;
+  min-height: 100vh;
+}
+
+/* Фон: главная страница */
+.modalBg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Затемнение + блюр */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Подсветка элемента меню */
+.highlight {
+  position: fixed;
+  z-index: 2;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+
+/* ===== Tooltip ===== */
+.tooltipWrapper {
+  position: fixed;
+  z-index: 3;
+  width: 540px;
+  max-width: 95%;
+}
+
+.tooltipWrapperCentered {
+  left: 50%;
+  transform: translateX(-50%);
+  top: 140px;
+}
+
+.tooltipBox {
+  position: relative;
+  background-color: #ffffff;
+  border-radius: 24px;
+  padding: 28px 32px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* стрелка сверху */
+.tooltipBox::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 12px solid #ffffff;
+}
+
+.tooltipTitle {
+  color: #0d283c;
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  white-space: pre-line;
+}
+
+/* Шаг 1: заголовок строго в одну строку */
+.tooltipTitleNoWrap {
+  white-space: nowrap;
+  /* чуть уменьшаем, чтобы влезало стабильнее */
+  font-size: 24px;
+}
+
+/* На очень узких экранах уменьшаем ещё */
+@media (max-width: 420px) {
+  .tooltipTitleNoWrap {
+    font-size: 20px;
+  }
+}
+
+.tooltipDescription {
+  color: #3b5062;
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 15px;
+  white-space: pre-line;
+}
+
+.tooltipFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tooltipStep {
+  font-size: 15px;
+  color: #92a0ac;
+}
+
+.tooltipActions {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.tooltipButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 4px;
+}
+
+.tooltipButtonSkip {
+  color: #92a0ac;
+}
+
+/* "Назад" жирный как "Далее" */
+.tooltipButtonBack {
+  color: #0d283c;
+  font-weight: 700;
+}
+
+.tooltipButtonNext {
+  color: #0d283c;
+  font-weight: 700;
+}

@@ -32,6 +32,8 @@ import type { Animal } from "@/src/types/animal";
 
 import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
 
+import { getFullNameByUserId, USER_META_CHANGED_EVENT } from "@/src/lib/storage/userMeta";
+
 type Review = { author: string; text: string; stars: 1 | 2 | 3 | 4 | 5 };
 
 const REVIEWS_BASE: Review[] = [
@@ -99,6 +101,8 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [localFullName, setLocalFullName] = useState<string | null>(null);
+
   const [volExtra, setVolExtra] = useState<VolunteerExtra | null>(null);
   const [orgExtra, setOrgExtraState] = useState<OrgExtra | null>(null);
 
@@ -129,6 +133,7 @@ export default function ProfilePage() {
         setProfile(p);
 
         if (p) {
+          setLocalFullName(getFullNameByUserId(p.userId));
           setVolExtra(getVolunteerExtra(p.userId));
           setOrgExtraState(getOrgExtra(p.userId));
           setPets(listAnimals(p.userId));
@@ -139,22 +144,25 @@ export default function ProfilePage() {
     })();
   }, []);
 
-  // обновление при сохранении в edit + при изменении животных
+  // обновление при сохранении edit + при изменении животных + при изменении userMeta
   useEffect(() => {
     if (!profile) return;
 
     const onVolExtraChanged = () => setVolExtra(getVolunteerExtra(profile.userId));
     const onOrgExtraChanged = () => setOrgExtraState(getOrgExtra(profile.userId));
     const onAnimalsChanged = () => setPets(listAnimals(profile.userId));
+    const onUserMetaChanged = () => setLocalFullName(getFullNameByUserId(profile.userId));
 
     window.addEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
     window.addEventListener(ORG_EXTRA_CHANGED_EVENT, onOrgExtraChanged);
     window.addEventListener(ANIMALS_CHANGED_EVENT, onAnimalsChanged);
+    window.addEventListener(USER_META_CHANGED_EVENT, onUserMetaChanged);
 
     return () => {
       window.removeEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
       window.removeEventListener(ORG_EXTRA_CHANGED_EVENT, onOrgExtraChanged);
       window.removeEventListener(ANIMALS_CHANGED_EVENT, onAnimalsChanged);
+      window.removeEventListener(USER_META_CHANGED_EVENT, onUserMetaChanged);
     };
   }, [profile]);
 
@@ -190,7 +198,6 @@ export default function ProfilePage() {
     );
   }
 
-  // пока грузим профиль
   if (loading) {
     return (
       <div className={s.page}>
@@ -203,8 +210,11 @@ export default function ProfilePage() {
 
   const isOrg = profile?.role === 2;
 
+  // Приоритет: localFullName -> profile.name -> fallback
   const displayName =
-    profile?.name ?? (isOrg ? "Организация" : "Фамилия Имя");
+    localFullName?.trim()
+      ? localFullName.trim()
+      : profile?.name ?? (isOrg ? "Организация" : "Фамилия Имя");
 
   const aboutText = isOrg
     ? orgExtra?.about?.trim() || profile?.description || "Расскажите об организации..."
@@ -252,7 +262,6 @@ export default function ProfilePage() {
             <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>{aboutText}</p>
           </section>
 
-          {/* ===== Волонтёрские блоки ===== */}
           {!isOrg ? (
             <>
               <section className={s.section}>
@@ -275,10 +284,7 @@ export default function ProfilePage() {
                 {renderTags(volExtra?.prefInteraction || [])}
               </section>
             </>
-          ) : null}
-
-          {/* ===== Организационные блоки ===== */}
-          {isOrg ? (
+          ) : (
             <>
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Контактные данные</h3>
@@ -309,16 +315,14 @@ export default function ProfilePage() {
                 </p>
               </section>
             </>
-          ) : null}
+          )}
 
-          {/* ===== Локация (общая) ===== */}
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Локация</h3>
             <p className={s.sectionSubtitle}>Город: {city}</p>
             {renderTags(districts)}
           </section>
 
-          {/* ===== Мои питомцы (общие) ===== */}
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Мои питомцы</h3>
 
@@ -385,7 +389,6 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          {/* ===== ОТЗЫВЫ: всегда 3, раскрытие ещё 3 ===== */}
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Отзывы</h3>
 
