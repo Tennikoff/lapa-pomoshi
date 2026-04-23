@@ -204,9 +204,7 @@ export default function ProfilePage() {
   const isOrg = profile?.role === 2;
 
   const displayName =
-    isOrg && orgExtra?.orgName?.trim()
-      ? orgExtra.orgName.trim()
-      : profile?.name ?? (isOrg ? "Организация" : "Фамилия Имя");
+    profile?.name ?? (isOrg ? "Организация" : "Фамилия Имя");
 
   const aboutText = isOrg
     ? orgExtra?.about?.trim() || profile?.description || "Расскажите об организации..."
