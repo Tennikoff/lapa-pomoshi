@@ -1,11 +1,9 @@
-/* --- ГЛОБАЛЬНЫЕ СТИЛИ И ПЕРЕМЕННЫЕ (локально для страницы) --- */
 .page {
   --color-bg-page: #f8f9fa;
   --color-bg-card: #eef3f8;
   --color-text-primary: #212529;
   --color-text-secondary: #6c757d;
 
-  /* как кнопка "Редактировать профиль" */
   --color-accent-peach: #e9b8a7;
   --color-accent-peach-hover: #dda693;
 
@@ -22,13 +20,32 @@
   padding: 0 20px;
 }
 
-/* --- ПАНЕЛЬ УПРАВЛЕНИЯ (как в твоём HTML) --- */
+/* панель управления (как в твоём HTML) */
 .controlsPanel {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 20px;
   margin-bottom: 25px;
+}
+
+/* ====== VOLUNTEER OVERRIDES ====== */
+/* Волонтёр: всё в одну строку (поиск + фильтры + сортировка) */
+.pageVolunteer .controlsPanel {
+  flex-wrap: nowrap;
+}
+
+/* На узких экранах всё же разрешаем перенос */
+@media (max-width: 1200px) {
+  .pageVolunteer .controlsPanel {
+    flex-wrap: wrap;
+  }
+}
+
+/* Волонтёр: поиск НЕ должен быть width:100% (ломает строку) */
+.pageVolunteer .searchInput {
+  width: 260px;
+  flex: 0 0 auto;
 }
 
 /* кнопки */
@@ -50,13 +67,12 @@
   background-color: var(--color-accent-peach-hover);
 }
 
-/* ЭТАЛОН (как ты сказал) */
 .btnLavender {
-  background-color: #e6d9f8;
+  background-color: var(--color-accent-lavender);
   color: #333;
 }
 
-/* --- ПОИСК + СОРТИРОВКА (в одной строке) --- */
+/* ====== SEARCH + SORT ROW (для куратора второй строкой) ====== */
 .searchRow {
   display: flex;
   align-items: center;
@@ -64,9 +80,10 @@
   margin: 0 0 25px;
 }
 
+/* ЭТАЛОН: поиск (общий) */
 .searchInput {
   width: 100%;
-  max-width: 260px; /* <-- МЕНЯЕШЬ ЗДЕСЬ */
+  max-width: 260px;
   height: 48px;
   border-radius: 12px;
   border: none;
@@ -75,13 +92,13 @@
   outline: none;
 }
 
-/* --- Dropdown wrappers (привязка меню к кнопке) --- */
+/* dropdown wrapper */
 .dropWrap {
   position: relative;
   display: inline-flex;
 }
 
-/* ЭТАЛОН (как ты сказал) */
+/* ЭТАЛОН: кнопка фильтра */
 .dropBtn {
   width: 292px;
   display: inline-flex;
@@ -89,7 +106,7 @@
   justify-content: center;
 }
 
-/* ЭТАЛОН (как ты сказал) */
+/* ЭТАЛОН: меню фильтра */
 .dropMenuLavender {
   position: absolute;
   top: calc(100% + 12px);
@@ -114,7 +131,6 @@
   gap: 20px;
 }
 
-/* ЭТАЛОН (как ты сказал) */
 .dropItem {
   display: flex;
   align-items: center;
@@ -127,7 +143,6 @@
   user-select: none;
 }
 
-/* ЭТАЛОН (как ты сказал) */
 .dropItem input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
@@ -159,10 +174,10 @@
   transform: rotate(45deg);
 }
 
-/* --- СОРТИРОВКА: справа в строке поиска --- */
+/* sort (в строке поиска у куратора, в панели у волонтёра) */
 .sortWrap {
   position: relative;
-  margin-left: auto; /* <-- упор вправо */
+  margin-left: auto; /* упор вправо */
 }
 
 .sortControl {
@@ -173,7 +188,6 @@
   white-space: nowrap;
 }
 
-/* белое меню сортировки */
 .sortMenuWhite {
   position: absolute;
   top: calc(100% + 12px);
@@ -219,7 +233,7 @@
   background: rgba(13, 40, 60, 0.08);
 }
 
-/* --- СЕКЦИИ С КАРТОЧКАМИ --- */
+/* sections */
 .tasksSection {
   margin-bottom: 40px;
 }
@@ -236,7 +250,7 @@
   gap: 20px;
 }
 
-/* --- СТИЛИ КАРТОЧКИ ЗАДАЧИ --- */
+/* card */
 .taskCard {
   background-color: var(--color-bg-card);
   border-radius: 20px;
@@ -324,4 +338,12 @@
   border-radius: 16px;
   padding: 18px;
   color: var(--color-text-secondary);
+}
+
+.pageVolunteer .dropBtn {
+  width: 255px; /* <-- тут задаёшь ширину КНОПОК фильтров у волонтёра */
+}
+
+.pageVolunteer .dropMenuLavender {
+  width: 255px; /* <-- тут задаёшь ширину ВЫПАДАЮЩЕГО меню у волонтёра */
 }

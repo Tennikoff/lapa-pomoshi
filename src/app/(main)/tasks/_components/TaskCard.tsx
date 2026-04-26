@@ -9,7 +9,6 @@ const PLACEHOLDER_IMG = "https://placehold.co/80x80/eef3f8/777?text=Фото";
 
 function formatTimeRange(task: Task) {
   if (task.kind === "foster") {
-    // пример "24.04-29.04"
     const a = task.startAt ? new Date(task.startAt) : null;
     const b = task.endAt ? new Date(task.endAt) : null;
     const fmt = (d: Date) =>
@@ -39,10 +38,12 @@ export function TaskCard({
   task,
   animal,
   onEdit,
+  mode,
 }: {
   task: Task;
   animal: Animal | null;
   onEdit: () => void;
+  mode: "curator" | "volunteer";
 }) {
   const img = animal?.photoUrl || PLACEHOLDER_IMG;
 
@@ -78,11 +79,13 @@ export function TaskCard({
         </div>
       </div>
 
-      <button className={s.cardEditBtn} type="button" onClick={onEdit} aria-label="Редактировать">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828zM3 17a1 1 0 001 1h12a1 1 0 001-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 00-1 1v10z" />
-        </svg>
-      </button>
+      {mode === "curator" ? (
+        <button className={s.cardEditBtn} type="button" onClick={onEdit} aria-label="Редактировать">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828zM3 17a1 1 0 001 1h12a1 1 0 001-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 00-1 1v10z" />
+          </svg>
+        </button>
+      ) : null}
     </div>
   );
 }
