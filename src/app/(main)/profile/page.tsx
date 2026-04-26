@@ -32,7 +32,15 @@ import type { Animal } from "@/src/types/animal";
 
 import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
 
-import { getFullNameByUserId, USER_META_CHANGED_EVENT } from "@/src/lib/storage/userMeta";
+import {
+  getFullNameByUserId,
+  USER_META_CHANGED_EVENT,
+} from "@/src/lib/storage/userMeta";
+
+import {
+  getUserAvatar,
+  USER_AVATAR_CHANGED_EVENT,
+} from "@/src/lib/storage/userAvatar";
 
 type Review = { author: string; text: string; stars: 1 | 2 | 3 | 4 | 5 };
 
@@ -103,6 +111,9 @@ export default function ProfilePage() {
 
   const [localFullName, setLocalFullName] = useState<string | null>(null);
 
+  // === avatar from localStorage
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
   const [volExtra, setVolExtra] = useState<VolunteerExtra | null>(null);
   const [orgExtra, setOrgExtraState] = useState<OrgExtra | null>(null);
 
@@ -134,6 +145,8 @@ export default function ProfilePage() {
 
         if (p) {
           setLocalFullName(getFullNameByUserId(p.userId));
+          setAvatarUrl(getUserAvatar(p.userId));
+
           setVolExtra(getVolunteerExtra(p.userId));
           setOrgExtraState(getOrgExtra(p.userId));
           setPets(listAnimals(p.userId));
@@ -144,7 +157,7 @@ export default function ProfilePage() {
     })();
   }, []);
 
-  // обновление при сохранении edit + при изменении животных + при изменении userMeta
+  // обновление при сохранении edit + при изменении животных + при изменении userMeta + avatar
   useEffect(() => {
     if (!profile) return;
 
@@ -152,17 +165,20 @@ export default function ProfilePage() {
     const onOrgExtraChanged = () => setOrgExtraState(getOrgExtra(profile.userId));
     const onAnimalsChanged = () => setPets(listAnimals(profile.userId));
     const onUserMetaChanged = () => setLocalFullName(getFullNameByUserId(profile.userId));
+    const onAvatarChanged = () => setAvatarUrl(getUserAvatar(profile.userId));
 
     window.addEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
     window.addEventListener(ORG_EXTRA_CHANGED_EVENT, onOrgExtraChanged);
     window.addEventListener(ANIMALS_CHANGED_EVENT, onAnimalsChanged);
     window.addEventListener(USER_META_CHANGED_EVENT, onUserMetaChanged);
+    window.addEventListener(USER_AVATAR_CHANGED_EVENT, onAvatarChanged);
 
     return () => {
       window.removeEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
       window.removeEventListener(ORG_EXTRA_CHANGED_EVENT, onOrgExtraChanged);
       window.removeEventListener(ANIMALS_CHANGED_EVENT, onAnimalsChanged);
       window.removeEventListener(USER_META_CHANGED_EVENT, onUserMetaChanged);
+      window.removeEventListener(USER_AVATAR_CHANGED_EVENT, onAvatarChanged);
     };
   }, [profile]);
 
@@ -246,7 +262,19 @@ export default function ProfilePage() {
       <div className={s.page}>
         <div className={s.container}>
           <div className={s.profileHeader}>
-            <div className={s.avatar} />
+            <div
+              className={s.avatar}
+              style={
+                avatarUrl
+                  ? {
+                      backgroundImage: `url(${avatarUrl})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }
+                  : undefined
+              }
+            />
+
             <div className={s.profileInfo}>
               <h1>{displayName}</h1>
               <p>{isOrg ? "Куратор/Организация" : "Волонтёр"}</p>
@@ -292,11 +320,19 @@ export default function ProfilePage() {
                 <div className={s.contactDetails}>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Телефон:</span>{" "}
-                    {orgExtra?.phone?.trim() ? orgExtra.phone.trim() : <span className={s.muted}>Не указано</span>}
+                    {orgExtra?.phone?.trim() ? (
+                      orgExtra.phone.trim()
+                    ) : (
+                      <span className={s.muted}>Не указано</span>
+                    )}
                   </p>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Сайт:</span>{" "}
-                    {orgExtra?.website?.trim() ? orgExtra.website.trim() : <span className={s.muted}>Не указано</span>}
+                    {orgExtra?.website?.trim() ? (
+                      orgExtra.website.trim()
+                    ) : (
+                      <span className={s.muted}>Не указано</span>
+                    )}
                   </p>
                 </div>
               </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import s from "./editProfile.module.css";
 
@@ -24,6 +24,9 @@ import type { VolunteerExtra } from "@/src/lib/storage/volunteerExtra";
 import { getOrgExtra, setOrgExtra } from "@/src/lib/storage/orgExtra";
 import type { OrgExtra } from "@/src/lib/storage/orgExtra";
 
+import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
+import { getUserAvatar, setUserAvatar } from "@/src/lib/storage/userAvatar";
+
 function toggle(list: string[], value: string) {
   return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
 }
@@ -41,13 +44,7 @@ function TagCheckbox({
 }) {
   return (
     <div className={s.tagItem}>
-      <input
-        id={id}
-        type="checkbox"
-        className={s.tagInput}
-        checked={checked}
-        onChange={onChange}
-      />
+      <input id={id} type="checkbox" className={s.tagInput} checked={checked} onChange={onChange} />
       <label htmlFor={id} className={s.tagLabel}>
         {label}
       </label>
@@ -60,6 +57,12 @@ export default function EditProfilePage() {
 
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
+
+  // avatar
+  const [avatarUrl, setAvatarUrlState] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   // volunteer state
   const [about, setAbout] = useState("");
@@ -86,6 +89,9 @@ export default function EditProfilePage() {
         setProfile(p);
         if (!p) return;
 
+        // avatar from LS
+        setAvatarUrlState(getUserAvatar(p.userId));
+
         const isOrg = p.role === 2;
 
         if (isOrg) {
@@ -110,6 +116,41 @@ export default function EditProfilePage() {
       }
     })();
   }, []);
+
+  // закрывать sheet по клику вне / ESC
+  useEffect(() => {
+    if (!sheetOpen) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSheetOpen(false);
+    };
+
+    // закрывать при клике вне зоны аватара/окна
+    const onDocMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest(`.${s.avatarEditor}`)) return;
+      setSheetOpen(false);
+    };
+
+    // закрывать при переключении фокуса в другое поле (input/textarea и т.п.)
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest(`.${s.avatarEditor}`)) return;
+      setSheetOpen(false);
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("focusin", onFocusIn);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("mousedown", onDocMouseDown);
+      document.removeEventListener("focusin", onFocusIn);
+    };
+  }, [sheetOpen, s.avatarEditor]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,6 +187,30 @@ export default function EditProfilePage() {
     router.push("/profile");
   };
 
+  const onPickFromGallery = () => {
+    setSheetOpen(false);
+    galleryInputRef.current?.click();
+  };
+
+  const onPickFromCamera = () => {
+    setSheetOpen(false);
+    cameraInputRef.current?.click();
+  };
+
+  const onDeleteAvatar = () => {
+    if (!profile) return;
+    setSheetOpen(false);
+    setUserAvatar(profile.userId, null);
+    setAvatarUrlState(null);
+  };
+
+  const onFileSelected = async (file: File | undefined) => {
+    if (!profile || !file) return;
+    const dataUrl = await fileToDataUrl(file);
+    setUserAvatar(profile.userId, dataUrl);
+    setAvatarUrlState(dataUrl);
+  };
+
   if (loading) {
     return (
       <div className={s.page}>
@@ -172,7 +237,78 @@ export default function EditProfilePage() {
       <div className={s.container}>
         <form className={s.form} onSubmit={onSubmit}>
           <div className={s.profileInfo}>
-            <div className={s.avatar} />
+            {/* ===== Avatar + Action Sheet ===== */}
+            <div className={s.avatarEditor}>
+              <div
+                className={s.avatar}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSheetOpen((v) => !v)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") setSheetOpen((v) => !v);
+                }}
+                aria-label="Сменить фото профиля"
+              >
+                {avatarUrl ? <img className={s.avatarImg} src={avatarUrl} alt="Аватар" /> : null}
+
+                <div className={s.avatarEditButton}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828z M2 18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5l-2 2v3H4V6h3l2-2H3a1 1 0 0 0-1 1v12z" />
+                  </svg>
+                  <span>Сменить фото</span>
+                </div>
+
+                {/* hidden inputs */}
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => onFileSelected(e.target.files?.[0])}
+                />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: "none" }}
+                  onChange={(e) => onFileSelected(e.target.files?.[0])}
+                />
+              </div>
+
+              {sheetOpen ? (
+                <div className={s.actionSheet} role="dialog" aria-modal="false">
+                  <ul className={s.actionsList}>
+                    <li>
+                      <button type="button" className={s.actionBtn} onClick={onPickFromGallery}>
+                        Выбрать из галереи
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" className={s.actionBtn} onClick={onPickFromCamera}>
+                        Сделать снимок
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className={`${s.actionBtn} ${s.actionDelete}`}
+                        onClick={onDeleteAvatar}
+                      >
+                        Удалить фото
+                      </button>
+                    </li>
+                  </ul>
+
+                  <div className={s.cancelAction}>
+                    <button type="button" className={s.cancelBtn} onClick={() => setSheetOpen(false)}>
+                      Отмена
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <h1 className={s.name}>{profile.name ?? "Фамилия Имя"}</h1>
             <p className={s.role}>{isOrg ? "Куратор/Организация" : "Волонтёр"}</p>
           </div>
@@ -192,7 +328,7 @@ export default function EditProfilePage() {
             />
           </section>
 
-          {/* ===== ORG: контакты/потребности/реквизиты ===== */}
+          {/* ===== ORG ===== */}
           {isOrg ? (
             <>
               <section className={s.section}>
@@ -261,7 +397,7 @@ export default function EditProfilePage() {
               </section>
             </>
           ) : (
-            /* ===== VOLUNTEER: компетенции/доступность/предпочтения/локация ===== */
+            /* ===== VOLUNTEER ===== */
             <>
               <section className={s.section}>
                 <h2 className={s.sectionTitle}>Компетенции</h2>

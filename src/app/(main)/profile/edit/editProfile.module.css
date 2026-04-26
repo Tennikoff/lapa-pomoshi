@@ -19,7 +19,7 @@
   gap: 40px;
 }
 
-/* верхний блок с аватаром/именем */
+/* верхний блок */
 .profileInfo {
   display: flex;
   flex-direction: column;
@@ -27,16 +27,161 @@
   gap: 15px;
 }
 
+/* ===== AVATAR EDITOR ===== */
+/* контейнер под аватар + выпадающее окно */
+.avatarEditor {
+  position: relative; /* важно: actionSheet будет абсолютным */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0; /* чтобы окно не "раздвигало" вертикально */
+}
+
 .avatar {
+  position: relative;
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: #333;
+  background-color: #000;
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatarImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* "Сменить фото" — вот это и есть место, где двигать кнопку/лейбл */
+.avatarEditButton {
+  position: relative; /* можно поменять на absolute, см. ниже */
+  z-index: 2;
+
+  position: absolute;
+  bottom: 30px;
+  left: 48%;
+  transform: translateX(-50%);
+
+  color: #ffffff;         /* один цвет */
+  font-size: 14px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 6px 10px;
+  border-radius: 14px;
+
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(4px);
+}
+
+.avatarEditButton svg {
+  width: 18px;
+  height: 18px;
+  fill: #ffffff;
+}
+
+/* Окно действий: маленькое, поверх, тень */
+.actionSheet {
+  position: absolute;
+  top: calc(100% + 12px);  /* появляется под кружком */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;             /* накладывается поверх остальных полей */
+
+  width: 250px;            /* примерно "полтора кружка" */
+  /* высота получится из кнопок; можно ограничить при желании: */
+  /* max-height: 220px; overflow: hidden; */
+
+  background-color: #eef1f4; /* <-- ЦВЕТ ФОНА ОКНА МЕНЯЕТСЯ ЗДЕСЬ */
+  border-radius: 20px;
+
+  /* маленькая, но заметная тень */
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+
+  overflow: hidden;
+}
+
+/* список кнопок — без разделителей */
+.actionsList {
+  list-style: none;
+  margin: 0;
+  padding: 8px; /* небольшой внутренний отступ */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;     /* вместо "полос" — мягкие промежутки */
+}
+
+/* все кнопки одного цвета и без полос */
+.actionBtn {
+  width: 100%;
+  padding: 12px 12px;
+
+  background: transparent;
+  border: none;
+
+  font-size: 16px;
+  font-weight: 600; /* один стиль, читаемо */
+  color: #0d283c;   /* <-- ОДИН ЦВЕТ ТЕКСТА */
+
+  cursor: pointer;
+  border-radius: 14px;
+
+  transition: background-color 0.2s;
+  text-align: center;
+}
+
+.actionsList li:first-child .actionBtn {
+  border-top: none;
+}
+
+.actionBtn:hover {
+  background-color: rgba(13, 40, 60, 0.06);
+}
+
+/* delete тоже НЕ красный (один цвет текста) */
+.actionDelete {
+  color: #0d283c;
+}
+
+/* "Отмена" — в том же окне, без отделения полосами */
+.cancelAction {
+  margin-top: 0;
+  padding: 0 8px 8px;
+}
+
+.cancelBtn {
+  width: 100%;
+  padding: 12px 12px;
+
+  background: rgba(13, 40, 60, 0.06);
+  border: none;
+
+  font-size: 16px;
+  font-weight: 600;
+  color: #0d283c;
+
+  cursor: pointer;
+  border-radius: 14px;
+
+  transition: background-color 0.2s;
+  text-align: center;
+}
+
+.cancelBtn:hover {
+  background-color: rgba(13, 40, 60, 0.1);
 }
 
 .name {
   font-size: 24px;
-  font-weight: 600; /* как в профиле */
+  font-weight: 600;
   margin: 0;
 }
 
@@ -54,13 +199,13 @@
 }
 
 .sectionTitle {
-  font-size: 18px;  /* как sectionTitle в профиле */
+  font-size: 18px;
   font-weight: 500;
   margin-bottom: 15px;
   color: #06355e;
 }
 
-/* textarea — в стиле проекта */
+/* textarea */
 .textarea {
   width: 100%;
   min-height: 80px;
@@ -78,6 +223,9 @@
   box-shadow: 0 0 0 2px rgba(0, 77, 122, 0.18);
 }
 
+.textareaSmall { min-height: 50px; }
+.textareaMedium { min-height: 80px; }
+
 .city {
   font-size: 14px;
   color: #6c757d;
@@ -86,7 +234,7 @@
   font-weight: 400;
 }
 
-/* ---------- ТЕГИ (интерактивные кнопки) ---------- */
+/* tags */
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -102,7 +250,6 @@
   display: none;
 }
 
-/* по умолчанию — пастельный голубой как на профиле */
 .tagLabel {
   display: inline-block;
   background: #d4e8f8;
@@ -112,60 +259,30 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-
   border: 1px solid transparent;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.05s;
 }
 
-/* hover — чуть выразительнее */
 .tagLabel:hover {
-  background: #c4def3; /* более “взрачный” пастельный */
+  background: #c4def3;
 }
 
-/* active click */
 .tagLabel:active {
   transform: translateY(1px);
 }
 
-/* выбранный — насыщенный голубой */
 .tagInput:checked + .tagLabel {
   background: #0077b6;
   color: #fff;
   border-color: #0077b6;
 }
 
-/* hover на выбранном */
 .tagInput:checked + .tagLabel:hover {
   background: #006aa2;
   border-color: #006aa2;
 }
 
-/* кнопка сохранить — как “персиковые” кнопки у вас */
-.saveButton {
-  display: block;
-  width: 100%;
-  max-width: 300px;
-  background: #e9b8a7;
-  color: #333;
-  border: none;
-  padding: 18px 0;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 600;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-/* размеры textarea как в твоей верстке */
-.textareaSmall { min-height: 50px; }
-.textareaMedium { min-height: 80px; }
-
-.saveButton:hover {
-  background: #dda693;
-}
-
-/* поля контактов (input) */
+/* inputs (для контактов организации) */
 .field {
   width: 100%;
   text-align: left;
@@ -193,4 +310,25 @@
 
 .input:focus {
   box-shadow: 0 0 0 2px rgba(0, 77, 122, 0.18);
+}
+
+/* save */
+.saveButton {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  background: #e9b8a7;
+  color: #333;
+  border: none;
+  padding: 18px 0;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.saveButton:hover {
+  background: #dda693;
 }
