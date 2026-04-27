@@ -1,65 +1,42 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Calendar } from "lucide-react";
 
-import s from "./fosterNew.module.css";
+import overlay from "../../../@modal/modalOverlay.module.css";
+import f from "./fosterNew.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
+import { CITY_DEFAULT, DISTRICTS } from "@/src/lib/constants/volunteerOptions";
 import { listAnimals } from "@/src/lib/storage/animals";
 import type { Animal } from "@/src/types/animal";
-
-import { DISTRICTS, CITY_DEFAULT } from "@/src/lib/constants/volunteerOptions";
-import { getVolunteerExtra } from "@/src/lib/storage/volunteerExtra";
-import { getOrgExtra } from "@/src/lib/storage/orgExtra";
-
 import { createTask } from "@/src/lib/storage/tasks";
 
-const CAL_ICON = (
-  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-  </svg>
-);
-
-function isoFromDateInput(v: string): string | null {
-  const x = v.trim();
-  if (!x) return null;
-  // input[type=date] => YYYY-MM-DD
-  const d = new Date(x);
+function toIsoDateStart(value: string): string | null {
+  // value: "YYYY-MM-DD"
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00`);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
 }
 
-function petTitle(a: Animal) {
-  const name = a.name?.trim();
-  return name ? name : a.species;
-}
-
-export default function FosterTaskNewPage() {
+export default function FosterNewPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
 
-  const [userId, setUserId] = useState<string | null>(null);
-  const [role, setRole] = useState<number | null>(null);
-  const [city, setCity] = useState<string>(CITY_DEFAULT);
-
-  const [pets, setPets] = useState<Animal[]>([]);
-  const [selectorOpen, setSelectorOpen] = useState(false);
-
-  const [animalId, setAnimalId] = useState<string | null>(null);
-
-  const selectedAnimal = useMemo(() => {
-    if (!animalId) return null;
-    return pets.find((p) => p.id === animalId) ?? null;
-  }, [animalId, pets]);
-
-  // form fields
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
+  const [title, setTitle] = useState("Запрос передержки");
+  const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState(""); // YYYY-MM-DD
-  const [endDate, setEndDate] = useState("");     // YYYY-MM-DD
+  const [endDate, setEndDate] = useState("");   // YYYY-MM-DD
   const [district, setDistrict] = useState<string>("");
+
+  const startRef = useRef<HTMLInputElement | null>(null);
+  const endRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -69,251 +46,269 @@ export default function FosterTaskNewPage() {
           router.replace("/login");
           return;
         }
-        setUserId(me.userId);
-        setRole(me.role);
-
-        // city из extra (если заполнено)
-        if (me.role === 2) {
-          const extra = getOrgExtra(me.userId);
-          setCity(extra?.city || CITY_DEFAULT);
-        } else {
-          const extra = getVolunteerExtra(me.userId);
-          setCity(extra?.city || CITY_DEFAULT);
-        }
-
-        // реальные животные из профиля (localStorage)
-        setPets(listAnimals(me.userId));
+        const myAnimals = listAnimals(me.userId);
+        setAnimals(myAnimals);
+        // по желанию можно авто-выбрать первого
+        if (myAnimals[0]) setSelectedAnimalId(myAnimals[0].id);
       } finally {
         setLoading(false);
       }
     })();
   }, [router]);
 
-  // автозаголовок “Передержка <имя>”
-  useEffect(() => {
-    if (!selectedAnimal) return;
-    if (title.trim()) return;
-    const name = selectedAnimal.name?.trim();
-    setTitle(`Передержка ${name ? name : selectedAnimal.species}`);
-  }, [selectedAnimal, title]);
+  const selectedAnimal = useMemo(
+    () => animals.find((a) => a.id === selectedAnimalId) ?? null,
+    [animals, selectedAnimalId]
+  );
 
-  const onPickFromMyPets = () => {
-    setSelectorOpen(true);
-  };
-
-  const onSelectPet = (id: string) => {
-    setAnimalId(id);
-    setSelectorOpen(false);
-  };
-
-  const onRemoveSelected = () => {
-    setAnimalId(null);
-    // возвращаем этап с кнопками
-    setSelectorOpen(false);
+  const openPicker = (ref: React.RefObject<HTMLInputElement | null>) => {
+    const el = ref.current;
+    if (!el) return;
+    // showPicker работает не везде, поэтому fallback на focus()
+    if (typeof el.showPicker === "function") el.showPicker();
+    else el.focus();
   };
 
   const onCancel = () => router.back();
 
-  const onSave = () => {
-    if (!userId || !role) return;
+  const onSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
+    e.preventDefault();
 
-    // Передержка: животное ОБЯЗАТЕЛЬНО
-    if (!animalId) {
-      alert("Для задачи передержки необходимо выбрать животное");
+    const me = await fetchCurrentProfile();
+    if (!me) {
+      router.replace("/login");
+      return;
+    }
+
+    if (!selectedAnimalId) {
+      alert("Выберите животное");
       return;
     }
     if (!title.trim()) {
-      alert('Заполните заголовок задачи');
+      alert("Заполните заголовок задачи");
       return;
     }
-    const startAt = isoFromDateInput(startDate);
-    const endAt = isoFromDateInput(endDate);
-    if (!startAt) {
-      alert("Укажите дату начала");
+    if (!description.trim()) {
+      alert("Заполните описание");
       return;
     }
-    if (!endAt) {
-      alert("Укажите дату окончания");
+    if (!startDate || !endDate) {
+      alert("Укажите Дату начала и Дату окончания");
       return;
     }
-    if (!district.trim()) {
+    if (!district) {
       alert("Выберите район");
       return;
     }
 
+    const startAt = toIsoDateStart(startDate);
+    const endAt = toIsoDateStart(endDate);
+    if (!startAt || !endAt) {
+      alert("Некорректная дата");
+      return;
+    }
+
     createTask({
-      creatorUserId: userId,
+      creatorUserId: me.userId,
       kind: "foster",
       title: title.trim(),
-      description: desc.trim(),
-      competencies: [], // для передержки в MVP оставляем пусто
-      city,
+      description: description.trim(),
+      competencies: [], // пока пусто
+      city: CITY_DEFAULT,
       district,
       startAt,
       endAt,
-      animalId,
+      animalId: selectedAnimalId,
     });
 
-    router.push("/tasks");
+    router.back();
   };
 
   if (loading) {
     return (
-      <div className={s.page}>
-        <div className={s.container} style={{ color: "#6c757d" }}>
-          Загрузка...
+      <div
+        className={overlay.overlay}
+        role="dialog"
+        aria-modal="true"
+        style={{ "--modal-dim": "0.6" } as CSSProperties}
+      >
+        <div className={overlay.content}>
+          <div className={overlay.scrollBox} style={{ color: "#fff" }}>
+            Загрузка...
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={s.page}>
-      <main className={s.container}>
-        <h1 className={s.title}>Создание задачи</h1>
+    <div
+      className={overlay.overlay}
+      role="dialog"
+      aria-modal="true"
+      style={{ "--modal-dim": "0.6" } as CSSProperties}
+    >
+      <div className={overlay.content}>
+        <div className={overlay.scrollBox}>
+          <form className={f.formCard} onSubmit={onSubmit}>
+            <button className={f.closeBtn} type="button" onClick={onCancel} aria-label="Закрыть">
+              ×
+            </button>
 
-        {/* 1) Животное */}
-        <div className={s.formGroup}>
-          <span className={s.label}>Животное</span>
+            <h1 className={f.title}>Запрос передержки</h1>
 
-          {/* Этап 1: кнопки */}
-          {!selectedAnimal ? (
-            <div className={s.animalButtons}>
-              <button className={s.btnLavender} type="button" onClick={onPickFromMyPets}>
-                Выбрать из моих животных
-              </button>
-              <button
-                className={s.btnLavender}
-                type="button"
-                onClick={() => router.push("/animals/new")}
-              >
-                Создать новую карточку
-              </button>
-            </div>
-          ) : null}
+            {/* ===== ЖИВОТНОЕ ===== */}
+            <section className={f.section}>
+              <h2 className={f.sectionTitle}>Животное</h2>
 
-          {/* Этап 2: селектор животных (реальные карточки из профиля) */}
-          {!selectedAnimal && selectorOpen ? (
-            <div className={s.selector}>
-              {pets.length === 0 ? (
-                <div className={s.muted}>
-                  У вас нет добавленных животных. Создайте карточку животного в профиле.
+              {animals.length === 0 ? (
+                <div className={f.emptyNote}>
+                  У вас нет карточек животных. Сначала создайте карточку животного в профиле.
                 </div>
               ) : (
-                pets.map((p) => (
-                  <div key={p.id} className={s.petCard} onClick={() => onSelectPet(p.id)}>
-                    <img
-                      src={
-                        p.photoUrl ||
-                        "https://placehold.co/120x120/eef3f8/777?text=Фото"
-                      }
-                      alt={petTitle(p)}
-                    />
-                    <span className={s.petName}>{petTitle(p)}</span>
+                <div className={f.animalsScroller}>
+                  <div className={f.animalsRow}>
+                    {animals.map((a) => {
+                      const active = a.id === selectedAnimalId;
+                      const bg = a.photoUrl ? `url(${a.photoUrl})` : undefined;
+                      return (
+                        <button
+                          key={a.id}
+                          type="button"
+                          className={`${f.animalCard} ${active ? f.animalCardActive : ""}`}
+                          onClick={() => setSelectedAnimalId(a.id)}
+                          style={
+                            bg
+                              ? {
+                                  backgroundImage: bg,
+                                  backgroundSize: "cover",
+                                  backgroundPosition: "center",
+                                }
+                              : undefined
+                          }
+                          aria-pressed={active}
+                          title={a.name?.trim() ? a.name : a.species}
+                        >
+                          <span className={f.animalCardLabel}>
+                            {a.name?.trim() ? a.name : a.species}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                ))
+                </div>
               )}
-            </div>
-          ) : null}
 
-          {/* Этап 3: выбранное животное (как в профиле) */}
-          {selectedAnimal ? (
-            <div className={s.selectedWrap} style={{ marginTop: 16 }}>
-              <img
-                className={s.selectedImg}
-                src={
-                  selectedAnimal.photoUrl ||
-                  "https://placehold.co/140x140/eef3f8/777?text=Фото"
-                }
-                alt={petTitle(selectedAnimal)}
-              />
-              <button className={s.trashBtn} type="button" onClick={onRemoveSelected} aria-label="Убрать животное">
-                <svg
-                  className={s.trashIcon}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M3 6h18" />
-                  <path d="M8 6V4h8v2" />
-                  <path d="M6 6l1 16h10l1-16" />
-                  <path d="M10 11v6" />
-                  <path d="M14 11v6" />
-                </svg>
-              </button>
-              <span className={s.selectedName}>{petTitle(selectedAnimal)}</span>
-            </div>
-          ) : null}
-        </div>
+              {selectedAnimal ? (
+                <p className={f.selectedMeta}>
+                  Выбрано: {selectedAnimal.name?.trim() ? selectedAnimal.name : "Без имени"} (
+                  {selectedAnimal.species}
+                  {selectedAnimal.breed ? `, ${selectedAnimal.breed}` : ""})
+                </p>
+              ) : null}
+            </section>
 
-        {/* 2) Заголовок */}
-        <div className={s.formGroup}>
-          <label className={s.label}>Заголовок задачи</label>
-          <input className={s.input} value={title} onChange={(e) => setTitle(e.target.value)} />
-        </div>
-
-        {/* 3) Описание */}
-        <div className={s.formGroup}>
-          <label className={s.label}>Описание</label>
-          <input className={s.input} value={desc} onChange={(e) => setDesc(e.target.value)} />
-        </div>
-
-        {/* 4) Период */}
-        <div className={s.formGroup}>
-          <label className={s.label}>Период передержки</label>
-          <div className={s.dateInputs}>
-            <div className={s.dateRow}>
-              {CAL_ICON}
+            {/* ===== Заголовок ===== */}
+            <section className={f.section}>
+              <h2 className={f.sectionTitle}>Заголовок задачи</h2>
               <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                placeholder="Дата начала"
+                className={f.input}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Например: Передержка на время отпуска"
               />
-            </div>
-            <div className={s.dateRow}>
-              {CAL_ICON}
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                placeholder="Дата окончания"
-              />
-            </div>
-          </div>
-        </div>
+            </section>
 
-        {/* 5) Локация */}
-        <div className={s.formGroup}>
-          <label className={s.label}>Локация</label>
-          <div className={s.tags}>
-            {(DISTRICTS as unknown as string[]).map((d) => (
-              <button
-                key={d}
-                type="button"
-                className={`${s.tagBtn} ${district === d ? s.tagBtnActive : ""}`}
-                onClick={() => setDistrict(d)}
-              >
-                {d}
+            {/* ===== Описание ===== */}
+            <section className={f.section}>
+              <h2 className={f.sectionTitle}>Описание</h2>
+              <textarea
+                className={f.textarea}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Опишите условия, кормление, прогулки и т.д."
+              />
+            </section>
+
+            {/* ===== Период ===== */}
+            <section className={f.section}>
+              <h2 className={f.sectionTitle}>Период передержки</h2>
+
+              <div className={f.dateGrid}>
+                <div className={f.dateField}>
+                  <label className={f.fieldLabel}>Дата начала</label>
+                  <div className={f.dateInputWrap}>
+                    <button
+                      type="button"
+                      className={f.dateIconBtn}
+                      onClick={() => openPicker(startRef)}
+                      aria-label="Выбрать дату начала"
+                    >
+                      <Calendar className={f.dateIcon} />
+                    </button>
+                    <input
+                      ref={startRef}
+                      className={f.dateInput}
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className={f.dateField}>
+                  <label className={f.fieldLabel}>Дата окончания</label>
+                  <div className={f.dateInputWrap}>
+                    <button
+                      type="button"
+                      className={f.dateIconBtn}
+                      onClick={() => openPicker(endRef)}
+                      aria-label="Выбрать дату окончания"
+                    >
+                      <Calendar className={f.dateIcon} />
+                    </button>
+                    <input
+                      ref={endRef}
+                      className={f.dateInput}
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* ===== Локация ===== */}
+            <section className={f.section}>
+              <h2 className={f.sectionTitle}>Локация</h2>
+
+              <div className={f.tags}>
+                {DISTRICTS.map((label) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className={`${f.tag} ${district === label ? f.tagActive : ""}`}
+                    onClick={() => setDistrict(label)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* ===== Actions ===== */}
+            <div className={f.actions}>
+              <button type="button" className={f.actionBtn} onClick={onCancel}>
+                ОТМЕНИТЬ
               </button>
-            ))}
-          </div>
-          <div className={s.muted} style={{ marginTop: 10 }}>
-            Город: {city}
-          </div>
+              <button type="submit" className={f.actionBtn}>
+                СОХРАНИТЬ
+              </button>
+            </div>
+          </form>
         </div>
-
-        {/* 6) Кнопки */}
-        <div className={s.actions}>
-          <button className={s.btnAction} type="button" onClick={onCancel}>
-            Отменить
-          </button>
-          <button className={s.btnAction} type="button" onClick={onSave}>
-            Сохранить
-          </button>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
