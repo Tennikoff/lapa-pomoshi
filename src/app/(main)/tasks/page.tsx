@@ -173,7 +173,7 @@ export default function TasksPage() {
   const fostersList = useMemo(() => filteredSorted.filter((t) => t.kind === "foster"), [filteredSorted]);
 
   const onCreateTask = () => alert("Форма создания задачи будет добавлена позже");
-  const onCreateFoster = () => alert("Форма запроса передержки будет добавлена позже");
+  const onCreateFoster = () => router.push("/tasks/foster/new");
 
   if (loading) {
     return (
