@@ -34,7 +34,7 @@
   margin-bottom: 26px;
 }
 
-/* (1) Заголовки секций как в edit profile */
+/* Заголовки секций */
 .sectionTitle {
   font-size: 18px;
   font-weight: 500;
@@ -80,7 +80,31 @@
   margin-bottom: 8px;
 }
 
-/* ===== ЖИВОТНЫЕ: горизонтальный скролл с равными отступами слева/справа ===== */
+/* ===== NEW: две кнопки в секции "Животное" (цвет как "Вид животного +") ===== */
+.animalActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.animalActionBtn {
+  background: #d9c4ec; /* как btnLavender */
+  color: #333;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.animalActionBtn:hover {
+  background: #cfb8e8; /* чуть темнее */
+}
+
+/* ===== ЖИВОТНЫЕ ===== */
 .emptyNote {
   background: #f0f2f5;
   border-radius: 16px;
@@ -89,17 +113,16 @@
   font-size: 14px;
 }
 
+/* FIX: теперь scroll на .animalsScroller (чтобы outline НЕ обрезался) */
 .animalsScroller {
-  /* важное: одинаковые отступы слева/справа */
-  padding: 0 16px;
+  padding: 6px 16px 12px; /* одинаковые отступы слева/справа + место под outline */
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
 }
 
 .animalsRow {
   display: flex;
   gap: 14px;
-  overflow-x: auto;
-  padding: 4px 0 10px;
-  scroll-snap-type: x mandatory;
 }
 
 .animalCard {
@@ -182,7 +205,7 @@
   border: none;
   border-radius: 12px;
   background: #d4e8f8;
-  padding: 0 16px 0 48px; /* слева место под иконку */
+  padding: 0 16px 0 48px;
   font-size: 14px;
   outline: none;
 }
@@ -197,13 +220,7 @@
   box-shadow: 0 0 0 2px rgba(0, 77, 122, 0.18);
 }
 
-.hint {
-  margin-top: 10px;
-  color: #6c757d;
-  font-size: 12px;
-}
-
-/* ===== (2) Районы — как теги в edit profile ===== */
+/* ===== Районы ===== */
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -243,7 +260,6 @@
   margin-top: 34px;
 }
 
-/* (3) Кнопки как “Редактировать профиль” */
 .actionBtn {
   display: block;
   width: 100%;
@@ -254,11 +270,12 @@
   padding: 18px 0;
   border-radius: 12px;
   font-size: 16px;
-  font-weight: 700; /* чуть толще */
+  font-weight: 700;
   text-transform: uppercase;
   cursor: pointer;
   transition: background-color 0.2s;
 }
+
 .actionBtn:hover {
   background: #dda693;
 }

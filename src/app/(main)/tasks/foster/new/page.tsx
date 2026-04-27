@@ -15,7 +15,6 @@ import type { Animal } from "@/src/types/animal";
 import { createTask } from "@/src/lib/storage/tasks";
 
 function toIsoDateStart(value: string): string | null {
-  // value: "YYYY-MM-DD"
   if (!value) return null;
   const d = new Date(`${value}T00:00:00`);
   if (Number.isNaN(d.getTime())) return null;
@@ -26,13 +25,17 @@ export default function FosterNewPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+
+  // животные
   const [animals, setAnimals] = useState<Animal[]>([]);
+  const [animalsOpen, setAnimalsOpen] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
 
+  // поля задачи
   const [title, setTitle] = useState("Запрос передержки");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState(""); // YYYY-MM-DD
-  const [endDate, setEndDate] = useState("");   // YYYY-MM-DD
+  const [endDate, setEndDate] = useState(""); // YYYY-MM-DD
   const [district, setDistrict] = useState<string>("");
 
   const startRef = useRef<HTMLInputElement | null>(null);
@@ -48,8 +51,10 @@ export default function FosterNewPage() {
         }
         const myAnimals = listAnimals(me.userId);
         setAnimals(myAnimals);
-        // по желанию можно авто-выбрать первого
-        if (myAnimals[0]) setSelectedAnimalId(myAnimals[0].id);
+
+        // по умолчанию ничего не показываем и ничего не выбрано
+        setSelectedAnimalId(null);
+        setAnimalsOpen(false);
       } finally {
         setLoading(false);
       }
@@ -64,8 +69,10 @@ export default function FosterNewPage() {
   const openPicker = (ref: React.RefObject<HTMLInputElement | null>) => {
     const el = ref.current;
     if (!el) return;
-    // showPicker работает не везде, поэтому fallback на focus()
-    if (typeof el.showPicker === "function") el.showPicker();
+    // showPicker работает не везде
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyEl = el as any;
+    if (typeof anyEl.showPicker === "function") anyEl.showPicker();
     else el.focus();
   };
 
@@ -113,7 +120,7 @@ export default function FosterNewPage() {
       kind: "foster",
       title: title.trim(),
       description: description.trim(),
-      competencies: [], // пока пусто
+      competencies: [],
       city: CITY_DEFAULT,
       district,
       startAt,
@@ -161,50 +168,77 @@ export default function FosterNewPage() {
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Животное</h2>
 
-              {animals.length === 0 ? (
-                <div className={f.emptyNote}>
-                  У вас нет карточек животных. Сначала создайте карточку животного в профиле.
-                </div>
-              ) : (
-                <div className={f.animalsScroller}>
-                  <div className={f.animalsRow}>
-                    {animals.map((a) => {
-                      const active = a.id === selectedAnimalId;
-                      const bg = a.photoUrl ? `url(${a.photoUrl})` : undefined;
-                      return (
-                        <button
-                          key={a.id}
-                          type="button"
-                          className={`${f.animalCard} ${active ? f.animalCardActive : ""}`}
-                          onClick={() => setSelectedAnimalId(a.id)}
-                          style={
-                            bg
-                              ? {
-                                  backgroundImage: bg,
-                                  backgroundSize: "cover",
-                                  backgroundPosition: "center",
-                                }
-                              : undefined
-                          }
-                          aria-pressed={active}
-                          title={a.name?.trim() ? a.name : a.species}
-                        >
-                          <span className={f.animalCardLabel}>
-                            {a.name?.trim() ? a.name : a.species}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              <div className={f.animalActions}>
+                <button
+                  type="button"
+                  className={f.animalActionBtn}
+                  onClick={() => setAnimalsOpen((v) => !v)}
+                  aria-expanded={animalsOpen}
+                >
+                  {animalsOpen ? "Скрыть список животных" : "Выбрать из моих животных"}
+                </button>
 
-              {selectedAnimal ? (
-                <p className={f.selectedMeta}>
-                  Выбрано: {selectedAnimal.name?.trim() ? selectedAnimal.name : "Без имени"} (
-                  {selectedAnimal.species}
-                  {selectedAnimal.breed ? `, ${selectedAnimal.breed}` : ""})
-                </p>
+                <button
+                  type="button"
+                  className={f.animalActionBtn}
+                  onClick={() => {
+                    /* пока без функционала */
+                  }}
+                >
+                  Создать новую карточку
+                </button>
+              </div>
+
+              {animalsOpen ? (
+                animals.length === 0 ? (
+                  <div className={f.emptyNote}>
+                    У вас нет карточек животных. Сначала создайте карточку животного в профиле.
+                  </div>
+                ) : (
+                  <>
+                    <div className={f.animalsScroller}>
+                      <div className={f.animalsRow}>
+                        {animals.map((a) => {
+                          const active = a.id === selectedAnimalId;
+                          const bg = a.photoUrl ? `url(${a.photoUrl})` : undefined;
+
+                          return (
+                            <button
+                              key={a.id}
+                              type="button"
+                              className={`${f.animalCard} ${active ? f.animalCardActive : ""}`}
+                              onClick={() => setSelectedAnimalId(a.id)}
+                              style={
+                                bg
+                                  ? {
+                                      backgroundImage: bg,
+                                      backgroundSize: "cover",
+                                      backgroundPosition: "center",
+                                    }
+                                  : undefined
+                              }
+                              aria-pressed={active}
+                              title={a.name?.trim() ? a.name : a.species}
+                            >
+                              <span className={f.animalCardLabel}>
+                                {a.name?.trim() ? a.name : a.species}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {selectedAnimal ? (
+                      <p className={f.selectedMeta}>
+                        Выбрано:{" "}
+                        {selectedAnimal.name?.trim() ? selectedAnimal.name : "Без имени"} (
+                        {selectedAnimal.species}
+                        {selectedAnimal.breed ? `, ${selectedAnimal.breed}` : ""})
+                      </p>
+                    ) : null}
+                  </>
+                )
               ) : null}
             </section>
 
