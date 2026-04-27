@@ -80,7 +80,7 @@
   margin-bottom: 8px;
 }
 
-/* ===== NEW: две кнопки в секции "Животное" (цвет как "Вид животного +") ===== */
+/* две кнопки в секции "Животное" (цвет как "Вид животного +") */
 .animalActions {
   display: flex;
   gap: 12px;
@@ -89,7 +89,7 @@
 }
 
 .animalActionBtn {
-  background: #d9c4ec; /* как btnLavender */
+  background: #d9c4ec;
   color: #333;
   border: none;
   padding: 14px 28px;
@@ -99,12 +99,11 @@
   cursor: pointer;
   transition: background-color 0.2s;
 }
-
 .animalActionBtn:hover {
-  background: #cfb8e8; /* чуть темнее */
+  background: #cfb8e8;
 }
 
-/* ===== ЖИВОТНЫЕ ===== */
+/* ЖИВОТНЫЕ */
 .emptyNote {
   background: #f0f2f5;
   border-radius: 16px;
@@ -113,22 +112,22 @@
   font-size: 14px;
 }
 
-/* FIX: теперь scroll на .animalsScroller (чтобы outline НЕ обрезался) */
+/* scroll контейнер с запасом по краям */
 .animalsScroller {
-  padding: 6px 16px 12px; /* одинаковые отступы слева/справа + место под outline */
+  padding: 10px 16px 14px; /* запас под подсветку */
   overflow-x: auto;
   scroll-snap-type: x mandatory;
 }
 
 .animalsRow {
   display: flex;
-  gap: 14px;
+  gap: 14px; /* как сейчас между карточками */
 }
 
 .animalCard {
   scroll-snap-align: start;
-  width: 140px;
-  height: 140px;
+  width: 130px;  /* <-- СДЕЛАЛИ ЧУТЬ МЕНЬШЕ */
+  height: 130px; /* <-- СДЕЛАЛИ ЧУТЬ МЕНЬШЕ */
   border-radius: 16px;
   border: none;
   cursor: pointer;
@@ -141,6 +140,16 @@
   justify-content: center;
 }
 
+/* картинка внутри (чтобы dataURL точно показывался) */
+.animalImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* градиент */
 .animalCard::after {
   content: "";
   position: absolute;
@@ -154,13 +163,13 @@
   z-index: 1;
   color: #fff;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15px;
   padding-bottom: 12px;
 }
 
+/* FIX: подсветка НЕ обрезается (рисуем внутри карточки) */
 .animalCardActive {
-  outline: 3px solid #0077b6;
-  outline-offset: 2px;
+  box-shadow: 0 0 0 3px #0077b6 inset;
 }
 
 .selectedMeta {
@@ -169,7 +178,7 @@
   font-size: 13px;
 }
 
-/* ===== Период передержки ===== */
+/* Период передержки */
 .dateGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -191,14 +200,12 @@
   padding: 6px;
 }
 
-/* где менять размер иконки */
 .dateIcon {
   width: 20px;
   height: 20px;
   color: #333;
 }
 
-/* где менять размер поля даты */
 .dateInput {
   width: 100%;
   height: 48px;
@@ -210,7 +217,6 @@
   outline: none;
 }
 
-/* убираем “родную” иконку справа (частично, webkit) */
 .dateInput::-webkit-calendar-picker-indicator {
   opacity: 0;
   display: none;
@@ -220,7 +226,7 @@
   box-shadow: 0 0 0 2px rgba(0, 77, 122, 0.18);
 }
 
-/* ===== Районы ===== */
+/* Районы */
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -238,16 +244,19 @@
   border: 1px solid transparent;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.05s;
 }
-
 .tag:hover {
   background: #c4def3;
 }
-
 .tag:active {
   transform: translateY(1px);
 }
-
 .tagActive {
+  background: #0077b6;
+  color: #fff;
+  border-color: #0077b6;
+}
+/* выбранная локация не меняет цвет при hover */
+.tagActive:hover {
   background: #0077b6;
   color: #fff;
   border-color: #0077b6;
@@ -275,7 +284,6 @@
   cursor: pointer;
   transition: background-color 0.2s;
 }
-
 .actionBtn:hover {
   background: #dda693;
 }
