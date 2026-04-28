@@ -10,10 +10,10 @@ import { COMPETENCIES, DISTRICTS, PREF_ANIMALS } from "@/src/lib/constants/volun
 
 import type { ProfileDto } from "@/src/types/profile";
 import type { Task } from "@/src/types/task";
-import { TASKS_CHANGED_EVENT, listTasks, listTasksByCreator } from "@/src/lib/storage/tasks";
-
-import { getAnimal } from "@/src/lib/storage/animals";
 import type { Animal } from "@/src/types/animal";
+
+import { TASKS_CHANGED_EVENT, listTasks, listTasksByCreator } from "@/src/lib/storage/tasks";
+import { getAnimal } from "@/src/lib/storage/animals";
 
 import { TaskCard } from "./_components/TaskCard";
 
@@ -37,6 +37,7 @@ function sortLabel(mode: SortMode) {
 function mapSpeciesToPref(species: string | null | undefined) {
   const x = (species || "").trim().toLowerCase();
   if (!x) return null;
+
   if (x.includes("соб")) return "Собаки";
   if (x.includes("кош")) return "Кошки";
   if (x.includes("рыб")) return "Рыбы";
@@ -45,6 +46,7 @@ function mapSpeciesToPref(species: string | null | undefined) {
   if (x.includes("грыз")) return "Грызуны";
   if (x.includes("хор")) return "Хорьки";
   if (x.includes("репт")) return "Рептилии";
+
   return null;
 }
 
@@ -125,7 +127,7 @@ export default function TasksPage() {
 
   const filteredSorted = useMemo(() => {
     const out = items.filter((t) => {
-      const animal = t.animalId ? animalsById.get(t.animalId) ?? null : null;
+      const animal = t.animalId ? (animalsById.get(t.animalId) ?? null) : null;
 
       if (animalTypes.length) {
         const label = mapSpeciesToPref(animal?.species);
@@ -152,6 +154,7 @@ export default function TasksPage() {
           animal?.species ?? "",
           animal?.breed ?? "",
         ].join(" ");
+
         if (!includesCI(hay, query.trim())) return false;
       }
 
@@ -159,9 +162,17 @@ export default function TasksPage() {
     });
 
     const sorted = [...out].sort((a, b) => {
-      if (sort === "alpha") return a.title.localeCompare(b.title, "ru", { sensitivity: "base" });
-      if (sort === "created") return b.createdAt.localeCompare(a.createdAt); // новые сверху
-      const da = a.startAt ?? a.createdAt; // due
+      if (sort === "alpha") {
+        return a.title.localeCompare(b.title, "ru", { sensitivity: "base" });
+      }
+
+      if (sort === "created") {
+        // новые сверху
+        return b.createdAt.localeCompare(a.createdAt);
+      }
+
+      // due: по startAt (или createdAt, если startAt нет)
+      const da = a.startAt ?? a.createdAt;
       const db = b.startAt ?? b.createdAt;
       return da.localeCompare(db);
     });
@@ -170,7 +181,10 @@ export default function TasksPage() {
   }, [items, animalsById, animalTypes, competencies, districts, query, sort]);
 
   const tasksList = useMemo(() => filteredSorted.filter((t) => t.kind === "task"), [filteredSorted]);
-  const fostersList = useMemo(() => filteredSorted.filter((t) => t.kind === "foster"), [filteredSorted]);
+  const fostersList = useMemo(
+    () => filteredSorted.filter((t) => t.kind === "foster"),
+    [filteredSorted]
+  );
 
   const onCreateTask = () => alert("Форма создания задачи будет добавлена позже");
   const onCreateFoster = () => router.push("/tasks/foster/new");
@@ -213,7 +227,7 @@ export default function TasksPage() {
             </>
           ) : (
             <>
-              {/* Волонтёр: поиск + фильтры + сортировка в ОДНОЙ строке */}
+              {/* Волонтёр: поиск в этой же строке */}
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -313,7 +327,7 @@ export default function TasksPage() {
             ) : null}
           </div>
 
-          {/* Волонтёр: сортировка в этой же строке справа */}
+          {/* Волонтёр: сортировка в той же строке справа */}
           {mode === "volunteer" ? (
             <div className={s.sortWrap}>
               <div
@@ -458,13 +472,14 @@ export default function TasksPage() {
           )}
         </section>
 
+        {/* Передержки */}
         <section className={s.tasksSection}>
           <h2 className={s.sectionTitle}>{profile.role === 2 ? "Мои передержки" : "Передержки"}</h2>
 
           {fostersList.length === 0 ? (
             <div className={s.emptyBox}>Пока нет передержек.</div>
           ) : (
-            <div className={s.cardsGrid}>
+            <div className={`${s.cardsGrid} ${s.cardsGridFoster}`}>
               {fostersList.map((t) => (
                 <TaskCard
                   key={t.id}

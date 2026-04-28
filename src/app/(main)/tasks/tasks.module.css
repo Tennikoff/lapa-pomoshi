@@ -1,6 +1,6 @@
 .page {
   --color-bg-page: #f8f9fa;
-  --color-bg-card: #eef3f8;
+  --color-bg-card: #ebf3fc;
   --color-text-primary: #212529;
   --color-text-secondary: #6c757d;
 
@@ -257,6 +257,8 @@
   padding: 16px;
   display: flex;
   gap: 0px;
+
+  box-shadow: 10px 12px 12px rgba(13, 40, 60, 0.18);
 }
 
 .taskCardImage {
@@ -308,6 +310,7 @@
   border-radius: 10px;
   font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .cardFooter {
@@ -389,4 +392,110 @@
   color: var(--color-text-primary);
   font-weight: 600; /* чуть больше, чем обычный, но не больше заголовка */
   font-size: 14px;
+}
+
+/* ===== FOSTER CARD (новая сетка) ===== */
+/* ===== FOSTER CARD (сетка под новые требования) ===== */
+.taskCardFoster {
+  position: relative;
+
+  /* перебиваем базовый flex у .taskCard */
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  grid-template-rows: 100px auto auto;
+
+  /* отступы */
+  column-gap: 16px;
+  row-gap: 8px;
+
+  grid-template-areas:
+    "photo main"
+    ". date"
+    "district responses";
+
+  align-items: start;
+  padding-bottom: 8px;
+}
+
+.fosterPhoto {
+  grid-area: photo;
+  width: 100px;
+  height: 100px;
+}
+
+/* Заголовок + описание должны закончиться по нижней границе фото */
+.fosterMain {
+  grid-area: main;
+  height: 100px;
+  min-width: 0;
+
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.fosterDescription {
+  margin: 0;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+
+  /* многострочное сокращение */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+
+  /* не опускаемся ниже фото */
+  -webkit-line-clamp: 3;
+}
+
+.fosterDistrict {
+  grid-area: district;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transform: translateY(-4px);
+}
+
+.fosterDate {
+  grid-area: date;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  justify-self: end;   /* вправо */
+  align-self: center;  /* по вертикали как отклики */
+}
+
+.fosterMetaLabel {
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.fosterDateValue {
+  color: var(--color-text-primary);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.fosterResponses {
+  grid-area: responses;
+  justify-self: end;
+  align-self: center;
+
+  white-space: nowrap;
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 14px;
+  transform: translateY(-4px);
+}
+
+/* карандаш — в правом верхнем углу, чтобы не ломал сетку */
+.taskCardFoster .cardEditBtn {
+  position: absolute;
+  top: 16px;
+  right: 14px;
+}
+
+/* Для "Мои передержки": хотим 3 карточки в ряд */
+.cardsGridFoster {
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
 }

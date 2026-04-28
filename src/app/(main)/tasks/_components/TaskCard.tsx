@@ -11,9 +11,11 @@ function formatTimeRange(task: Task) {
   if (task.kind === "foster") {
     const a = task.startAt ? new Date(task.startAt) : null;
     const b = task.endAt ? new Date(task.endAt) : null;
+
     const fmt = (d: Date) =>
       `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
-    if (a && b) return `${fmt(a)}-${fmt(b)}`;
+
+    if (a && b) return `${fmt(a)} - ${fmt(b)}`;
     if (a) return fmt(a);
     return "—";
   }
@@ -48,50 +50,33 @@ export function TaskCard({
   const img = animal?.photoUrl || PLACEHOLDER_IMG;
   const responsesCount = countResponses(task);
 
-  // ====== CARD: FOSTER (особый layout) ======
+  // ====== CARD: FOSTER (новая верстка под требования) ======
   if (task.kind === "foster") {
     return (
-      <div className={s.taskCard}>
-        {/* Левая колонка: фото + (Район/Дата/Отклики) под фото */}
-        <div className={s.cardLeft}>
-          <img src={img} alt="Фото" className={s.taskCardImage} />
+      <div className={`${s.taskCard} ${s.taskCardFoster}`}>
+        {/* Фото */}
+        <img src={img} alt="Фото" className={`${s.taskCardImage} ${s.fosterPhoto}`} />
 
-          <div className={s.photoMeta}>
-            <div className={s.photoMetaRow}>
-              <span className={s.photoMetaLabel}>Район:</span>
-              <span className={s.tag}>{task.district || "—"}</span>
-            </div>
-
-            <div className={s.photoMetaRow}>
-              {/* “Дата передержки” как значение (без жирного) */}
-              <span className={s.photoMetaDate}>{formatTimeRange(task)}</span>
-            </div>
-
-            <div className={`${s.photoMetaRow} ${s.photoMetaResponses}`}>
-              Отклики: {responsesCount}
-            </div>
-          </div>
-        </div>
-
-        {/* Правая часть: контент */}
-        <div className={s.taskCardContent}>
+        {/* Заголовок + описание (описание не должно уходить ниже фото) */}
+        <div className={s.fosterMain}>
           <h3 className={s.cardTitle}>{task.title}</h3>
-          <p className={s.cardDescription}>{task.description}</p>
-
-          {/* компетенции (если появятся у передержки) */}
-          {task.competencies.length ? (
-            <div className={s.cardDetails}>
-              <div className={s.cardDetailGroup}>
-                <span className={s.detailLabel}>Компетенции:</span>
-                {task.competencies.map((c) => (
-                  <span key={c} className={s.tag}>
-                    {c}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
+          <p className={s.fosterDescription}>{task.description}</p>
         </div>
+
+        {/* Район (под фото) */}
+        <div className={s.fosterDistrict}>
+          <span className={s.fosterMetaLabel}>Район:</span>
+          <span className={s.tag}>{task.district || "—"}</span>
+        </div>
+
+        {/* Дата (под районом, под фото) */}
+        <div className={s.fosterDate}>
+          <span className={s.fosterMetaLabel}>Дата:</span>
+          <span className={s.fosterDateValue}>{formatTimeRange(task)}</span>
+        </div>
+
+        {/* Отклики (на уровне даты, но в правой колонке — не выйдет правее описания) */}
+        <div className={s.fosterResponses}>Отклики: {responsesCount}</div>
 
         {/* карандаш только для куратора */}
         {mode === "curator" ? (
@@ -102,7 +87,7 @@ export function TaskCard({
             aria-label="Редактировать"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828zM3 17a1 1 0 001 1h12a1 1 0 001-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 00-1 1v10z" />
+              <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
             </svg>
           </button>
         ) : null}
@@ -110,11 +95,10 @@ export function TaskCard({
     );
   }
 
-  // ====== CARD: обычная задача (как было) ======
+  // ====== CARD: обычная задача ======
   return (
     <div className={s.taskCard}>
       <img src={img} alt="Фото" className={s.taskCardImage} />
-
       <div className={s.taskCardContent}>
         <h3 className={s.cardTitle}>{task.title}</h3>
         <p className={s.cardDescription}>{task.description}</p>
@@ -138,7 +122,8 @@ export function TaskCard({
         </div>
 
         <div className={s.cardFooter}>
-          <span>{formatTimeRange(task)}</span> <br />
+          <span>{formatTimeRange(task)}</span>
+          <br />
           <span>Отклики: {responsesCount}</span>
         </div>
       </div>
@@ -146,7 +131,7 @@ export function TaskCard({
       {mode === "curator" ? (
         <button className={s.cardEditBtn} type="button" onClick={onEdit} aria-label="Редактировать">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828zM3 17a1 1 0 001 1h12a1 1 0 001-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 00-1 1v10z" />
+            <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
           </svg>
         </button>
       ) : null}

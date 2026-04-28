@@ -287,6 +287,12 @@
   margin-top: 34px;
 }
 
+.deleteRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px; /* такой же отступ как gap между "Отменить" и "Сохранить" */
+}
+
 .actionBtn {
   display: block;
   width: 100%;
