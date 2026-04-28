@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./onboarding.module.css";
-
 import { LandingPage } from "@/src/components/landing/LandingPage";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { getAccessToken } from "@/src/lib/tokenStorage";
@@ -47,7 +46,7 @@ export default function OnboardingPage() {
       {
         title: "Общайтесь с командой",
         description:
-          "Для каждой задачи создается отдельный чат с куратором и\nисполнителями. Здесь можно обсудить детали и\nкоординировать совместную работу. ",
+          "Для каждой задачи создается отдельный чат с куратором и\nисполнителями. Здесь можно обсудить детали и\nкоординировать совместную работу.",
         targetId: "nav-chat",
       },
       {
@@ -84,7 +83,6 @@ export default function OnboardingPage() {
         router.replace("/login");
         return;
       }
-
       if (isOnboardingDone(profile.userId)) {
         router.replace("/profile");
         return;
@@ -102,17 +100,17 @@ export default function OnboardingPage() {
 
     const update = () => {
       const el = document.getElementById(targetId);
-      const tooltipEl = tooltipRef.current;
+      const tt = tooltipRef.current;
 
-      if (!el || !tooltipEl) {
+      if (!el || !tt) {
         setHighlightRect(null);
         setTooltipPos(null);
         return;
       }
 
       const r = el.getBoundingClientRect();
-
       const pad = 8;
+
       setHighlightRect({
         top: r.top - pad,
         left: r.left - pad,
@@ -120,16 +118,15 @@ export default function OnboardingPage() {
         height: r.height + pad * 2,
       });
 
-      const tooltipWidth = tooltipEl.offsetWidth || 540;
+      const tooltipWidth = tt.offsetWidth || 540;
       const leftRaw = r.left + r.width / 2 - tooltipWidth / 2;
       const left = clamp(leftRaw, 12, window.innerWidth - tooltipWidth - 12);
-
       const top = r.bottom + 16;
+
       setTooltipPos({ top, left });
     };
 
     const t = window.setTimeout(update, 0);
-
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
 
@@ -180,11 +177,8 @@ export default function OnboardingPage() {
 
   const tooltipStyle = tooltipPos ? { top: tooltipPos.top, left: tooltipPos.left } : undefined;
 
-  // Шаг 1: делаем заголовок без переносов
   const titleClass =
-    stepIdx === 0
-      ? `${styles.tooltipTitle} ${styles.tooltipTitleNoWrap}`
-      : styles.tooltipTitle;
+    stepIdx === 0 ? `${styles.tooltipTitle} ${styles.tooltipTitleNoWrap}` : styles.tooltipTitle;
 
   return (
     <div className={styles.modalRoot}>
