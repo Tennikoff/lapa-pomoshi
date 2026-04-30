@@ -186,7 +186,7 @@ export default function TasksPage() {
     [filteredSorted]
   );
 
-  const onCreateTask = () => alert("Форма создания задачи будет добавлена позже");
+  const onCreateTask = () => router.push("/tasks/new");
   const onCreateFoster = () => router.push("/tasks/foster/new");
 
   if (loading) {
