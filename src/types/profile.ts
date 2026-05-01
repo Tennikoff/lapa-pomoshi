@@ -3,13 +3,33 @@ export type ProfileDto = {
   email: string;
   name: string;
 
-  // было number (1/2), по swagger role в register строка,
-  // что возвращает profile — уточним по реальному ответу
+  phone?: string | null;
+  website?: string | null;
+  donationDetails?: string | null;
+  constantNeeds?: string[];
+  latestPost?: unknown | null;
+
+  // по факту приходит строкой: "Организация" | "Волонтёр"
+  // но на всякий случай оставим number/string, т.к. в JWT встречается "2"
   role: string | number;
 
   age: number | null;
   description: string | null;
+  location: string | null;
+  photoUrl: string | null;
+
+  countTasks: number;
+
+  competencies: string[];
+  preferences: string[];
+  availabilities: string[];
+
+  latestComments: unknown[]; // пока не типизируем, позже по try it out
+  latestAnimals: unknown[];  // пока не типизируем, позже по try it out
+
   sumRating: number;
   countRating: number;
-  photoUrl: string | null;
+  averageRating: number;
+
+  createdAt: string;
 };

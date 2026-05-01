@@ -6,17 +6,17 @@ import { useRouter } from "next/navigation";
 import s from "./tasks.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
-import { COMPETENCIES, DISTRICTS, PREF_ANIMALS } from "@/src/lib/constants/volunteerOptions";
 import { isOrgRole } from "@/src/lib/role";
 
-import type { ProfileDto } from "@/src/types/profile";
-import type { Task } from "@/src/types/task";
-import type { Animal } from "@/src/types/animal";
+import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
+import { helpTasksApi } from "@/src/lib/api/helpTasks";
 
-import { TASKS_CHANGED_EVENT, listTasks, listTasksByCreator } from "@/src/lib/storage/tasks";
-import { getAnimal } from "@/src/lib/storage/animals";
+import type { ProfileDto } from "@/src/types/profile";
+import type { HelpTaskDto, HelpTasksListDto } from "@/src/types/helpTask";
 
 import { TaskCard } from "./_components/TaskCard";
+
+const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 
 type OpenDrop = null | "animal" | "competencies" | "location" | "sort";
 type SortMode = "alpha" | "created" | "due";
@@ -35,20 +35,8 @@ function sortLabel(mode: SortMode) {
   return "По дате выполнения";
 }
 
-function mapSpeciesToPref(species: string | null | undefined) {
-  const x = (species || "").trim().toLowerCase();
-  if (!x) return null;
-
-  if (x.includes("соб")) return "Собаки";
-  if (x.includes("кош")) return "Кошки";
-  if (x.includes("рыб")) return "Рыбы";
-  if (x.includes("крол")) return "Кролики";
-  if (x.includes("птиц")) return "Птицы";
-  if (x.includes("грыз")) return "Грызуны";
-  if (x.includes("хор")) return "Хорьки";
-  if (x.includes("репт")) return "Рептилии";
-
-  return null;
+function loc0OrEmpty(t: HelpTaskDto) {
+  return t.locations?.[0] ?? "";
 }
 
 export default function TasksPage() {
@@ -56,46 +44,88 @@ export default function TasksPage() {
 
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
-  const [items, setItems] = useState<Task[]>([]);
 
   const [open, setOpen] = useState<OpenDrop>(null);
 
+  // dictionaries
+  const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
+  const [competenciesDict, setCompetenciesDict] = useState<DictionaryItemDto[]>([]);
+  const [preferencesDict, setPreferencesDict] = useState<DictionaryItemDto[]>([]);
+
+  // filters
   const [animalTypes, setAnimalTypes] = useState<string[]>([]);
   const [competencies, setCompetencies] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
-
   const [query, setQuery] = useState("");
+
   const [sort, setSort] = useState<SortMode>("due");
 
+  // data
+  const [items, setItems] = useState<HelpTaskDto[]>([]);
+
+  const org = isOrgRole(profile?.role);
+  const mode: "curator" | "volunteer" = org ? "curator" : "volunteer";
+
+  const allLocationNames = useMemo(() => locationsDict.map((x) => x.name), [locationsDict]);
+
+  const load = async (p: ProfileDto, opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
+    try {
+      const isOrg = isOrgRole(p.role);
+
+      if (isOrg) {
+        const res = (await helpTasksApi.myCreated(0, 50)) as HelpTasksListDto;
+        setItems(res.tasks);
+        return;
+      }
+
+      // VOLUNTEER: feed
+      // Мы выяснили, что feed начинает отдавать задачи, если передать Locations
+      const locs = districts.length ? districts : allLocationNames;
+
+      const res = (await helpTasksApi.feed({
+        offset: 0,
+        limit: 50,
+        search: query.trim() || undefined,
+        locations: locs.length ? locs : undefined,
+        competencies: competencies.length ? competencies : undefined,
+        preferences: animalTypes.length ? animalTypes : undefined,
+      })) as HelpTasksListDto;
+
+      setItems(res.tasks);
+    } finally {
+      if (!opts?.silent) setLoading(false);
+    }
+  };
+
+  // init
   useEffect(() => {
     (async () => {
+      setLoading(true);
       try {
         const me = await fetchCurrentProfile();
         setProfile(me);
         if (!me) return;
 
-        const org = isOrgRole(me.role);
-        const list = org ? listTasksByCreator(me.userId) : listTasks();
-        setItems(list);
+        const [locs, comps, prefs] = await Promise.all([
+          dictionariesApi.locations(),
+          dictionariesApi.competencies(),
+          dictionariesApi.preferences(),
+        ]);
+
+        setLocationsDict(locs);
+        setCompetenciesDict(comps);
+        setPreferencesDict(prefs);
+
+        await load(me, { silent: true });
       } finally {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!profile) return;
-
-    const onChanged = () => {
-      const org = isOrgRole(profile.role);
-      const list = org ? listTasksByCreator(profile.userId) : listTasks();
-      setItems(list);
-    };
-
-    window.addEventListener(TASKS_CHANGED_EVENT, onChanged);
-    return () => window.removeEventListener(TASKS_CHANGED_EVENT, onChanged);
-  }, [profile]);
-
+  // close dropdowns on outside click / esc
   useEffect(() => {
     if (!open) return;
 
@@ -118,46 +148,51 @@ export default function TasksPage() {
     };
   }, [open]);
 
-  const animalsById = useMemo(() => {
-    const map = new Map<string, Animal | null>();
-    for (const t of items) {
-      if (!t.animalId) continue;
-      if (map.has(t.animalId)) continue;
-      map.set(t.animalId, getAnimal(t.animalId));
-    }
-    return map;
-  }, [items]);
+  // 🔥 Авто-обновление после create/update/delete (мы диспатчим lp_help_tasks_changed)
+  useEffect(() => {
+    if (!profile) return;
+
+    const onChanged = () => {
+      load(profile, { silent: true });
+    };
+
+    window.addEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, districts, competencies, animalTypes, query, allLocationNames.length]);
+
+  // volunteer: reload when filters change (server side feed) with small debounce
+  useEffect(() => {
+    if (!profile) return;
+    if (isOrgRole(profile.role)) return;
+    if (!locationsDict.length) return;
+
+    const id = window.setTimeout(() => {
+      load(profile, { silent: true });
+    }, 250);
+
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, query, districts, competencies, animalTypes, locationsDict.length]);
 
   const filteredSorted = useMemo(() => {
+    // org: client-side filtering
     const out = items.filter((t) => {
-      const animal = t.animalId ? (animalsById.get(t.animalId) ?? null) : null;
-
-      if (animalTypes.length) {
-        const label = mapSpeciesToPref(animal?.species);
-        if (!label) return false;
-        if (!animalTypes.includes(label)) return false;
-      }
+      if (!org) return true;
 
       if (competencies.length) {
-        const ok = competencies.some((c) => t.competencies.includes(c));
+        const ok = competencies.some((c) => (t.competencies || []).includes(c));
         if (!ok) return false;
       }
 
       if (districts.length) {
-        if (!districts.includes(t.district)) return false;
+        const loc0 = loc0OrEmpty(t);
+        if (!districts.includes(loc0)) return false;
       }
 
       if (query.trim()) {
-        const hay = [
-          t.title,
-          t.description,
-          t.city,
-          t.district,
-          animal?.name ?? "",
-          animal?.species ?? "",
-          animal?.breed ?? "",
-        ].join(" ");
-
+        const animalName = t.animals?.[0]?.name ?? "";
+        const hay = [t.title, t.description, loc0OrEmpty(t), animalName].join(" ");
         if (!includesCI(hay, query.trim())) return false;
       }
 
@@ -165,27 +200,23 @@ export default function TasksPage() {
     });
 
     const sorted = [...out].sort((a, b) => {
-      if (sort === "alpha") {
-        return a.title.localeCompare(b.title, "ru", { sensitivity: "base" });
-      }
-
-      if (sort === "created") {
-        // новые сверху
-        return b.createdAt.localeCompare(a.createdAt);
-      }
-
-      // due: по startAt (или createdAt, если startAt нет)
-      const da = a.startAt ?? a.createdAt;
-      const db = b.startAt ?? b.createdAt;
-      return da.localeCompare(db);
+      if (sort === "alpha") return a.title.localeCompare(b.title, "ru", { sensitivity: "base" });
+      if (sort === "created") return (b.createdAt || "").localeCompare(a.createdAt || "");
+      const da = a.startedAt ?? a.createdAt;
+      const db = b.startedAt ?? b.createdAt;
+      return String(da).localeCompare(String(db));
     });
 
     return sorted;
-  }, [items, animalsById, animalTypes, competencies, districts, query, sort]);
+  }, [items, org, competencies, districts, query, sort]);
 
-  const tasksList = useMemo(() => filteredSorted.filter((t) => t.kind === "task"), [filteredSorted]);
+  const tasksList = useMemo(
+    () => filteredSorted.filter((x) => !x.isTaskOverexposure),
+    [filteredSorted]
+  );
+
   const fostersList = useMemo(
-    () => filteredSorted.filter((t) => t.kind === "foster"),
+    () => filteredSorted.filter((x) => x.isTaskOverexposure),
     [filteredSorted]
   );
 
@@ -212,13 +243,9 @@ export default function TasksPage() {
     );
   }
 
-  const org = isOrgRole(profile.role);
-  const mode: "curator" | "volunteer" = org ? "curator" : "volunteer";
-
   return (
     <div className={`${s.page} ${mode === "volunteer" ? s.pageVolunteer : ""}`}>
       <div className={s.container}>
-        {/* Панель управления */}
         <div className={s.controlsPanel} data-drop-root>
           {mode === "curator" ? (
             <>
@@ -230,18 +257,15 @@ export default function TasksPage() {
               </button>
             </>
           ) : (
-            <>
-              {/* Волонтёр: поиск в этой же строке */}
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Поиск..."
-                className={s.searchInput}
-              />
-            </>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск..."
+              className={s.searchInput}
+            />
           )}
 
-          {/* Вид животного */}
+          {/* Вид животного (Preferences) */}
           <div className={s.dropWrap}>
             <button
               className={`${s.btn} ${s.btnLavender} ${s.dropBtn}`}
@@ -254,15 +278,15 @@ export default function TasksPage() {
             {open === "animal" ? (
               <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: вид животного">
                 <ul className={s.dropList}>
-                  {(PREF_ANIMALS as unknown as string[]).map((label) => (
-                    <li key={label}>
+                  {preferencesDict.map((x) => (
+                    <li key={x.id}>
                       <label className={s.dropItem}>
                         <input
                           type="checkbox"
-                          checked={animalTypes.includes(label)}
-                          onChange={() => setAnimalTypes((p) => toggle(p, label))}
+                          checked={animalTypes.includes(x.name)}
+                          onChange={() => setAnimalTypes((p) => toggle(p, x.name))}
                         />
-                        <span>{label}</span>
+                        <span>{x.name}</span>
                       </label>
                     </li>
                   ))}
@@ -284,15 +308,15 @@ export default function TasksPage() {
             {open === "competencies" ? (
               <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: компетенции">
                 <ul className={s.dropList}>
-                  {(COMPETENCIES as unknown as string[]).map((label) => (
-                    <li key={label}>
+                  {competenciesDict.map((x) => (
+                    <li key={x.id}>
                       <label className={s.dropItem}>
                         <input
                           type="checkbox"
-                          checked={competencies.includes(label)}
-                          onChange={() => setCompetencies((p) => toggle(p, label))}
+                          checked={competencies.includes(x.name)}
+                          onChange={() => setCompetencies((p) => toggle(p, x.name))}
                         />
-                        <span>{label}</span>
+                        <span>{x.name}</span>
                       </label>
                     </li>
                   ))}
@@ -314,15 +338,15 @@ export default function TasksPage() {
             {open === "location" ? (
               <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: локация">
                 <ul className={s.dropList}>
-                  {(DISTRICTS as unknown as string[]).map((label) => (
-                    <li key={label}>
+                  {locationsDict.map((x) => (
+                    <li key={x.id}>
                       <label className={s.dropItem}>
                         <input
                           type="checkbox"
-                          checked={districts.includes(label)}
-                          onChange={() => setDistricts((p) => toggle(p, label))}
+                          checked={districts.includes(x.name)}
+                          onChange={() => setDistricts((p) => toggle(p, x.name))}
                         />
-                        <span>{label}</span>
+                        <span>{x.name}</span>
                       </label>
                     </li>
                   ))}
@@ -331,131 +355,62 @@ export default function TasksPage() {
             ) : null}
           </div>
 
-          {/* Волонтёр: сортировка в той же строке справа */}
-          {mode === "volunteer" ? (
-            <div className={s.sortWrap}>
-              <div
-                className={s.sortControl}
-                role="button"
-                tabIndex={0}
-                onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
-              >
-                Сортировка: {sortLabel(sort)} ▼
-              </div>
-
-              {open === "sort" ? (
-                <div className={s.sortMenuWhite} role="dialog" aria-label="Сортировка">
-                  <ul className={s.sortList}>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "alpha" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("alpha");
-                          setOpen(null);
-                        }}
-                      >
-                        По алфавиту
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "created" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("created");
-                          setOpen(null);
-                        }}
-                      >
-                        По дате создания
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "due" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("due");
-                          setOpen(null);
-                        }}
-                      >
-                        По дате выполнения
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-              ) : null}
+          {/* сортировка */}
+          <div className={s.sortWrap}>
+            <div
+              className={s.sortControl}
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
+            >
+              Сортировка: {sortLabel(sort)} ▼
             </div>
-          ) : null}
+
+            {open === "sort" ? (
+              <div className={s.sortMenuWhite} role="dialog" aria-label="Сортировка">
+                <ul className={s.sortList}>
+                  <li>
+                    <button
+                      type="button"
+                      className={`${s.sortBtn} ${sort === "alpha" ? s.sortBtnActive : ""}`}
+                      onClick={() => {
+                        setSort("alpha");
+                        setOpen(null);
+                      }}
+                    >
+                      По алфавиту
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className={`${s.sortBtn} ${sort === "created" ? s.sortBtnActive : ""}`}
+                      onClick={() => {
+                        setSort("created");
+                        setOpen(null);
+                      }}
+                    >
+                      По дате создания
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className={`${s.sortBtn} ${sort === "due" ? s.sortBtnActive : ""}`}
+                      onClick={() => {
+                        setSort("due");
+                        setOpen(null);
+                      }}
+                    >
+                      По дате выполнения
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        {/* Куратор: поиск+сортировка второй строкой */}
-        {mode === "curator" ? (
-          <div className={s.searchRow} data-drop-root>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск..."
-              className={s.searchInput}
-            />
-
-            <div className={s.sortWrap}>
-              <div
-                className={s.sortControl}
-                role="button"
-                tabIndex={0}
-                onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
-              >
-                Сортировка: {sortLabel(sort)} ▼
-              </div>
-
-              {open === "sort" ? (
-                <div className={s.sortMenuWhite} role="dialog" aria-label="Сортировка">
-                  <ul className={s.sortList}>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "alpha" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("alpha");
-                          setOpen(null);
-                        }}
-                      >
-                        По алфавиту
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "created" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("created");
-                          setOpen(null);
-                        }}
-                      >
-                        По дате создания
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "due" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("due");
-                          setOpen(null);
-                        }}
-                      >
-                        По дате выполнения
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Задачи */}
         <section className={s.tasksSection}>
           <h2 className={s.sectionTitle}>{org ? "Мои задачи" : "Задачи"}</h2>
 
@@ -467,7 +422,6 @@ export default function TasksPage() {
                 <TaskCard
                   key={t.id}
                   task={t}
-                  animal={t.animalId ? animalsById.get(t.animalId) ?? null : null}
                   onEdit={() => router.push(`/tasks/${t.id}`)}
                   mode={mode}
                 />
@@ -476,7 +430,6 @@ export default function TasksPage() {
           )}
         </section>
 
-        {/* Передержки */}
         <section className={s.tasksSection}>
           <h2 className={s.sectionTitle}>{org ? "Мои передержки" : "Передержки"}</h2>
 
@@ -488,7 +441,6 @@ export default function TasksPage() {
                 <TaskCard
                   key={t.id}
                   task={t}
-                  animal={t.animalId ? animalsById.get(t.animalId) ?? null : null}
                   onEdit={() => router.push(`/tasks/${t.id}`)}
                   mode={mode}
                 />

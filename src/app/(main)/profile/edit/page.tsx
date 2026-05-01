@@ -6,6 +6,7 @@ import s from "./editProfile.module.css";
 
 import type { ProfileDto } from "@/src/types/profile";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
+import { isOrgRole } from "@/src/lib/role";
 
 import {
   AVAILABILITY,
@@ -18,17 +19,17 @@ import {
 
 import { ORG_NEEDS } from "@/src/lib/constants/orgOptions";
 
-import { getVolunteerExtra, setVolunteerExtra } from "@/src/lib/storage/volunteerExtra";
-import type { VolunteerExtra } from "@/src/lib/storage/volunteerExtra";
-
-import { getOrgExtra, setOrgExtra } from "@/src/lib/storage/orgExtra";
-import type { OrgExtra } from "@/src/lib/storage/orgExtra";
+import {
+  getVolunteerExtra,
+  setVolunteerExtra,
+  type VolunteerExtra,
+} from "@/src/lib/storage/volunteerExtra";
 
 import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
-
 import { getUserAvatar, setUserAvatar } from "@/src/lib/storage/userAvatar";
 
-import { isOrgRole } from "@/src/lib/role";
+import { organizationsApi } from "@/src/lib/api/organizations";
+import { usersApi } from "@/src/lib/api/users";
 
 function toggle(list: string[], value: string) {
   return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
@@ -47,7 +48,13 @@ function TagCheckbox({
 }) {
   return (
     <div className={s.tagItem}>
-      <input id={id} type="checkbox" className={s.tagInput} checked={checked} onChange={onChange} />
+      <input
+        id={id}
+        type="checkbox"
+        className={s.tagInput}
+        checked={checked}
+        onChange={onChange}
+      />
       <label htmlFor={id} className={s.tagLabel}>
         {label}
       </label>
@@ -97,21 +104,24 @@ export default function EditProfilePage() {
         const org = isOrgRole(p.role);
 
         if (org) {
-          const extra = getOrgExtra(p.userId);
-          setOrgAbout(extra?.about ?? p.description ?? "");
-          setPhone(extra?.phone ?? "");
-          setWebsite(extra?.website ?? "");
-          setNeeds(extra?.needs ?? []);
-          setOrgDistricts(extra?.districts ?? []);
-          setDonationRequisites(extra?.donationRequisites ?? "");
+          // теперь берём всё из API-профиля (он смержен в fetchCurrentProfile)
+          setOrgAbout(p.description ?? "");
+          setPhone(p.phone ?? "");
+          setWebsite(p.website ?? "");
+          setNeeds(p.constantNeeds ?? []);
+          setDonationRequisites(p.donationDetails ?? "");
+          setOrgDistricts(p.location ? [p.location] : []);
         } else {
+          // about берём из API (чтобы не зависеть от localStorage)
+          setAbout(p.description ?? "");
+
+          // массивы пока остаются localStorage (API их не сохраняет)
           const extra = getVolunteerExtra(p.userId);
-          setAbout(extra?.about ?? p.description ?? "");
           setCompetencies(extra?.competencies ?? []);
           setAvailability(extra?.availability ?? []);
           setPrefAnimals(extra?.prefAnimals ?? []);
           setPrefInteraction(extra?.prefInteraction ?? []);
-          setDistricts(extra?.districts ?? []);
+          setDistricts(extra?.districts ?? (p.location ? [p.location] : []));
         }
       } finally {
         setLoading(false);
@@ -119,6 +129,7 @@ export default function EditProfilePage() {
     })();
   }, []);
 
+  // close action sheet (как у тебя было)
   useEffect(() => {
     if (!sheetOpen) return;
 
@@ -151,41 +162,6 @@ export default function EditProfilePage() {
     };
   }, [sheetOpen]);
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile) return;
-
-    const org = isOrgRole(profile.role);
-
-    if (org) {
-      const payload: OrgExtra = {
-        about: orgAbout,
-        phone,
-        website,
-        needs,
-        city,
-        districts: orgDistricts,
-        donationRequisites,
-      };
-      setOrgExtra(profile.userId, payload);
-      router.push("/profile");
-      return;
-    }
-
-    const payload: VolunteerExtra = {
-      about,
-      competencies,
-      availability,
-      prefAnimals,
-      prefInteraction,
-      city,
-      districts,
-    };
-
-    setVolunteerExtra(profile.userId, payload);
-    router.push("/profile");
-  };
-
   const onPickFromGallery = () => {
     setSheetOpen(false);
     galleryInputRef.current?.click();
@@ -208,6 +184,53 @@ export default function EditProfilePage() {
     const dataUrl = await fileToDataUrl(file);
     setUserAvatar(profile.userId, dataUrl);
     setAvatarUrlState(dataUrl);
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+
+    const org = isOrgRole(profile.role);
+
+    if (org) {
+      // ✅ API: organization profile
+      await organizationsApi.patchProfile({
+        description: orgAbout.trim() || null,
+        phone: phone.trim() || null,
+        website: website.trim() || null,
+        donationDetails: donationRequisites.trim() || null,
+        constantNeeds: needs,
+        location: orgDistricts[0] ?? null,
+      });
+
+      router.push("/profile");
+      return;
+    }
+
+    // ✅ API: users profile (сохраняем то, что бэк реально принимает)
+    await usersApi.patchProfile({
+      description: about.trim() || null,
+      location: districts[0] ?? null,
+
+      // эти поля бэк сейчас игнорирует, но пусть уходят — не мешает
+      competencies,
+      preferences: prefAnimals,
+      availabilities: availability,
+    });
+
+    // ⚠️ Временно localStorage: массивы/предпочтения взаимодействия/районы
+    const payload: VolunteerExtra = {
+      about, // оставляем как раньше (чтобы не ломать текущее чтение в профиле)
+      competencies,
+      availability,
+      prefAnimals,
+      prefInteraction,
+      city,
+      districts,
+    };
+    setVolunteerExtra(profile.userId, payload);
+
+    router.push("/profile");
   };
 
   if (loading) {
@@ -251,7 +274,7 @@ export default function EditProfilePage() {
 
                 <div className={s.avatarEditButton}>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM2 18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5l-2 2v3H4V6h3l2-2H3a1 1 0 0 0-1 1v11z" />
+                    <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v11z" />
                   </svg>
                   <span>Сменить фото</span>
                 </div>
@@ -307,7 +330,7 @@ export default function EditProfilePage() {
             </div>
 
             <h1 className={s.name}>{profile.name ?? "Фамилия Имя"}</h1>
-            <p className={s.role}>{org ? "Куратор/ Организация" : "Волонтёр"}</p>
+            <p className={s.role}>{org ? "Куратор / Организация" : "Волонтёр"}</p>
           </div>
 
           <section className={s.section}>
@@ -319,7 +342,7 @@ export default function EditProfilePage() {
               placeholder={
                 org
                   ? "Приют для бездомных животных. Помогаем с 2015 года."
-                  : "Расскажите о себе: опыт, навыки, почему хотите помогать животным..."
+                  : "Расскажите о себе: опыт, навыки, почему хотите помогать животным.."
               }
             />
           </section>
@@ -328,6 +351,7 @@ export default function EditProfilePage() {
             <>
               <section className={s.section}>
                 <h2 className={s.sectionTitle}>Контактные данные</h2>
+
                 <div className={s.field}>
                   <label className={s.fieldLabel}>Телефон</label>
                   <input
@@ -367,6 +391,7 @@ export default function EditProfilePage() {
               <section className={s.section}>
                 <h2 className={s.sectionTitle}>Локация</h2>
                 <p className={s.city}>Город: {city}</p>
+
                 <div className={s.tags}>
                   {DISTRICTS.map((label) => (
                     <TagCheckbox
@@ -455,6 +480,7 @@ export default function EditProfilePage() {
               <section className={s.section}>
                 <h2 className={s.sectionTitle}>Локация</h2>
                 <p className={s.city}>Город: {city}</p>
+
                 <div className={s.tags}>
                   {DISTRICTS.map((label) => (
                     <TagCheckbox

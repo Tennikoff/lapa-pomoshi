@@ -5,22 +5,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar } from "lucide-react";
 
-import overlay from "../../../@modal/modalOverlay.module.css";
+import overlay from "@/src/app/(main)/@modal/modalOverlay.module.css";
 import f from "./fosterNew.module.css";
-
-/* стили формы создания животного (как /animals/new) */
 import a from "@/src/app/(main)/animals/new/animalNew.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
-import { CITY_DEFAULT, DISTRICTS } from "@/src/lib/constants/volunteerOptions";
-import {
-  ANIMALS_CHANGED_EVENT,
-  createAnimal,
-  listAnimals,
-} from "@/src/lib/storage/animals";
-import type { Animal } from "@/src/types/animal";
-import { createTask } from "@/src/lib/storage/tasks";
-import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
+import { isOrgRole } from "@/src/lib/role";
+
+import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
+import { animalsApi, type AnimalDto, type AnimalListItemDto } from "@/src/lib/api/animals";
+import { helpTasksApi } from "@/src/lib/api/helpTasks";
+
+const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 
 function toIsoDateStart(value: string): string | null {
   if (!value) return null;
@@ -33,21 +29,23 @@ export default function FosterNewPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [meUserId, setMeUserId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // животные
-  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
+
+  // animals
+  const [animals, setAnimals] = useState<AnimalListItemDto[]>([]);
   const [animalsOpen, setAnimalsOpen] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
+  const [selectedAnimalFull, setSelectedAnimalFull] = useState<AnimalDto | null>(null);
 
-  // создание животного (экран)
+  // create animal screen
   const [createAnimalOpen, setCreateAnimalOpen] = useState(false);
   const animalFileRef = useRef<HTMLInputElement | null>(null);
   const [animalPreviewUrl, setAnimalPreviewUrl] = useState<string | null>(null);
-  const [animalPhotoDataUrl, setAnimalPhotoDataUrl] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
-  const [anSpecies, setAnSpecies] = useState("");
+  const [anType, setAnType] = useState("");
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
   const [anHistory, setAnHistory] = useState("");
@@ -56,7 +54,7 @@ export default function FosterNewPage() {
   const [anNeeds, setAnNeeds] = useState("");
   const [animalSubmitting, setAnimalSubmitting] = useState(false);
 
-  // поля передержки
+  // foster fields
   const [title, setTitle] = useState("Запрос передержки");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -65,37 +63,6 @@ export default function FosterNewPage() {
 
   const startRef = useRef<HTMLInputElement | null>(null);
   const endRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const me = await fetchCurrentProfile();
-        if (!me) {
-          router.replace("/login");
-          return;
-        }
-        setMeUserId(me.userId);
-        setAnimals(listAnimals(me.userId));
-
-        setSelectedAnimalId(null);
-        setAnimalsOpen(false);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [router]);
-
-  useEffect(() => {
-    if (!meUserId) return;
-    const onChanged = () => setAnimals(listAnimals(meUserId));
-    window.addEventListener(ANIMALS_CHANGED_EVENT, onChanged);
-    return () => window.removeEventListener(ANIMALS_CHANGED_EVENT, onChanged);
-  }, [meUserId]);
-
-  const selectedAnimal = useMemo(
-    () => animals.find((x) => x.id === selectedAnimalId) ?? null,
-    [animals, selectedAnimalId]
-  );
 
   const openPicker = (ref: React.RefObject<HTMLInputElement | null>) => {
     const el = ref.current;
@@ -106,48 +73,68 @@ export default function FosterNewPage() {
     else el.focus();
   };
 
-  const onCancel = () => router.back();
+  const loadAnimals = async () => {
+    const res = await animalsApi.my(0, 50);
+    setAnimals(res.animals);
+  };
 
-  const onSubmitFoster: React.FormEventHandler<HTMLFormElement> = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const me = await fetchCurrentProfile();
+        if (!me) {
+          router.replace("/login");
+          return;
+        }
+        if (!isOrgRole(me.role)) {
+          alert("Запрос передержки доступен только куратору/организации");
+          router.replace("/tasks");
+          return;
+        }
 
-    const me = await fetchCurrentProfile();
-    if (!me) {
-      router.replace("/login");
+        const locs = await dictionariesApi.locations();
+        setLocationsDict(locs);
+
+        await loadAnimals();
+
+        setAnimalsOpen(false);
+        setSelectedAnimalId(null);
+        setSelectedAnimalFull(null);
+
+        setTitle("Запрос передержки");
+        setDescription("");
+        setStartDate("");
+        setEndDate("");
+        setDistrict("");
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!selectedAnimalId) {
+      setSelectedAnimalFull(null);
       return;
     }
+    (async () => {
+      try {
+        const full = await animalsApi.getById(selectedAnimalId);
+        setSelectedAnimalFull(full);
+      } catch {
+        setSelectedAnimalFull(null);
+      }
+    })();
+  }, [selectedAnimalId]);
 
-    if (!selectedAnimalId) return alert("Выберите животное");
-    if (!title.trim()) return alert("Заполните заголовок задачи");
-    if (!description.trim()) return alert("Заполните описание");
-    if (!startDate || !endDate) return alert("Укажите Дату начала и Дату окончания");
-    if (!district) return alert("Выберите район");
-
-    const startAt = toIsoDateStart(startDate);
-    const endAt = toIsoDateStart(endDate);
-    if (!startAt || !endAt) return alert("Некорректная дата");
-
-    createTask({
-      creatorUserId: me.userId,
-      kind: "foster",
-      title: title.trim(),
-      description: description.trim(),
-      competencies: [],
-      city: CITY_DEFAULT,
-      district,
-      startAt,
-      endAt,
-      animalId: selectedAnimalId,
-    });
-
-    router.back();
-  };
+  const onCancel = () => router.back();
 
   const resetAnimalDraft = () => {
     setAnimalPreviewUrl(null);
-    setAnimalPhotoDataUrl(null);
     setAnName("");
-    setAnSpecies("");
+    setAnType("");
     setAnBreed("");
     setAnAge("");
     setAnHistory("");
@@ -158,56 +145,92 @@ export default function FosterNewPage() {
 
   const onOpenCreateAnimal = () => {
     resetAnimalDraft();
-    setCreateAnimalOpen(true); // скрываем передержку, показываем создание
+    setCreateAnimalOpen(true);
   };
 
   const onPickAnimalPhoto = () => animalFileRef.current?.click();
 
-  const onAnimalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onAnimalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const objectUrl = URL.createObjectURL(file);
     setAnimalPreviewUrl(objectUrl);
-
-    const dataUrl = await fileToDataUrl(file);
-    setAnimalPhotoDataUrl(dataUrl);
   };
 
-  const onCancelCreateAnimal = () => {
-    setCreateAnimalOpen(false); // вернуть окно передержки
-  };
+  const onCancelCreateAnimal = () => setCreateAnimalOpen(false);
 
   const onSaveAnimal = async () => {
     if (animalSubmitting) return;
-    if (!meUserId) return;
 
-    const species = anSpecies.trim();
-    if (!species) return alert("Выберите вид животного");
+    const animalType = anType.trim();
+    const name = anName.trim();
+
+    if (!animalType) return alert("Выберите тип животного");
+    if (!name) return alert("Укажите имя животного");
 
     setAnimalSubmitting(true);
     try {
-      const created = createAnimal({
-        ownerUserId: meUserId,
-        photoUrl: animalPhotoDataUrl,
-        name: anName.trim(),
-        species,
-        breed: anBreed.trim(),
-        age: anAge.trim(),
-        history: anHistory.trim(),
-        health: anHealth.trim(),
-        character: anCharacter.trim(),
-        needs: anNeeds.trim(),
+      const created = await animalsApi.create({
+        animalType,
+        name,
+        breed: anBreed.trim() || null,
+        age: anAge.trim() || null,
+        health: anHealth.trim() || null,
+        character: anCharacter.trim() || null,
+        specialNeeds: anNeeds.trim() || null,
       });
 
-      // обновляем список/выбор и возвращаемся к передержке
-      setAnimals(listAnimals(meUserId));
+      await loadAnimals();
       setSelectedAnimalId(created.id);
       setAnimalsOpen(true);
-
       setCreateAnimalOpen(false);
     } finally {
       setAnimalSubmitting(false);
+    }
+  };
+
+  const onSubmitFoster: React.FormEventHandler<HTMLFormElement> = async (e) => {
+    e.preventDefault();
+    if (saving) return;
+
+    const me = await fetchCurrentProfile();
+    if (!me) {
+      router.replace("/login");
+      return;
+    }
+    if (!isOrgRole(me.role)) {
+      alert("Запрос передержки доступен только куратору/организации");
+      return;
+    }
+
+    if (!selectedAnimalId) return alert("Выберите животное");
+    if (!title.trim()) return alert("Заполните заголовок");
+    if (!description.trim()) return alert("Заполните описание");
+    if (!startDate || !endDate) return alert("Укажите дату начала и дату окончания");
+    if (!district) return alert("Выберите район");
+
+    const startedAt = toIsoDateStart(startDate);
+    const endedAt = toIsoDateStart(endDate);
+    if (!startedAt || !endedAt) return alert("Некорректная дата");
+
+    setSaving(true);
+    try {
+      await helpTasksApi.create({
+        title: title.trim(),
+        description: description.trim(),
+        requiredVolunteers: 1,
+        isTaskOverexposure: true,
+        startedAt,
+        endedAt,
+        animalIds: [selectedAnimalId],
+        competencies: [],
+        locations: [district],
+      });
+
+      window.dispatchEvent(new Event(HELP_TASKS_CHANGED_EVENT));
+      router.back();
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -220,15 +243,13 @@ export default function FosterNewPage() {
         style={{ "--modal-dim": "0.6" } as CSSProperties}
       >
         <div className={overlay.content}>
-          <div className={overlay.scrollBox} style={{ color: "#fff" }}>
-            Загрузка...
-          </div>
+          <div className={overlay.scrollBox} />
         </div>
       </div>
     );
   }
 
-  // ====== ЭКРАН СОЗДАНИЯ ЖИВОТНОГО (вместо окна передержки) ======
+  // ===== экран создания животного =====
   if (createAnimalOpen) {
     return (
       <div
@@ -240,12 +261,7 @@ export default function FosterNewPage() {
         <div className={overlay.content}>
           <div className={overlay.scrollBox}>
             <div className={a.formCard} style={{ margin: 0, position: "relative" }}>
-              <button
-                className={a.closeBtn}
-                type="button"
-                onClick={onCancelCreateAnimal}
-                aria-label="Закрыть"
-              >
+              <button className={a.closeBtn} type="button" onClick={onCancelCreateAnimal} aria-label="Закрыть">
                 ×
               </button>
 
@@ -254,12 +270,7 @@ export default function FosterNewPage() {
               <div className={a.field}>
                 <label className={a.label}>Фото</label>
                 <div className={a.photoRow}>
-                  <button
-                    type="button"
-                    className={a.photoUpload}
-                    onClick={onPickAnimalPhoto}
-                    aria-label="Загрузить фото"
-                  >
+                  <button type="button" className={a.photoUpload} onClick={onPickAnimalPhoto} aria-label="Загрузить фото">
                     {animalPreviewUrl ? (
                       <img className={a.photoPreview} src={animalPreviewUrl} alt="Превью фото" />
                     ) : (
@@ -285,117 +296,50 @@ export default function FosterNewPage() {
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-name">
-                  Имя (если есть)
-                </label>
-                <input
-                  id="an-name"
-                  className={a.input}
-                  value={anName}
-                  onChange={(e) => setAnName(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-name">Имя*</label>
+                <input id="an-name" className={a.input} value={anName} onChange={(e) => setAnName(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-species">
-                  Вид животного*
-                </label>
-                <input
-                  id="an-species"
-                  className={a.input}
-                  value={anSpecies}
-                  onChange={(e) => setAnSpecies(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-type">Тип животного*</label>
+                <input id="an-type" className={a.input} value={anType} onChange={(e) => setAnType(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-breed">
-                  Порода
-                </label>
-                <input
-                  id="an-breed"
-                  className={a.input}
-                  value={anBreed}
-                  onChange={(e) => setAnBreed(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-breed">Порода</label>
+                <input id="an-breed" className={a.input} value={anBreed} onChange={(e) => setAnBreed(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-age">
-                  Возраст
-                </label>
-                <input
-                  id="an-age"
-                  className={a.input}
-                  value={anAge}
-                  onChange={(e) => setAnAge(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-age">Возраст</label>
+                <input id="an-age" className={a.input} value={anAge} onChange={(e) => setAnAge(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-history">
-                  История
-                </label>
-                <textarea
-                  id="an-history"
-                  className={a.textarea}
-                  value={anHistory}
-                  onChange={(e) => setAnHistory(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-history">История</label>
+                <textarea id="an-history" className={a.textarea} value={anHistory} onChange={(e) => setAnHistory(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-health">
-                  Состояние здоровья
-                </label>
-                <textarea
-                  id="an-health"
-                  className={a.textarea}
-                  value={anHealth}
-                  onChange={(e) => setAnHealth(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-health">Состояние здоровья</label>
+                <textarea id="an-health" className={a.textarea} value={anHealth} onChange={(e) => setAnHealth(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-character">
-                  Характер
-                </label>
-                <textarea
-                  id="an-character"
-                  className={a.textarea}
-                  value={anCharacter}
-                  onChange={(e) => setAnCharacter(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-character">Характер</label>
+                <textarea id="an-character" className={a.textarea} value={anCharacter} onChange={(e) => setAnCharacter(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-needs">
-                  Особые потребности
-                </label>
-                <textarea
-                  id="an-needs"
-                  className={a.textarea}
-                  value={anNeeds}
-                  onChange={(e) => setAnNeeds(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-needs">Особые потребности</label>
+                <textarea id="an-needs" className={a.textarea} value={anNeeds} onChange={(e) => setAnNeeds(e.target.value)} />
               </div>
 
               <div className={a.actions}>
-                <button
-                  type="button"
-                  className={a.btn}
-                  onClick={onCancelCreateAnimal}
-                  disabled={animalSubmitting}
-                >
+                <button type="button" className={a.btn} onClick={onCancelCreateAnimal} disabled={animalSubmitting}>
                   ОТМЕНИТЬ
                 </button>
-
-                <button
-                  type="button"
-                  className={a.btn}
-                  onClick={onSaveAnimal}
-                  disabled={animalSubmitting}
-                >
+                <button type="button" className={a.btn} onClick={onSaveAnimal} disabled={animalSubmitting}>
                   {animalSubmitting ? "..." : "СОХРАНИТЬ"}
                 </button>
               </div>
@@ -406,7 +350,7 @@ export default function FosterNewPage() {
     );
   }
 
-  // ====== ЭКРАН ПЕРЕДЕРЖКИ (основной) ======
+  // ===== основной экран "Запрос передержки" =====
   return (
     <div
       className={overlay.overlay}
@@ -423,7 +367,6 @@ export default function FosterNewPage() {
 
             <h1 className={f.title}>Запрос передержки</h1>
 
-            {/* ЖИВОТНОЕ */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Животное</h2>
 
@@ -444,16 +387,13 @@ export default function FosterNewPage() {
 
               {animalsOpen ? (
                 animals.length === 0 ? (
-                  <div className={f.emptyNote}>
-                    У вас нет карточек животных. Сначала создайте карточку животного в профиле.
-                  </div>
+                  <div className={f.emptyNote}>У вас нет животных в базе. Создайте карточку.</div>
                 ) : (
                   <>
                     <div className={f.animalsScroller}>
                       <div className={f.animalsRow}>
                         {animals.map((a2) => {
                           const active = a2.id === selectedAnimalId;
-
                           return (
                             <button
                               key={a2.id}
@@ -461,27 +401,20 @@ export default function FosterNewPage() {
                               className={`${f.animalCard} ${active ? f.animalCardActive : ""}`}
                               onClick={() => setSelectedAnimalId(a2.id)}
                               aria-pressed={active}
-                              title={a2.name?.trim() ? a2.name : a2.species}
+                              title={a2.name}
                             >
-                              {a2.photoUrl ? (
-                                <img className={f.animalImg} src={a2.photoUrl} alt="" />
-                              ) : null}
-
-                              <span className={f.animalCardLabel}>
-                                {a2.name?.trim() ? a2.name : a2.species}
-                              </span>
+                              {a2.photoUrl ? <img className={f.animalImg} src={a2.photoUrl} alt="" /> : null}
+                              <span className={f.animalCardLabel}>{a2.name}</span>
                             </button>
                           );
                         })}
                       </div>
                     </div>
 
-                    {selectedAnimal ? (
+                    {selectedAnimalFull ? (
                       <p className={f.selectedMeta}>
-                        Выбрано:{" "}
-                        {selectedAnimal.name?.trim() ? selectedAnimal.name : "Без имени"} (
-                        {selectedAnimal.species}
-                        {selectedAnimal.breed ? `, ${selectedAnimal.breed}` : ""})
+                        Выбрано: {selectedAnimalFull.name} ({selectedAnimalFull.animalType}
+                        {selectedAnimalFull.breed ? `, ${selectedAnimalFull.breed}` : ""})
                       </p>
                     ) : null}
                   </>
@@ -489,7 +422,6 @@ export default function FosterNewPage() {
               ) : null}
             </section>
 
-            {/* Заголовок */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Заголовок задачи</h2>
               <input
@@ -500,31 +432,23 @@ export default function FosterNewPage() {
               />
             </section>
 
-            {/* Описание */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Описание</h2>
               <textarea
                 className={f.textarea}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Опишите условия, кормление, прогулки и т.д."
+                placeholder="Опишите условия, кормление, прогулки..."
               />
             </section>
 
-            {/* Период */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Период передержки</h2>
-
               <div className={f.dateGrid}>
                 <div>
                   <label className={f.fieldLabel}>Дата начала</label>
                   <div className={f.dateInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(startRef)}
-                      aria-label="Выбрать дату начала"
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(startRef)}>
                       <Calendar className={f.dateIcon} />
                     </button>
                     <input
@@ -540,12 +464,7 @@ export default function FosterNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Дата окончания</label>
                   <div className={f.dateInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(endRef)}
-                      aria-label="Выбрать дату окончания"
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(endRef)}>
                       <Calendar className={f.dateIcon} />
                     </button>
                     <input
@@ -560,30 +479,28 @@ export default function FosterNewPage() {
               </div>
             </section>
 
-            {/* Локация */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Локация</h2>
               <div className={f.tags}>
-                {DISTRICTS.map((label) => (
+                {locationsDict.map((x) => (
                   <button
-                    key={label}
+                    key={x.id}
                     type="button"
-                    className={`${f.tag} ${district === label ? f.tagActive : ""}`}
-                    onClick={() => setDistrict(label)}
+                    className={`${f.tag} ${district === x.name ? f.tagActive : ""}`}
+                    onClick={() => setDistrict(x.name)}
                   >
-                    {label}
+                    {x.name}
                   </button>
                 ))}
               </div>
             </section>
 
-            {/* Actions */}
             <div className={f.actions}>
-              <button type="button" className={f.actionBtn} onClick={onCancel}>
+              <button type="button" className={f.actionBtn} onClick={onCancel} disabled={saving}>
                 ОТМЕНИТЬ
               </button>
-              <button type="submit" className={f.actionBtn}>
-                СОХРАНИТЬ
+              <button type="submit" className={f.actionBtn} disabled={saving}>
+                {saving ? "..." : "СОХРАНИТЬ"}
               </button>
             </div>
           </form>

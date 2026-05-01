@@ -6,29 +6,17 @@ import { useRouter } from "next/navigation";
 import { Calendar, Clock } from "lucide-react";
 
 import overlay from "@/src/app/(main)/@modal/modalOverlay.module.css";
-
-/**
- * Те же стили, что и у "Запрос передержки"
- */
 import f from "@/src/app/(main)/tasks/foster/new/fosterNew.module.css";
-
-/** Стили создания животного (как /animals/new) */
 import a from "@/src/app/(main)/animals/new/animalNew.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
-import { CITY_DEFAULT, COMPETENCIES, DISTRICTS } from "@/src/lib/constants/volunteerOptions";
 
-import {
-  ANIMALS_CHANGED_EVENT,
-  createAnimal,
-  listAnimals,
-} from "@/src/lib/storage/animals";
+import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
+import { animalsApi, type AnimalDto, type AnimalListItemDto } from "@/src/lib/api/animals";
+import { helpTasksApi } from "@/src/lib/api/helpTasks";
 
-import { createTask } from "@/src/lib/storage/tasks";
-import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
-
-import type { Animal } from "@/src/types/animal";
+const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 
 function toIsoDateTime(date: string, time: string): string | null {
   if (!date || !time) return null;
@@ -41,34 +29,38 @@ export default function TaskNewPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [meUserId, setMeUserId] = useState<string | null>(null);
+  const [savingTask, setSavingTask] = useState(false);
 
-  // животные
-  const [animals, setAnimals] = useState<Animal[]>([]);
+  // dictionaries
+  const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
+  const [competenciesDict, setCompetenciesDict] = useState<DictionaryItemDto[]>([]);
+
+  // animals
+  const [animals, setAnimals] = useState<AnimalListItemDto[]>([]);
   const [animalsOpen, setAnimalsOpen] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
+  const [selectedAnimalFull, setSelectedAnimalFull] = useState<AnimalDto | null>(null);
 
-  // создание животного (экран)
+  // create animal screen
   const [createAnimalOpen, setCreateAnimalOpen] = useState(false);
   const animalFileRef = useRef<HTMLInputElement | null>(null);
   const [animalPreviewUrl, setAnimalPreviewUrl] = useState<string | null>(null);
-  const [animalPhotoDataUrl, setAnimalPhotoDataUrl] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
-  const [anSpecies, setAnSpecies] = useState("");
+  const [anType, setAnType] = useState(""); // -> animalType
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
-  const [anHistory, setAnHistory] = useState("");
+  const [anHistory, setAnHistory] = useState(""); // в API сейчас нет, оставляем UI, но не отправляем
   const [anHealth, setAnHealth] = useState("");
   const [anCharacter, setAnCharacter] = useState("");
-  const [anNeeds, setAnNeeds] = useState("");
+  const [anNeeds, setAnNeeds] = useState(""); // -> specialNeeds
   const [animalSubmitting, setAnimalSubmitting] = useState(false);
 
-  // поля задачи
+  // task fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
 
-  // ✅ ТОЛЬКО 1 компетенция
+  // ✅ только 1 компетенция
   const [competency, setCompetency] = useState<string>("");
 
   const [startDate, setStartDate] = useState("");
@@ -80,14 +72,28 @@ export default function TaskNewPage() {
 
   const [volunteersNeeded, setVolunteersNeeded] = useState<number>(1);
 
-  // refs для picker'ов
   const startDateRef = useRef<HTMLInputElement | null>(null);
   const startTimeRef = useRef<HTMLInputElement | null>(null);
   const endDateRef = useRef<HTMLInputElement | null>(null);
   const endTimeRef = useRef<HTMLInputElement | null>(null);
 
+  const openPicker = (ref: React.RefObject<HTMLInputElement | null>) => {
+    const el = ref.current;
+    if (!el) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyEl = el as any;
+    if (typeof anyEl.showPicker === "function") anyEl.showPicker();
+    else el.focus();
+  };
+
+  const loadAnimals = async () => {
+    const res = await animalsApi.my(0, 50);
+    setAnimals(res.animals);
+  };
+
   useEffect(() => {
     (async () => {
+      setLoading(true);
       try {
         const me = await fetchCurrentProfile();
         if (!me) {
@@ -101,12 +107,21 @@ export default function TaskNewPage() {
           return;
         }
 
-        setMeUserId(me.userId);
-        setAnimals(listAnimals(me.userId));
-        setSelectedAnimalId(null);
-        setAnimalsOpen(false);
+        const [locs, comps] = await Promise.all([
+          dictionariesApi.locations(),
+          dictionariesApi.competencies(),
+        ]);
 
-        // значения по умолчанию
+        setLocationsDict(locs);
+        setCompetenciesDict(comps);
+
+        await loadAnimals();
+
+        // defaults
+        setAnimalsOpen(false);
+        setSelectedAnimalId(null);
+        setSelectedAnimalFull(null);
+
         setTitle("");
         setDescription("");
         setCompetency("");
@@ -120,36 +135,31 @@ export default function TaskNewPage() {
         setLoading(false);
       }
     })();
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // при выборе животного — подтягиваем полную карточку (для меты)
   useEffect(() => {
-    if (!meUserId) return;
-    const onChanged = () => setAnimals(listAnimals(meUserId));
-    window.addEventListener(ANIMALS_CHANGED_EVENT, onChanged);
-    return () => window.removeEventListener(ANIMALS_CHANGED_EVENT, onChanged);
-  }, [meUserId]);
-
-  const selectedAnimal = useMemo(
-    () => animals.find((x) => x.id === selectedAnimalId) ?? null,
-    [animals, selectedAnimalId]
-  );
-
-  const openPicker = (ref: React.RefObject<HTMLInputElement | null>) => {
-    const el = ref.current;
-    if (!el) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const anyEl = el as any;
-    if (typeof anyEl.showPicker === "function") anyEl.showPicker();
-    else el.focus();
-  };
+    if (!selectedAnimalId) {
+      setSelectedAnimalFull(null);
+      return;
+    }
+    (async () => {
+      try {
+        const full = await animalsApi.getById(selectedAnimalId);
+        setSelectedAnimalFull(full);
+      } catch {
+        setSelectedAnimalFull(null);
+      }
+    })();
+  }, [selectedAnimalId]);
 
   const onCancel = () => router.back();
 
   const resetAnimalDraft = () => {
     setAnimalPreviewUrl(null);
-    setAnimalPhotoDataUrl(null);
     setAnName("");
-    setAnSpecies("");
+    setAnType("");
     setAnBreed("");
     setAnAge("");
     setAnHistory("");
@@ -165,40 +175,39 @@ export default function TaskNewPage() {
 
   const onPickAnimalPhoto = () => animalFileRef.current?.click();
 
-  const onAnimalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onAnimalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const objectUrl = URL.createObjectURL(file);
     setAnimalPreviewUrl(objectUrl);
-    const dataUrl = await fileToDataUrl(file);
-    setAnimalPhotoDataUrl(dataUrl);
+    // В API сейчас photoUrl строкой, но мы пока не пушим base64 (можно добавить позже).
   };
 
   const onCancelCreateAnimal = () => setCreateAnimalOpen(false);
 
   const onSaveAnimal = async () => {
     if (animalSubmitting) return;
-    if (!meUserId) return;
 
-    const species = anSpecies.trim();
-    if (!species) return alert("Выберите вид животного");
+    const animalType = anType.trim();
+    const name = anName.trim();
+
+    if (!animalType) return alert("Выберите тип животного");
+    if (!name) return alert("Укажите имя животного");
 
     setAnimalSubmitting(true);
     try {
-      const created = createAnimal({
-        ownerUserId: meUserId,
-        photoUrl: animalPhotoDataUrl,
-        name: anName.trim(),
-        species,
-        breed: anBreed.trim(),
-        age: anAge.trim(),
-        history: anHistory.trim(),
-        health: anHealth.trim(),
-        character: anCharacter.trim(),
-        needs: anNeeds.trim(),
+      const created = await animalsApi.create({
+        animalType,
+        name,
+        breed: anBreed.trim() || null,
+        age: anAge.trim() || null,
+        health: anHealth.trim() || null,
+        character: anCharacter.trim() || null,
+        specialNeeds: anNeeds.trim() || null,
+        // photoUrl: null (не отправляем)
       });
 
-      setAnimals(listAnimals(meUserId));
+      await loadAnimals();
       setSelectedAnimalId(created.id);
       setAnimalsOpen(true);
       setCreateAnimalOpen(false);
@@ -209,13 +218,13 @@ export default function TaskNewPage() {
 
   const onSubmitTask: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
+    if (savingTask) return;
 
     const me = await fetchCurrentProfile();
     if (!me) {
       router.replace("/login");
       return;
     }
-
     if (!isOrgRole(me.role)) {
       alert("Создание задач доступно только куратору/организации");
       return;
@@ -224,34 +233,33 @@ export default function TaskNewPage() {
     if (!selectedAnimalId) return alert("Выберите животное");
     if (!title.trim()) return alert("Заполните заголовок задачи");
     if (!description.trim()) return alert("Заполните описание");
-
-    if (!startDate || !startTime || !endDate || !endTime) {
-      return alert("Укажите дату и время начала/окончания");
-    }
-
+    if (!startDate || !startTime || !endDate || !endTime) return alert("Укажите дату и время начала/окончания");
     if (!district) return alert("Выберите район");
-    if (!volunteersNeeded || volunteersNeeded < 1) {
-      return alert("Количество волонтёров должно быть ≥ 1");
+    if (!volunteersNeeded || volunteersNeeded < 1) return alert("Количество волонтёров должно быть ≥ 1");
+
+    const startedAt = toIsoDateTime(startDate, startTime);
+    const endedAt = toIsoDateTime(endDate, endTime);
+    if (!startedAt || !endedAt) return alert("Некорректная дата/время");
+
+    setSavingTask(true);
+    try {
+      await helpTasksApi.create({
+        title: title.trim(),
+        description: description.trim(),
+        requiredVolunteers: volunteersNeeded,
+        isTaskOverexposure: false,
+        startedAt,
+        endedAt,
+        animalIds: [selectedAnimalId],
+        competencies: competency ? [competency] : [],
+        locations: [district],
+      });
+
+      window.dispatchEvent(new Event(HELP_TASKS_CHANGED_EVENT));
+      router.back();
+    } finally {
+      setSavingTask(false);
     }
-
-    const startAt = toIsoDateTime(startDate, startTime);
-    const endAt = toIsoDateTime(endDate, endTime);
-    if (!startAt || !endAt) return alert("Некорректная дата/время");
-
-    createTask({
-      creatorUserId: me.userId,
-      kind: "task",
-      title: title.trim(),
-      description: description.trim(),
-      competencies: competency ? [competency] : [],
-      city: CITY_DEFAULT,
-      district,
-      startAt,
-      endAt,
-      animalId: selectedAnimalId,
-    });
-
-    router.back();
   };
 
   if (loading) {
@@ -281,12 +289,7 @@ export default function TaskNewPage() {
         <div className={overlay.content}>
           <div className={overlay.scrollBox}>
             <div className={a.formCard} style={{ margin: 0, position: "relative" }}>
-              <button
-                className={a.closeBtn}
-                type="button"
-                onClick={onCancelCreateAnimal}
-                aria-label="Закрыть"
-              >
+              <button className={a.closeBtn} type="button" onClick={onCancelCreateAnimal} aria-label="Закрыть">
                 ×
               </button>
 
@@ -295,12 +298,7 @@ export default function TaskNewPage() {
               <div className={a.field}>
                 <label className={a.label}>Фото</label>
                 <div className={a.photoRow}>
-                  <button
-                    type="button"
-                    className={a.photoUpload}
-                    onClick={onPickAnimalPhoto}
-                    aria-label="Загрузить фото"
-                  >
+                  <button type="button" className={a.photoUpload} onClick={onPickAnimalPhoto} aria-label="Загрузить фото">
                     {animalPreviewUrl ? (
                       <img className={a.photoPreview} src={animalPreviewUrl} alt="Превью фото" />
                     ) : (
@@ -326,116 +324,51 @@ export default function TaskNewPage() {
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-name">
-                  Имя (если есть)
-                </label>
-                <input
-                  id="an-name"
-                  className={a.input}
-                  value={anName}
-                  onChange={(e) => setAnName(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-name">Имя*</label>
+                <input id="an-name" className={a.input} value={anName} onChange={(e) => setAnName(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-species">
-                  Вид животного*
-                </label>
-                <input
-                  id="an-species"
-                  className={a.input}
-                  value={anSpecies}
-                  onChange={(e) => setAnSpecies(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-type">Тип животного*</label>
+                <input id="an-type" className={a.input} value={anType} onChange={(e) => setAnType(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-breed">
-                  Порода
-                </label>
-                <input
-                  id="an-breed"
-                  className={a.input}
-                  value={anBreed}
-                  onChange={(e) => setAnBreed(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-breed">Порода</label>
+                <input id="an-breed" className={a.input} value={anBreed} onChange={(e) => setAnBreed(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-age">
-                  Возраст
-                </label>
-                <input
-                  id="an-age"
-                  className={a.input}
-                  value={anAge}
-                  onChange={(e) => setAnAge(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-age">Возраст</label>
+                <input id="an-age" className={a.input} value={anAge} onChange={(e) => setAnAge(e.target.value)} />
+              </div>
+
+              {/* поле есть в UI, но пока не уходит в API */}
+              <div className={a.field}>
+                <label className={a.label} htmlFor="an-history">История</label>
+                <textarea id="an-history" className={a.textarea} value={anHistory} onChange={(e) => setAnHistory(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-history">
-                  История
-                </label>
-                <textarea
-                  id="an-history"
-                  className={a.textarea}
-                  value={anHistory}
-                  onChange={(e) => setAnHistory(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-health">Состояние здоровья</label>
+                <textarea id="an-health" className={a.textarea} value={anHealth} onChange={(e) => setAnHealth(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-health">
-                  Состояние здоровья
-                </label>
-                <textarea
-                  id="an-health"
-                  className={a.textarea}
-                  value={anHealth}
-                  onChange={(e) => setAnHealth(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-character">Характер</label>
+                <textarea id="an-character" className={a.textarea} value={anCharacter} onChange={(e) => setAnCharacter(e.target.value)} />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-character">
-                  Характер
-                </label>
-                <textarea
-                  id="an-character"
-                  className={a.textarea}
-                  value={anCharacter}
-                  onChange={(e) => setAnCharacter(e.target.value)}
-                />
-              </div>
-
-              <div className={a.field}>
-                <label className={a.label} htmlFor="an-needs">
-                  Особые потребности
-                </label>
-                <textarea
-                  id="an-needs"
-                  className={a.textarea}
-                  value={anNeeds}
-                  onChange={(e) => setAnNeeds(e.target.value)}
-                />
+                <label className={a.label} htmlFor="an-needs">Особые потребности</label>
+                <textarea id="an-needs" className={a.textarea} value={anNeeds} onChange={(e) => setAnNeeds(e.target.value)} />
               </div>
 
               <div className={a.actions}>
-                <button
-                  type="button"
-                  className={a.btn}
-                  onClick={onCancelCreateAnimal}
-                  disabled={animalSubmitting}
-                >
+                <button type="button" className={a.btn} onClick={onCancelCreateAnimal} disabled={animalSubmitting}>
                   ОТМЕНИТЬ
                 </button>
-                <button
-                  type="button"
-                  className={a.btn}
-                  onClick={onSaveAnimal}
-                  disabled={animalSubmitting}
-                >
+                <button type="button" className={a.btn} onClick={onSaveAnimal} disabled={animalSubmitting}>
                   {animalSubmitting ? "..." : "СОХРАНИТЬ"}
                 </button>
               </div>
@@ -463,7 +396,7 @@ export default function TaskNewPage() {
 
             <h1 className={f.title}>Создание задачи</h1>
 
-            {/* ЖИВОТНОЕ */}
+            {/* Животное */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Животное</h2>
 
@@ -484,9 +417,7 @@ export default function TaskNewPage() {
 
               {animalsOpen ? (
                 animals.length === 0 ? (
-                  <div className={f.emptyNote}>
-                    У вас нет карточек животных. Сначала создайте карточку животного в профиле.
-                  </div>
+                  <div className={f.emptyNote}>У вас нет животных в базе. Создайте карточку.</div>
                 ) : (
                   <>
                     <div className={f.animalsScroller}>
@@ -500,25 +431,20 @@ export default function TaskNewPage() {
                               className={`${f.animalCard} ${active ? f.animalCardActive : ""}`}
                               onClick={() => setSelectedAnimalId(a2.id)}
                               aria-pressed={active}
-                              title={a2.name?.trim() ? a2.name : a2.species}
+                              title={a2.name}
                             >
-                              {a2.photoUrl ? (
-                                <img className={f.animalImg} src={a2.photoUrl} alt="" />
-                              ) : null}
-                              <span className={f.animalCardLabel}>
-                                {a2.name?.trim() ? a2.name : a2.species}
-                              </span>
+                              {a2.photoUrl ? <img className={f.animalImg} src={a2.photoUrl} alt="" /> : null}
+                              <span className={f.animalCardLabel}>{a2.name}</span>
                             </button>
                           );
                         })}
                       </div>
                     </div>
 
-                    {selectedAnimal ? (
+                    {selectedAnimalFull ? (
                       <p className={f.selectedMeta}>
-                        Выбрано: {selectedAnimal.name?.trim() ? selectedAnimal.name : "Без имени"} (
-                        {selectedAnimal.species}
-                        {selectedAnimal.breed ? `, ${selectedAnimal.breed}` : ""})
+                        Выбрано: {selectedAnimalFull.name} ({selectedAnimalFull.animalType}
+                        {selectedAnimalFull.breed ? `, ${selectedAnimalFull.breed}` : ""})
                       </p>
                     ) : null}
                   </>
@@ -526,7 +452,7 @@ export default function TaskNewPage() {
               ) : null}
             </section>
 
-            {/* Заголовок задачи */}
+            {/* Заголовок */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Заголовок задачи</h2>
               <input
@@ -544,25 +470,24 @@ export default function TaskNewPage() {
                 className={f.textarea}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Опишите задачу: что нужно сделать, условия, детали..."
+                placeholder="Опишите задачу..."
               />
             </section>
 
-            {/* Необходимые компетенции (✅ 1 штука) */}
+            {/* Компетенции (только 1) */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Необходимые компетенции</h2>
               <div className={f.tags}>
-                {COMPETENCIES.map((label) => {
-                  const active = competency === label;
-
+                {competenciesDict.map((x) => {
+                  const active = competency === x.name;
                   return (
                     <button
-                      key={label}
+                      key={x.id}
                       type="button"
                       className={`${f.tag} ${active ? f.tagActive : ""}`}
-                      onClick={() => setCompetency((prev) => (prev === label ? "" : label))}
+                      onClick={() => setCompetency((prev) => (prev === x.name ? "" : x.name))}
                     >
-                      {label}
+                      {x.name}
                     </button>
                   );
                 })}
@@ -577,12 +502,7 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Дата начала</label>
                   <div className={f.dateInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(startDateRef)}
-                      aria-label="Выбрать дату начала"
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(startDateRef)}>
                       <Calendar className={f.dateIcon} />
                     </button>
                     <input
@@ -598,12 +518,7 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Время начала</label>
                   <div className={f.timeInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(startTimeRef)}
-                      aria-label="Выбрать время начала"
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(startTimeRef)}>
                       <Clock className={f.dateIcon} />
                     </button>
                     <input
@@ -619,12 +534,7 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Дата окончания</label>
                   <div className={f.dateInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(endDateRef)}
-                      aria-label="Выбрать дату окончания"
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(endDateRef)}>
                       <Calendar className={f.dateIcon} />
                     </button>
                     <input
@@ -640,12 +550,7 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Время окончания</label>
                   <div className={f.timeInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(endTimeRef)}
-                      aria-label="Выбрать время окончания"
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(endTimeRef)}>
                       <Clock className={f.dateIcon} />
                     </button>
                     <input
@@ -664,20 +569,20 @@ export default function TaskNewPage() {
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Локация</h2>
               <div className={f.tags}>
-                {DISTRICTS.map((label) => (
+                {locationsDict.map((x) => (
                   <button
-                    key={label}
+                    key={x.id}
                     type="button"
-                    className={`${f.tag} ${district === label ? f.tagActive : ""}`}
-                    onClick={() => setDistrict(label)}
+                    className={`${f.tag} ${district === x.name ? f.tagActive : ""}`}
+                    onClick={() => setDistrict(x.name)}
                   >
-                    {label}
+                    {x.name}
                   </button>
                 ))}
               </div>
             </section>
 
-            {/* Количество волонтёров */}
+            {/* Кол-во волонтёров */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Количество волонтёров</h2>
               <input
@@ -689,13 +594,12 @@ export default function TaskNewPage() {
               />
             </section>
 
-            {/* Actions */}
             <div className={f.actions}>
-              <button type="button" className={f.actionBtn} onClick={onCancel}>
+              <button type="button" className={f.actionBtn} onClick={onCancel} disabled={savingTask}>
                 ОТМЕНИТЬ
               </button>
-              <button type="submit" className={f.actionBtn}>
-                СОХРАНИТЬ
+              <button type="submit" className={f.actionBtn} disabled={savingTask}>
+                {savingTask ? "..." : "СОХРАНИТЬ"}
               </button>
             </div>
           </form>

@@ -8,13 +8,13 @@ import overlay from "../../@modal/modalOverlay.module.css";
 import a from "./animalNew.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
-import { createAnimal } from "@/src/lib/storage/animals";
+import { animalsApi } from "@/src/lib/api/animals";
 import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
 
 export default function NewAnimalPage() {
   const router = useRouter();
-
   const fileRef = useRef<HTMLInputElement | null>(null);
+
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -38,9 +38,23 @@ export default function NewAnimalPage() {
     e.preventDefault();
     if (submitting) return;
 
-    // ВАЖНО: читаем FormData до await
+    // читаем FormData до await
     const form = e.currentTarget;
     const fd = new FormData(form);
+
+    const name = String(fd.get("name") ?? "").trim();
+    const animalType = String(fd.get("species") ?? "").trim();
+    const breed = String(fd.get("breed") ?? "").trim();
+    const age = String(fd.get("age") ?? "").trim();
+    const health = String(fd.get("health") ?? "").trim();
+    const character = String(fd.get("character") ?? "").trim();
+    const needs = String(fd.get("needs") ?? "").trim();
+    // history в API нет — поле UI оставляем, но на бэк не отправляем
+    // const history = String(fd.get("history") ?? "").trim();
+
+    if (!animalType) return alert("Выберите вид животного");
+    // Бэк требует name. Если в UI имя опционально — подставим дефолт:
+    const safeName = name || "Без имени";
 
     setSubmitting(true);
     try {
@@ -51,34 +65,20 @@ export default function NewAnimalPage() {
         return;
       }
 
-      const name = String(fd.get("name") ?? "").trim();
-      const species = String(fd.get("species") ?? "").trim();
-      const breed = String(fd.get("breed") ?? "").trim();
-      const age = String(fd.get("age") ?? "").trim();
-      const history = String(fd.get("history") ?? "").trim();
-      const health = String(fd.get("health") ?? "").trim();
-      const character = String(fd.get("character") ?? "").trim();
-      const needs = String(fd.get("needs") ?? "").trim();
-
-      if (!species) {
-        alert("Выберите вид животного");
-        return;
-      }
-
-      const created = createAnimal({
-        ownerUserId: me.userId,
-        photoUrl: photoDataUrl,
-        name,
-        species,
-        breed,
-        age,
-        history,
-        health,
-        character,
-        needs,
+      const created = await animalsApi.create({
+        animalType,
+        name: safeName,
+        breed: breed || null,
+        age: age || null,
+        health: health || null,
+        character: character || null,
+        specialNeeds: needs || null,
+        photoUrl: photoDataUrl || null,
       });
 
       router.replace(`/animals/${created.id}`);
+    } catch (e2) {
+      alert("Не удалось создать карточку животного");
     } finally {
       setSubmitting(false);
     }

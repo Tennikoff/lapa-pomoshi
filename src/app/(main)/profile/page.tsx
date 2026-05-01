@@ -3,34 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
 import s from "./profile.module.css";
 
 import { clearAccessToken, getAccessToken } from "@/src/lib/tokenStorage";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import type { ProfileDto } from "@/src/types/profile";
+import { isOrgRole } from "@/src/lib/role";
 
 import {
   getVolunteerExtra,
   type VolunteerExtra,
   VOLUNTEER_EXTRA_CHANGED_EVENT,
 } from "@/src/lib/storage/volunteerExtra";
-
-import {
-  getOrgExtra,
-  type OrgExtra,
-  ORG_EXTRA_CHANGED_EVENT,
-} from "@/src/lib/storage/orgExtra";
-
-import { CITY_DEFAULT } from "@/src/lib/constants/volunteerOptions";
-
-import {
-  ANIMALS_CHANGED_EVENT,
-  deleteAnimal,
-  listAnimals,
-} from "@/src/lib/storage/animals";
-
-import type { Animal } from "@/src/types/animal";
 
 import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
 
@@ -44,7 +28,7 @@ import {
   USER_AVATAR_CHANGED_EVENT,
 } from "@/src/lib/storage/userAvatar";
 
-import { isOrgRole } from "@/src/lib/role";
+import { animalsApi, type AnimalListItemDto } from "@/src/lib/api/animals";
 
 type Review = { author: string; text: string; stars: 1 | 2 | 3 | 4 | 5 };
 
@@ -57,7 +41,7 @@ const REVIEWS_BASE: Review[] = [
   {
     author: "Попов Сергей",
     stars: 5,
-    text: "Оперативно откликнулся и помог. Всё сделал аккуратно и вовремя. Спасибо!",
+    text: "Оперативно откликнулся и помог. Всё сделал аккуратно и во время. Спасибо!",
   },
   {
     author: "Суханова Виктория",
@@ -89,7 +73,9 @@ const DEFAULT_PET_BG =
 
 function renderTags(items: string[]) {
   if (!items.length) {
-    return <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>;
+    return (
+      <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>
+    );
   }
   return (
     <div className={s.tagsWrapper}>
@@ -114,23 +100,35 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
 
   const [localFullName, setLocalFullName] = useState<string | null>(null);
-
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
+  // volunteer extra (пока localStorage)
   const [volExtra, setVolExtra] = useState<VolunteerExtra | null>(null);
-  const [orgExtra, setOrgExtraState] = useState<OrgExtra | null>(null);
 
-  const [pets, setPets] = useState<Animal[]>([]);
+  // pets from API
+  const [pets, setPets] = useState<AnimalListItemDto[]>([]);
 
+  // delete pet dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePetId, setDeletePetId] = useState<string | null>(null);
 
+  // reviews UI
   const [reviewsExpanded, setReviewsExpanded] = useState(false);
   const allReviews = useMemo(() => [...REVIEWS_BASE, ...REVIEWS_MORE], []);
   const visibleReviews = useMemo(
     () => (reviewsExpanded ? allReviews : allReviews.slice(0, 3)),
     [allReviews, reviewsExpanded]
   );
+
+  const loadPets = async () => {
+    try {
+      const res = await animalsApi.my(0, 50);
+      setPets(res.animals);
+    } catch {
+      // не критично: если упадёт — просто покажем пусто
+      setPets([]);
+    }
+  };
 
   useEffect(() => {
     const t = getAccessToken();
@@ -150,18 +148,13 @@ export default function ProfilePage() {
           setLocalFullName(getFullNameByUserId(p.userId));
           setAvatarUrl(getUserAvatar(p.userId));
 
-          // ВАЖНО: роль теперь может быть строкой
-          const org = isOrgRole(p.role);
-
-          if (org) {
-            setOrgExtraState(getOrgExtra(p.userId));
-            setVolExtra(null);
-          } else {
+          if (!isOrgRole(p.role)) {
             setVolExtra(getVolunteerExtra(p.userId));
-            setOrgExtraState(null);
+          } else {
+            setVolExtra(null);
           }
 
-          setPets(listAnimals(p.userId));
+          await loadPets();
         }
       } finally {
         setLoading(false);
@@ -169,31 +162,23 @@ export default function ProfilePage() {
     })();
   }, []);
 
+  // Подписки на localStorage-ивенты (пока не мигрировали имя/аватар/volunteerExtra на API)
   useEffect(() => {
     if (!profile) return;
 
-    const org = isOrgRole(profile.role);
-
-    const onVolExtraChanged = () => setVolExtra(getVolunteerExtra(profile.userId));
-    const onOrgExtraChanged = () => setOrgExtraState(getOrgExtra(profile.userId));
-    const onAnimalsChanged = () => setPets(listAnimals(profile.userId));
-    const onUserMetaChanged = () => setLocalFullName(getFullNameByUserId(profile.userId));
+    const onVolExtraChanged = () => {
+      if (!isOrgRole(profile.role)) setVolExtra(getVolunteerExtra(profile.userId));
+    };
+    const onUserMetaChanged = () =>
+      setLocalFullName(getFullNameByUserId(profile.userId));
     const onAvatarChanged = () => setAvatarUrl(getUserAvatar(profile.userId));
 
     window.addEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
-    window.addEventListener(ORG_EXTRA_CHANGED_EVENT, onOrgExtraChanged);
-    window.addEventListener(ANIMALS_CHANGED_EVENT, onAnimalsChanged);
     window.addEventListener(USER_META_CHANGED_EVENT, onUserMetaChanged);
     window.addEventListener(USER_AVATAR_CHANGED_EVENT, onAvatarChanged);
 
-    // при смене роли в будущем можно будет обновлять и это, но пока достаточно
-    if (org) setVolExtra(null);
-    else setOrgExtraState(null);
-
     return () => {
       window.removeEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
-      window.removeEventListener(ORG_EXTRA_CHANGED_EVENT, onOrgExtraChanged);
-      window.removeEventListener(ANIMALS_CHANGED_EVENT, onAnimalsChanged);
       window.removeEventListener(USER_META_CHANGED_EVENT, onUserMetaChanged);
       window.removeEventListener(USER_AVATAR_CHANGED_EVENT, onAvatarChanged);
     };
@@ -208,12 +193,10 @@ export default function ProfilePage() {
 
   const rating = useMemo(() => {
     if (!profile || !profile.countRating) return { avg: "5.0", count: 4 };
-
     const avg =
       profile.sumRating && profile.countRating
         ? (profile.sumRating / profile.countRating).toFixed(1)
         : "0.0";
-
     return { avg, count: profile.countRating };
   }, [profile]);
 
@@ -222,7 +205,9 @@ export default function ProfilePage() {
       <div className={s.page}>
         <div className={s.container}>
           <h2 style={{ marginBottom: 10 }}>Вы не вошли в аккаунт</h2>
-          <p style={{ color: "#6C757D" }}>Войдите, чтобы увидеть профиль.</p>
+          <p style={{ color: "#6C757D" }}>
+            Войдите, чтобы увидеть профиль.
+          </p>
           <div style={{ marginTop: 12 }}>
             <Link href="/login" className={s.btnLarge} style={{ maxWidth: 260 }}>
               ВОЙТИ
@@ -233,7 +218,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (loading) {
+  if (loading || !profile) {
     return (
       <div className={s.page}>
         <div className={s.container}>
@@ -243,19 +228,20 @@ export default function ProfilePage() {
     );
   }
 
-  const org = isOrgRole(profile?.role);
+  const org = isOrgRole(profile.role);
 
   const displayName =
-    localFullName?.trim()
-      ? localFullName.trim()
-      : profile?.name ?? (org ? "Организация" : "Фамилия Имя");
+    localFullName?.trim() ||
+    profile.name?.trim() ||
+    (org ? "Организация" : "Фамилия Имя");
 
-  const aboutText = org
-    ? orgExtra?.about?.trim() || profile?.description || "Расскажите об организации..."
-    : volExtra?.about?.trim() || profile?.description || "Расскажите о себе...";
+  const aboutText = (profile.description || "").trim()
+    ? profile.description!
+    : org
+    ? "Расскажите об организации.."
+    : volExtra?.about?.trim() || "Расскажите о себе...";
 
-  const city = org ? orgExtra?.city || CITY_DEFAULT : volExtra?.city || CITY_DEFAULT;
-  const districts = org ? orgExtra?.districts || [] : volExtra?.districts || [];
+  const locationText = profile.location?.trim() ? profile.location.trim() : "";
 
   const onAskDeletePet = (petId: string) => (e: React.MouseEvent) => {
     e.preventDefault();
@@ -269,10 +255,16 @@ export default function ProfilePage() {
     setDeletePetId(null);
   };
 
-  const onConfirmDelete = () => {
-    if (deletePetId) deleteAnimal(deletePetId);
-    setDeleteOpen(false);
-    setDeletePetId(null);
+  const onConfirmDelete = async () => {
+    if (!deletePetId) return;
+
+    try {
+      await animalsApi.delete(deletePetId);
+      await loadPets();
+    } finally {
+      setDeleteOpen(false);
+      setDeletePetId(null);
+    }
   };
 
   return (
@@ -294,9 +286,8 @@ export default function ProfilePage() {
             />
             <div className={s.profileInfo}>
               <h1>{displayName}</h1>
-              <p>{org ? "Куратор/ Организация" : "Волонтёр"}</p>
+              <p>{org ? "Куратор / Организация" : "Волонтёр"}</p>
             </div>
-
             <button className={s.btnLogout} onClick={onLogout}>
               Выйти
             </button>
@@ -304,7 +295,9 @@ export default function ProfilePage() {
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>О себе</h3>
-            <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>{aboutText}</p>
+            <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
+              {aboutText}
+            </p>
           </section>
 
           {!org ? (
@@ -313,17 +306,14 @@ export default function ProfilePage() {
                 <h3 className={s.sectionTitle}>Компетенции</h3>
                 {renderTags(volExtra?.competencies || [])}
               </section>
-
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Доступность</h3>
                 {renderTags(volExtra?.availability || [])}
               </section>
-
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Предпочтения (Животные)</h3>
                 {renderTags(volExtra?.prefAnimals || [])}
               </section>
-
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Предпочтения (Взаимодействие)</h3>
                 {renderTags(volExtra?.prefInteraction || [])}
@@ -336,25 +326,33 @@ export default function ProfilePage() {
                 <div className={s.contactDetails}>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Телефон:</span>{" "}
-                    {orgExtra?.phone?.trim() ? orgExtra.phone.trim() : <span className={s.muted}>Не указано</span>}
+                    {profile.phone?.trim() ? (
+                      profile.phone.trim()
+                    ) : (
+                      <span className={s.muted}>Не указано</span>
+                    )}
                   </p>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Сайт:</span>{" "}
-                    {orgExtra?.website?.trim() ? orgExtra.website.trim() : <span className={s.muted}>Не указано</span>}
+                    {profile.website?.trim() ? (
+                      profile.website.trim()
+                    ) : (
+                      <span className={s.muted}>Не указано</span>
+                    )}
                   </p>
                 </div>
               </section>
 
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Постоянные потребности</h3>
-                {renderTags(orgExtra?.needs || [])}
+                {renderTags(profile.constantNeeds || [])}
               </section>
 
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Реквизиты для пожертвований</h3>
                 <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-                  {orgExtra?.donationRequisites?.trim()
-                    ? orgExtra.donationRequisites.trim()
+                  {profile.donationDetails?.trim()
+                    ? profile.donationDetails.trim()
                     : "Не указано"}
                 </p>
               </section>
@@ -363,12 +361,12 @@ export default function ProfilePage() {
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Локация</h3>
-            <p className={s.sectionSubtitle}>Город: {city}</p>
-            {renderTags(districts)}
+            {renderTags(locationText ? [locationText] : [])}
           </section>
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Мои питомцы</h3>
+
             <div className={s.petsGrid}>
               {pets.map((pet) => (
                 <Link
@@ -385,7 +383,7 @@ export default function ProfilePage() {
                     type="button"
                     className={s.petTrashBtn}
                     onClick={onAskDeletePet(pet.id)}
-                    aria-label={`Удалить карточку ${pet.name || pet.species}`}
+                    aria-label={`Удалить карточку ${pet.name || "животного"}`}
                   >
                     <svg
                       className={s.petTrashIcon}
@@ -401,12 +399,18 @@ export default function ProfilePage() {
                       <path d="M14 11v6" />
                     </svg>
                   </button>
-                  <span>{pet.name?.trim() ? pet.name : pet.species}</span>
+
+                  <span>{pet.name?.trim() ? pet.name : "Животное"}</span>
                 </Link>
               ))}
 
               <Link href="/animals/new" className={s.addPet}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <path d="M12 5v14M5 12h14" />
                 </svg>
                 Добавить
@@ -417,7 +421,9 @@ export default function ProfilePage() {
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Активность</h3>
             <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-              {org ? "Созданные задачи: x" : "Выполненные задачи: x"}
+              {org
+                ? `Созданные задачи: ${profile.countTasks ?? 0}`
+                : `Выполненные задачи: ${profile.countTasks ?? 0}`}
             </p>
           </section>
 
@@ -426,7 +432,7 @@ export default function ProfilePage() {
             <div className={s.ratingRow}>
               <div className={s.starsBig}>★★★★★</div>
               <div className={s.ratingMeta}>
-                {rating.avg} ({rating.count} отзыва)
+                {rating.avg} ({rating.count} отзывов)
               </div>
             </div>
           </section>
@@ -462,7 +468,11 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <ConfirmDeleteDialog open={deleteOpen} onCancel={onCancelDelete} onConfirm={onConfirmDelete} />
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        onCancel={onCancelDelete}
+        onConfirm={onConfirmDelete}
+      />
     </>
   );
 }

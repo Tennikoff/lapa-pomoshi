@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+
 import s from "../../animals/richi/richi.module.css";
-import { getAnimal } from "@/src/lib/storage/animals";
-import type { Animal } from "@/src/types/animal";
+import type { AnimalDto } from "@/src/lib/api/animals";
+import { animalsApi } from "@/src/lib/api/animals";
 
 const FALLBACK_PHOTO =
   "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=600";
@@ -14,10 +15,17 @@ export default function AnimalCardPage() {
   const params = useParams<{ id: string }>();
   const id = String(params.id || "");
 
-  const [animal, setAnimal] = useState<Animal | null | undefined>(undefined);
+  const [animal, setAnimal] = useState<AnimalDto | null | undefined>(undefined);
 
   useEffect(() => {
-    setAnimal(getAnimal(id));
+    (async () => {
+      try {
+        const a = await animalsApi.getById(id);
+        setAnimal(a);
+      } catch {
+        setAnimal(null);
+      }
+    })();
   }, [id]);
 
   const onClose = () => router.back();
@@ -51,8 +59,8 @@ export default function AnimalCardPage() {
   }
 
   const photoUrl = animal.photoUrl || FALLBACK_PHOTO;
-  const titleName = animal.name?.trim() ? animal.name : "Без имени";
-  const meta = [animal.species, animal.age].filter(Boolean).join(", ");
+  const titleName = animal.name?.trim() ? animal.name.trim() : "Без имени";
+  const meta = [animal.animalType, animal.age].filter(Boolean).join(", ");
 
   return (
     <div className={s.overlay} role="dialog" aria-modal="true">
@@ -73,19 +81,22 @@ export default function AnimalCardPage() {
         <main className={s.body}>
           <section className={s.section}>
             <h2 className={s.sectionTitle}>История</h2>
-            <p className={s.text}>{animal.history || "—"}</p>
+            <p className={s.text}>—</p>
           </section>
+
           <section className={s.section}>
             <h2 className={s.sectionTitle}>Состояние здоровья</h2>
             <p className={s.text}>{animal.health || "—"}</p>
           </section>
+
           <section className={s.section}>
             <h2 className={s.sectionTitle}>Характер</h2>
             <p className={s.text}>{animal.character || "—"}</p>
           </section>
+
           <section className={s.section}>
             <h2 className={s.sectionTitle}>Особые потребности</h2>
-            <p className={s.text}>{animal.needs || "—"}</p>
+            <p className={s.text}>{animal.specialNeeds || "—"}</p>
           </section>
         </main>
 
