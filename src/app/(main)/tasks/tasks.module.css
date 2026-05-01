@@ -499,3 +499,62 @@
 .cardsGridFoster {
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
 }
+
+/* ===== TASK CARD (как foster, но с компетенциями) ===== */
+.taskCardTask {
+  position: relative;
+
+  /* перебиваем базовый flex у .taskCard */
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  grid-template-rows: 100px auto auto;
+
+  column-gap: 16px;
+  row-gap: 8px;
+
+  /* competencies слева на уровне даты, над районом */
+  grid-template-areas:
+    "photo main"
+    "competencies date"
+    "district responses";
+
+  align-items: start;
+  padding-bottom: 8px;
+}
+
+/* карандаш — как у передержки */
+.taskCardTask .cardEditBtn {
+  position: absolute;
+  top: 16px;
+  right: 14px;
+}
+
+.taskCompetencies {
+  grid-area: competencies;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+
+  /* важно: чтобы при переносе тегов блок не выглядел криво */
+  align-items: flex-start;
+}
+
+.taskCompetenciesTags {
+  display: flex;
+  gap: 6px;
+
+  /* главное: компетенции не обрезаем, а переносим */
+  flex-wrap: wrap;
+  row-gap: 6px;
+
+  /* УБЕРИ если есть:
+     overflow: hidden;
+     white-space: nowrap;
+  */
+}
+
+/* если компетенций нет */
+.taskCompetenciesEmpty {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}

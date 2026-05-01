@@ -5,7 +5,7 @@ const BACKEND = "https://pawofhelp.onrender.com";
 export async function POST(req: NextRequest) {
   const body = await req.text();
 
-  const backendRes = await fetch(`${BACKEND}/api/Auth/login`, {
+  const backendRes = await fetch(`${BACKEND}/api/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": req.headers.get("content-type") ?? "application/json",

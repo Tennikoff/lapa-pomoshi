@@ -95,46 +95,65 @@ export function TaskCard({
     );
   }
 
-  // ====== CARD: обычная задача ======
-  return (
-    <div className={s.taskCard}>
-      <img src={img} alt="Фото" className={s.taskCardImage} />
-      <div className={s.taskCardContent}>
-        <h3 className={s.cardTitle}>{task.title}</h3>
-        <p className={s.cardDescription}>{task.description}</p>
+  // ====== CARD: TASK (как foster, но с компетенциями) ======
+  if (task.kind === "task") {
+    return (
+      <div className={`${s.taskCard} ${s.taskCardTask}`}>
+        {/* Фото */}
+        <img src={img} alt="Фото" className={`${s.taskCardImage} ${s.fosterPhoto}`} />
 
-        <div className={s.cardDetails}>
+        {/* Заголовок + описание (обрезка как у передержки) */}
+        <div className={s.fosterMain}>
+          <h3 className={s.cardTitle}>{task.title}</h3>
+          <p className={s.fosterDescription}>{task.description}</p>
+        </div>
+
+        {/* Компетенции (слева, на уровне даты, над районом) */}
+        <div className={s.taskCompetencies}>
+          <span className={s.fosterMetaLabel}>Компетенции:</span>
+
           {task.competencies.length ? (
-            <div className={s.cardDetailGroup}>
-              <span className={s.detailLabel}>Компетенции:</span>
+            <div className={s.taskCompetenciesTags}>
               {task.competencies.map((c) => (
                 <span key={c} className={s.tag}>
                   {c}
                 </span>
               ))}
             </div>
-          ) : null}
-
-          <div className={s.cardDetailGroup}>
-            <span className={s.detailLabel}>Район:</span>
-            <span className={s.tag}>{task.district || "—"}</span>
-          </div>
+          ) : (
+            <span className={s.taskCompetenciesEmpty}>—</span>
+          )}
         </div>
 
-        <div className={s.cardFooter}>
-          <span>{formatTimeRange(task)}</span>
-          <br />
-          <span>Отклики: {responsesCount}</span>
+        {/* Дата (справа, на уровне компетенций) */}
+        <div className={s.fosterDate}>
+          <span className={s.fosterMetaLabel}>Дата:</span>
+          <span className={s.fosterDateValue}>{formatTimeRange(task)}</span>
         </div>
+
+        {/* Район (внизу слева, на уровне откликов) */}
+        <div className={s.fosterDistrict}>
+          <span className={s.fosterMetaLabel}>Район:</span>
+          <span className={s.tag}>{task.district || "—"}</span>
+        </div>
+
+        {/* Отклики (внизу справа) */}
+        <div className={s.fosterResponses}>Отклики: {responsesCount}</div>
+
+        {/* карандаш только для куратора */}
+        {mode === "curator" ? (
+          <button
+            className={s.cardEditBtn}
+            type="button"
+            onClick={onEdit}
+            aria-label="Редактировать"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
+            </svg>
+          </button>
+        ) : null}
       </div>
-
-      {mode === "curator" ? (
-        <button className={s.cardEditBtn} type="button" onClick={onEdit} aria-label="Редактировать">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
-          </svg>
-        </button>
-      ) : null}
-    </div>
-  );
+    );
+  }
 }

@@ -2,7 +2,7 @@ export type ProfileDto = {
   userId: string;
   email: string;
   name: string;
-  role: number; // 1 volunteer, 2 org
+  role: string | number;
   age: number | null;
   description: string | null;
   sumRating: number;

@@ -14,7 +14,7 @@ export type AuthUserDto = {
   photoUrl: string | null;
 };
 
-export async function apiRegister(params: { email: string; password: string; role: number }) {
+export async function apiRegister(params: { email: string; password: string; role: string }) {
   return apiFetch("/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -12,9 +12,9 @@ import { ApiError } from "../../../lib/api/http";
 
 import { setPendingFullNameByEmail } from "../../../lib/storage/userMeta";
 
-const ROLE_TO_API: Record<RegisterFormValues["role"], number> = {
-  volunteer: 1,
-  curator: 2,
+const ROLE_TO_API: Record<RegisterFormValues["role"], string> = {
+  volunteer: "Волонтёр",
+  curator: "Организация",
 };
 
 export default function RegisterPage() {
