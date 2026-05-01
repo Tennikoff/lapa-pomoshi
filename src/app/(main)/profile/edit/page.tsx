@@ -25,7 +25,10 @@ import { getOrgExtra, setOrgExtra } from "@/src/lib/storage/orgExtra";
 import type { OrgExtra } from "@/src/lib/storage/orgExtra";
 
 import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
+
 import { getUserAvatar, setUserAvatar } from "@/src/lib/storage/userAvatar";
+
+import { isOrgRole } from "@/src/lib/role";
 
 function toggle(list: string[], value: string) {
   return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
@@ -89,12 +92,11 @@ export default function EditProfilePage() {
         setProfile(p);
         if (!p) return;
 
-        // avatar from LS
         setAvatarUrlState(getUserAvatar(p.userId));
 
-        const isOrg = p.role === 2;
+        const org = isOrgRole(p.role);
 
-        if (isOrg) {
+        if (org) {
           const extra = getOrgExtra(p.userId);
           setOrgAbout(extra?.about ?? p.description ?? "");
           setPhone(extra?.phone ?? "");
@@ -117,7 +119,6 @@ export default function EditProfilePage() {
     })();
   }, []);
 
-  // закрывать sheet по клику вне / ESC
   useEffect(() => {
     if (!sheetOpen) return;
 
@@ -125,7 +126,6 @@ export default function EditProfilePage() {
       if (e.key === "Escape") setSheetOpen(false);
     };
 
-    // закрывать при клике вне зоны аватара/окна
     const onDocMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -133,7 +133,6 @@ export default function EditProfilePage() {
       setSheetOpen(false);
     };
 
-    // закрывать при переключении фокуса в другое поле (input/textarea и т.п.)
     const onFocusIn = (e: FocusEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -150,15 +149,15 @@ export default function EditProfilePage() {
       document.removeEventListener("mousedown", onDocMouseDown);
       document.removeEventListener("focusin", onFocusIn);
     };
-  }, [sheetOpen, s.avatarEditor]);
+  }, [sheetOpen]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
 
-    const isOrg = profile.role === 2;
+    const org = isOrgRole(profile.role);
 
-    if (isOrg) {
+    if (org) {
       const payload: OrgExtra = {
         about: orgAbout,
         phone,
@@ -230,14 +229,13 @@ export default function EditProfilePage() {
     );
   }
 
-  const isOrg = profile.role === 2;
+  const org = isOrgRole(profile.role);
 
   return (
     <div className={s.page}>
       <div className={s.container}>
         <form className={s.form} onSubmit={onSubmit}>
           <div className={s.profileInfo}>
-            {/* ===== Avatar + Action Sheet ===== */}
             <div className={s.avatarEditor}>
               <div
                 className={s.avatar}
@@ -253,12 +251,11 @@ export default function EditProfilePage() {
 
                 <div className={s.avatarEditButton}>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828z M2 18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5l-2 2v3H4V6h3l2-2H3a1 1 0 0 0-1 1v12z" />
+                    <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM2 18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5l-2 2v3H4V6h3l2-2H3a1 1 0 0 0-1 1v11z" />
                   </svg>
                   <span>Сменить фото</span>
                 </div>
 
-                {/* hidden inputs */}
                 <input
                   ref={galleryInputRef}
                   type="file"
@@ -310,30 +307,27 @@ export default function EditProfilePage() {
             </div>
 
             <h1 className={s.name}>{profile.name ?? "Фамилия Имя"}</h1>
-            <p className={s.role}>{isOrg ? "Куратор/Организация" : "Волонтёр"}</p>
+            <p className={s.role}>{org ? "Куратор/ Организация" : "Волонтёр"}</p>
           </div>
 
-          {/* ===== ОБЩЕЕ: О себе ===== */}
           <section className={s.section}>
             <h2 className={s.sectionTitle}>О себе</h2>
             <textarea
               className={`${s.textarea} ${s.textareaSmall}`}
-              value={isOrg ? orgAbout : about}
-              onChange={(e) => (isOrg ? setOrgAbout(e.target.value) : setAbout(e.target.value))}
+              value={org ? orgAbout : about}
+              onChange={(e) => (org ? setOrgAbout(e.target.value) : setAbout(e.target.value))}
               placeholder={
-                isOrg
+                org
                   ? "Приют для бездомных животных. Помогаем с 2015 года."
                   : "Расскажите о себе: опыт, навыки, почему хотите помогать животным..."
               }
             />
           </section>
 
-          {/* ===== ORG ===== */}
-          {isOrg ? (
+          {org ? (
             <>
               <section className={s.section}>
                 <h2 className={s.sectionTitle}>Контактные данные</h2>
-
                 <div className={s.field}>
                   <label className={s.fieldLabel}>Телефон</label>
                   <input
@@ -397,7 +391,6 @@ export default function EditProfilePage() {
               </section>
             </>
           ) : (
-            /* ===== VOLUNTEER ===== */
             <>
               <section className={s.section}>
                 <h2 className={s.sectionTitle}>Компетенции</h2>

@@ -3,16 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "../auth.module.css";
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { registerSchema, type RegisterFormValues } from "../../../lib/authSchemas";
+
+import { registerSchema, type RegisterFormValues } from "@/src/lib/authSchemas";
 import { FieldError } from "../_components/FieldError";
-import { apiRegister } from "../../../lib/api/auth";
-import { ApiError } from "../../../lib/api/http";
+import { apiRegister } from "@/src/lib/api/auth";
+import { ApiError } from "@/src/lib/api/http";
+import { setPendingFullNameByEmail } from "@/src/lib/storage/userMeta";
 
-import { setPendingFullNameByEmail } from "../../../lib/storage/userMeta";
-
-const ROLE_TO_API: Record<RegisterFormValues["role"], string> = {
+/**
+ * ВАЖНО: бэкенд требует role ТОЛЬКО:
+ * "Волонтёр" или "Организация"
+ */
+const ROLE_TO_API: Record<RegisterFormValues["role"], "Волонтёр" | "Организация"> = {
   volunteer: "Волонтёр",
   curator: "Организация",
 };
@@ -43,7 +48,7 @@ export default function RegisterPage() {
       await apiRegister({
         email: values.email.trim(),
         password: values.password,
-        role: ROLE_TO_API[values.role],
+        role: ROLE_TO_API[values.role], // <-- отправляем строго нужную строку
       });
 
       // сохраняем ФИО локально до момента confirm-email (пока нет userId)
@@ -58,6 +63,7 @@ export default function RegisterPage() {
       if (message.toLowerCase().includes("существ")) {
         message = "Пользователь с таким Email уже существует";
       }
+
       setError("root", { message });
     }
   };
@@ -69,7 +75,7 @@ export default function RegisterPage() {
           <Link href="/login" className={styles.titleLink}>
             Вход
           </Link>
-          /<span className={styles.active}>Регистрация</span>
+          / <span className={styles.active}>Регистрация</span>
         </h1>
 
         <form noValidate onSubmit={handleSubmit(onSubmit)}>
@@ -100,8 +106,9 @@ export default function RegisterPage() {
             <div className={styles.radioGroup}>
               <label className={styles.radio}>
                 <input type="radio" value="curator" {...register("role")} />
-                <span>Куратор/Организация</span>
+                <span>Куратор/ Организация</span>
               </label>
+
               <label className={styles.radio}>
                 <input type="radio" value="volunteer" {...register("role")} />
                 <span>Волонтёр</span>

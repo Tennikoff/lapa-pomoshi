@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import s from "./profile.module.css";
 
 import { clearAccessToken, getAccessToken } from "@/src/lib/tokenStorage";
@@ -28,6 +29,7 @@ import {
   deleteAnimal,
   listAnimals,
 } from "@/src/lib/storage/animals";
+
 import type { Animal } from "@/src/types/animal";
 
 import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
@@ -41,6 +43,8 @@ import {
   getUserAvatar,
   USER_AVATAR_CHANGED_EVENT,
 } from "@/src/lib/storage/userAvatar";
+
+import { isOrgRole } from "@/src/lib/role";
 
 type Review = { author: string; text: string; stars: 1 | 2 | 3 | 4 | 5 };
 
@@ -111,18 +115,17 @@ export default function ProfilePage() {
 
   const [localFullName, setLocalFullName] = useState<string | null>(null);
 
-  // === avatar from localStorage
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const [volExtra, setVolExtra] = useState<VolunteerExtra | null>(null);
   const [orgExtra, setOrgExtraState] = useState<OrgExtra | null>(null);
 
   const [pets, setPets] = useState<Animal[]>([]);
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePetId, setDeletePetId] = useState<string | null>(null);
 
   const [reviewsExpanded, setReviewsExpanded] = useState(false);
-
   const allReviews = useMemo(() => [...REVIEWS_BASE, ...REVIEWS_MORE], []);
   const visibleReviews = useMemo(
     () => (reviewsExpanded ? allReviews : allReviews.slice(0, 3)),
@@ -147,8 +150,17 @@ export default function ProfilePage() {
           setLocalFullName(getFullNameByUserId(p.userId));
           setAvatarUrl(getUserAvatar(p.userId));
 
-          setVolExtra(getVolunteerExtra(p.userId));
-          setOrgExtraState(getOrgExtra(p.userId));
+          // ВАЖНО: роль теперь может быть строкой
+          const org = isOrgRole(p.role);
+
+          if (org) {
+            setOrgExtraState(getOrgExtra(p.userId));
+            setVolExtra(null);
+          } else {
+            setVolExtra(getVolunteerExtra(p.userId));
+            setOrgExtraState(null);
+          }
+
           setPets(listAnimals(p.userId));
         }
       } finally {
@@ -157,9 +169,10 @@ export default function ProfilePage() {
     })();
   }, []);
 
-  // обновление при сохранении edit + при изменении животных + при изменении userMeta + avatar
   useEffect(() => {
     if (!profile) return;
+
+    const org = isOrgRole(profile.role);
 
     const onVolExtraChanged = () => setVolExtra(getVolunteerExtra(profile.userId));
     const onOrgExtraChanged = () => setOrgExtraState(getOrgExtra(profile.userId));
@@ -172,6 +185,10 @@ export default function ProfilePage() {
     window.addEventListener(ANIMALS_CHANGED_EVENT, onAnimalsChanged);
     window.addEventListener(USER_META_CHANGED_EVENT, onUserMetaChanged);
     window.addEventListener(USER_AVATAR_CHANGED_EVENT, onAvatarChanged);
+
+    // при смене роли в будущем можно будет обновлять и это, но пока достаточно
+    if (org) setVolExtra(null);
+    else setOrgExtraState(null);
 
     return () => {
       window.removeEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
@@ -191,10 +208,12 @@ export default function ProfilePage() {
 
   const rating = useMemo(() => {
     if (!profile || !profile.countRating) return { avg: "5.0", count: 4 };
+
     const avg =
       profile.sumRating && profile.countRating
         ? (profile.sumRating / profile.countRating).toFixed(1)
         : "0.0";
+
     return { avg, count: profile.countRating };
   }, [profile]);
 
@@ -224,20 +243,19 @@ export default function ProfilePage() {
     );
   }
 
-  const isOrg = profile?.role === 2;
+  const org = isOrgRole(profile?.role);
 
-  // Приоритет: localFullName -> profile.name -> fallback
   const displayName =
     localFullName?.trim()
       ? localFullName.trim()
-      : profile?.name ?? (isOrg ? "Организация" : "Фамилия Имя");
+      : profile?.name ?? (org ? "Организация" : "Фамилия Имя");
 
-  const aboutText = isOrg
+  const aboutText = org
     ? orgExtra?.about?.trim() || profile?.description || "Расскажите об организации..."
     : volExtra?.about?.trim() || profile?.description || "Расскажите о себе...";
 
-  const city = isOrg ? orgExtra?.city || CITY_DEFAULT : volExtra?.city || CITY_DEFAULT;
-  const districts = isOrg ? orgExtra?.districts || [] : volExtra?.districts || [];
+  const city = org ? orgExtra?.city || CITY_DEFAULT : volExtra?.city || CITY_DEFAULT;
+  const districts = org ? orgExtra?.districts || [] : volExtra?.districts || [];
 
   const onAskDeletePet = (petId: string) => (e: React.MouseEvent) => {
     e.preventDefault();
@@ -274,10 +292,9 @@ export default function ProfilePage() {
                   : undefined
               }
             />
-
             <div className={s.profileInfo}>
               <h1>{displayName}</h1>
-              <p>{isOrg ? "Куратор/Организация" : "Волонтёр"}</p>
+              <p>{org ? "Куратор/ Организация" : "Волонтёр"}</p>
             </div>
 
             <button className={s.btnLogout} onClick={onLogout}>
@@ -290,7 +307,7 @@ export default function ProfilePage() {
             <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>{aboutText}</p>
           </section>
 
-          {!isOrg ? (
+          {!org ? (
             <>
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Компетенции</h3>
@@ -316,23 +333,14 @@ export default function ProfilePage() {
             <>
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Контактные данные</h3>
-
                 <div className={s.contactDetails}>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Телефон:</span>{" "}
-                    {orgExtra?.phone?.trim() ? (
-                      orgExtra.phone.trim()
-                    ) : (
-                      <span className={s.muted}>Не указано</span>
-                    )}
+                    {orgExtra?.phone?.trim() ? orgExtra.phone.trim() : <span className={s.muted}>Не указано</span>}
                   </p>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Сайт:</span>{" "}
-                    {orgExtra?.website?.trim() ? (
-                      orgExtra.website.trim()
-                    ) : (
-                      <span className={s.muted}>Не указано</span>
-                    )}
+                    {orgExtra?.website?.trim() ? orgExtra.website.trim() : <span className={s.muted}>Не указано</span>}
                   </p>
                 </div>
               </section>
@@ -361,7 +369,6 @@ export default function ProfilePage() {
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Мои питомцы</h3>
-
             <div className={s.petsGrid}>
               {pets.map((pet) => (
                 <Link
@@ -394,7 +401,6 @@ export default function ProfilePage() {
                       <path d="M14 11v6" />
                     </svg>
                   </button>
-
                   <span>{pet.name?.trim() ? pet.name : pet.species}</span>
                 </Link>
               ))}
@@ -411,7 +417,7 @@ export default function ProfilePage() {
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Активность</h3>
             <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-              {isOrg ? "Созданные задачи: x" : "Выполненные задачи: x"}
+              {org ? "Созданные задачи: x" : "Выполненные задачи: x"}
             </p>
           </section>
 
@@ -427,7 +433,6 @@ export default function ProfilePage() {
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Отзывы</h3>
-
             <div className={s.reviewsList}>
               {visibleReviews.map((r, idx) => (
                 <div key={`${r.author}_${idx}`} className={s.reviewItem}>

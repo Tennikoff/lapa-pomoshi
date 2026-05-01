@@ -7,6 +7,7 @@ import s from "./tasks.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { COMPETENCIES, DISTRICTS, PREF_ANIMALS } from "@/src/lib/constants/volunteerOptions";
+import { isOrgRole } from "@/src/lib/role";
 
 import type { ProfileDto } from "@/src/types/profile";
 import type { Task } from "@/src/types/task";
@@ -73,7 +74,8 @@ export default function TasksPage() {
         setProfile(me);
         if (!me) return;
 
-        const list = me.role === 2 ? listTasksByCreator(me.userId) : listTasks();
+        const org = isOrgRole(me.role);
+        const list = org ? listTasksByCreator(me.userId) : listTasks();
         setItems(list);
       } finally {
         setLoading(false);
@@ -85,7 +87,8 @@ export default function TasksPage() {
     if (!profile) return;
 
     const onChanged = () => {
-      const list = profile.role === 2 ? listTasksByCreator(profile.userId) : listTasks();
+      const org = isOrgRole(profile.role);
+      const list = org ? listTasksByCreator(profile.userId) : listTasks();
       setItems(list);
     };
 
@@ -209,7 +212,8 @@ export default function TasksPage() {
     );
   }
 
-  const mode: "curator" | "volunteer" = profile.role === 2 ? "curator" : "volunteer";
+  const org = isOrgRole(profile.role);
+  const mode: "curator" | "volunteer" = org ? "curator" : "volunteer";
 
   return (
     <div className={`${s.page} ${mode === "volunteer" ? s.pageVolunteer : ""}`}>
@@ -453,7 +457,7 @@ export default function TasksPage() {
 
         {/* Задачи */}
         <section className={s.tasksSection}>
-          <h2 className={s.sectionTitle}>{profile.role === 2 ? "Мои задачи" : "Задачи"}</h2>
+          <h2 className={s.sectionTitle}>{org ? "Мои задачи" : "Задачи"}</h2>
 
           {tasksList.length === 0 ? (
             <div className={s.emptyBox}>Пока нет задач.</div>
@@ -474,7 +478,7 @@ export default function TasksPage() {
 
         {/* Передержки */}
         <section className={s.tasksSection}>
-          <h2 className={s.sectionTitle}>{profile.role === 2 ? "Мои передержки" : "Передержки"}</h2>
+          <h2 className={s.sectionTitle}>{org ? "Мои передержки" : "Передержки"}</h2>
 
           {fostersList.length === 0 ? (
             <div className={s.emptyBox}>Пока нет передержек.</div>

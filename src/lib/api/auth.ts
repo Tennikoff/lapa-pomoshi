@@ -6,7 +6,10 @@ export type AuthUserDto = {
   userId: string;
   email: string;
   name: string;
-  role: number;
+
+  // пока оставим совместимость (swagger не описывает response schema в тексте)
+  role: string | number;
+
   age: number | null;
   description: string | null;
   sumRating: number;
@@ -15,7 +18,7 @@ export type AuthUserDto = {
 };
 
 export async function apiRegister(params: { email: string; password: string; role: string }) {
-  return apiFetch("/api/auth/register", {
+  return apiFetch("/api/Auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -23,7 +26,7 @@ export async function apiRegister(params: { email: string; password: string; rol
 }
 
 export async function apiLogin(params: { email: string; password: string }) {
-  return apiFetch("/api/auth/login", {
+  return apiFetch("/api/Auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -31,7 +34,7 @@ export async function apiLogin(params: { email: string; password: string }) {
 }
 
 export async function apiConfirmEmail(params: { email: string; code: string }) {
-  return apiFetch("/api/auth/confirm-email", {
+  return apiFetch("/api/Auth/confirm-email", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),

@@ -34,23 +34,25 @@ async function parseBody(res: Response) {
   }
 }
 
+/**
+ * ВАЖНО:
+ * Теперь apiFetch по умолчанию ходит на BACKEND (NEXT_PUBLIC_API_URL),
+ * даже если path начинается с "/api/...".
+ * Это нужно для режима "без прокси".
+ *
+ * Если нужно дернуть локальный Next route handler — используй обычный fetch("/api/...") напрямую.
+ */
 export async function apiFetch(path: string, init?: RequestInit) {
   const isAbsolute = /^https?:\/\//i.test(path);
-
-  // Локальные next routes: /api/...
-  const isLocalApi = path.startsWith("/api/");
-
   const base = getBaseUrlOrNull();
 
   const url = isAbsolute
     ? path
-    : isLocalApi
-    ? path
     : base
-    ? `${base}${path.startsWith("/") ? "" : "/"}${path}`
-    : (() => {
-        throw new Error("NEXT_PUBLIC_API_URL is not set (needed for non-local requests)");
-      })();
+      ? `${base}${path.startsWith("/") ? "" : "/"}${path}`
+      : (() => {
+          throw new Error("NEXT_PUBLIC_API_URL is not set");
+        })();
 
   const res = await fetch(url, {
     ...init,

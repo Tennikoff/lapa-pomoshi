@@ -26,10 +26,6 @@ import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
 import type { Animal } from "@/src/types/animal";
 import type { Task } from "@/src/types/task";
 
-function toggle(list: string[], v: string) {
-  return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
-}
-
 function toIsoDateStart(value: string): string | null {
   if (!value) return null;
   const d = new Date(`${value}T00:00:00`);
@@ -108,7 +104,8 @@ export default function TaskEditPage() {
   const fosterEndRef = useRef<HTMLInputElement | null>(null);
 
   // task: даты+время
-  const [competencies, setCompetencies] = useState<string[]>([]);
+  // ✅ ТОЛЬКО 1 компетенция
+  const [competency, setCompetency] = useState<string>("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const taskStartDateRef = useRef<HTMLInputElement | null>(null);
@@ -163,7 +160,7 @@ export default function TaskEditPage() {
           setStartDate(isoToInputDate(t.startAt));
           setEndDate(isoToInputDate(t.endAt));
         } else {
-          setCompetencies(t.competencies ?? []);
+          setCompetency(t.competencies && t.competencies[0] ? t.competencies[0] : "");
           setStartDate(isoToInputDate(t.startAt));
           setStartTime(isoToInputTime(t.startAt));
           setEndDate(isoToInputDate(t.endAt));
@@ -194,7 +191,6 @@ export default function TaskEditPage() {
   const onCancel = () => router.back();
 
   // ===== создание животного внутри редактирования =====
-
   const resetAnimalDraft = () => {
     setAnimalPreviewUrl(null);
     setAnimalPhotoDataUrl(null);
@@ -269,7 +265,6 @@ export default function TaskEditPage() {
   };
 
   // ===== submit (update) =====
-
   const onSubmitEdit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
 
@@ -320,7 +315,7 @@ export default function TaskEditPage() {
     updateTask(id, {
       title: title.trim(),
       description: description.trim(),
-      competencies,
+      competencies: competency ? [competency] : [],
       city: CITY_DEFAULT,
       district,
       startAt,
@@ -541,9 +536,7 @@ export default function TaskEditPage() {
                 ×
               </button>
 
-              <h1 className={f.title}>
-                {task.kind === "foster" ? "Запрос передержки" : "Создание задачи"}
-              </h1>
+              <h1 className={f.title}>{task.kind === "foster" ? "Запрос передержки" : "Создание задачи"}</h1>
 
               {/* ЖИВОТНОЕ */}
               <section className={f.section}>
@@ -635,13 +628,14 @@ export default function TaskEditPage() {
                     <h2 className={f.sectionTitle}>Необходимые компетенции</h2>
                     <div className={f.tags}>
                       {COMPETENCIES.map((label) => {
-                        const active = competencies.includes(label);
+                        const active = competency === label;
+
                         return (
                           <button
                             key={label}
                             type="button"
                             className={`${f.tag} ${active ? f.tagActive : ""}`}
-                            onClick={() => setCompetencies((prev) => toggle(prev, label))}
+                            onClick={() => setCompetency((prev) => (prev === label ? "" : label))}
                           >
                             {label}
                           </button>
@@ -818,7 +812,7 @@ export default function TaskEditPage() {
                 </button>
               </div>
 
-              {/* Delete row — 1:1 как в редактировании передержки */}
+              {/* Delete row — как в редактировании передержки */}
               <div className={f.deleteRow}>
                 <button type="button" className={f.actionBtn} onClick={onAskDelete}>
                   УДАЛИТЬ
