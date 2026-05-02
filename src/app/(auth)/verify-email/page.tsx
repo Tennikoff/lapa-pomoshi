@@ -6,13 +6,16 @@ import { useSearchParams } from "next/navigation";
 import styles from "../auth.module.css";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { verifyEmailSchema, type VerifyEmailFormValues } from "../../../lib/authSchemas";
-import { FieldError } from "../_components/FieldError";
-import { apiConfirmEmail } from "../../../lib/api/auth";
-import { ApiError } from "../../../lib/api/http";
-import { setAccessToken } from "../../../lib/tokenStorage";
 
-import { consumePendingFullNameByEmail, setFullNameByUserId } from "../../../lib/storage/userMeta";
+import {
+  verifyEmailSchema,
+  type VerifyEmailFormValues,
+} from "@/src/lib/authSchemas";
+import { FieldError } from "../_components/FieldError";
+import { apiConfirmEmail } from "@/src/lib/api/auth";
+import { ApiError } from "@/src/lib/api/http";
+import { setAccessToken } from "@/src/lib/tokenStorage";
+import { usersApi } from "@/src/lib/api/users";
 
 const OTP_LEN = 6;
 const INVALID_CODE_TEXT = "Неверный код. Попробуйте ещё раз.";
@@ -21,6 +24,7 @@ const EXPIRED_CODE_TEXT = "Срок действия кода истёк. Зап
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
   const emailFromQuery = (searchParams.get("email") || "").trim();
+  const fioFromQuery = (searchParams.get("fio") || "").trim();
 
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [digits, setDigits] = useState<string[]>(Array(OTP_LEN).fill(""));
@@ -42,6 +46,7 @@ export default function VerifyEmailPage() {
   });
 
   const code = useMemo(() => digits.join(""), [digits]);
+
   const isExpiredError = errors.code?.message === EXPIRED_CODE_TEXT;
   const isInvalidError = errors.code?.message === INVALID_CODE_TEXT;
 
@@ -67,7 +72,10 @@ export default function VerifyEmailPage() {
     if (onlyDigit && idx < OTP_LEN - 1) focusIndex(idx + 1);
   };
 
-  const handleKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (
+    idx: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
     if (e.key === "Backspace") {
       if (digits[idx]) {
         setDigits((prev) => {
@@ -83,7 +91,10 @@ export default function VerifyEmailPage() {
     if (e.key === "ArrowRight" && idx < OTP_LEN - 1) focusIndex(idx + 1);
   };
 
-  const handlePaste = (idx: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = (
+    idx: number,
+    e: React.ClipboardEvent<HTMLInputElement>
+  ) => {
     e.preventDefault();
     const paste = e.clipboardData.getData("text").trim();
     const numbers = paste.replace(/\D/g, "");
@@ -117,10 +128,13 @@ export default function VerifyEmailPage() {
 
       setAccessToken(res.accessToken);
 
-      // === ВАЖНО: переносим ФИО из pending(email) -> fullName(userId)
-      const pendingName = consumePendingFullNameByEmail(emailFromQuery);
-      if (pendingName) {
-        setFullNameByUserId(res.userId, pendingName);
+      // ✅ Сохраняем имя в API сразу после подтверждения, если оно передано
+      if (fioFromQuery.trim()) {
+        try {
+          await usersApi.patchProfile({ name: fioFromQuery.trim() });
+        } catch {
+          // не критично: подтверждение успешно, просто имя не записали
+        }
       }
 
       setIsVerified(true);
@@ -130,7 +144,8 @@ export default function VerifyEmailPage() {
       else if (e instanceof Error) message = e.message;
 
       const m = message.toLowerCase();
-      if (m.includes("неверн") && m.includes("код")) {
+
+      if (m.includes("не верн") && m.includes("код")) {
         setError("code", { message: INVALID_CODE_TEXT });
         return;
       }
@@ -138,6 +153,7 @@ export default function VerifyEmailPage() {
         setError("code", { message: EXPIRED_CODE_TEXT });
         return;
       }
+
       setError("code", { message });
     }
   };
@@ -145,9 +161,11 @@ export default function VerifyEmailPage() {
   const onResend = async () => {
     if (!canResend) return;
     setTimeLeft(59);
+    // В swagger нет resend endpoint — тут пока только таймер
   };
 
-  const timerText = timeLeft > 0 ? `(0:${String(timeLeft).padStart(2, "0")})` : "";
+  const timerText =
+    timeLeft > 0 ? `(0:${String(timeLeft).padStart(2, "0")})` : "";
 
   return (
     <div className={styles.authWrap}>
@@ -175,7 +193,9 @@ export default function VerifyEmailPage() {
                       ref={(el) => {
                         inputRefs.current[idx] = el;
                       }}
-                      className={`${styles.otpInput} ${errors.code ? styles.otpInputError : ""}`}
+                      className={`${styles.otpInput} ${
+                        errors.code ? styles.otpInputError : ""
+                      }`}
                       value={digits[idx]}
                       onChange={(e) => setDigit(idx, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(idx, e)}
@@ -196,7 +216,9 @@ export default function VerifyEmailPage() {
                     isInvalidError ? styles.otpErrorInvalid : "",
                   ].join(" ")}
                 >
-                  {errors.code?.message ? <FieldError message={errors.code.message} /> : null}
+                  {errors.code?.message ? (
+                    <FieldError message={errors.code.message} />
+                  ) : null}
                 </div>
 
                 <p className={styles.resendInfo}>

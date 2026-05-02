@@ -9,7 +9,8 @@ import a from "../../new/animalNew.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
-import { getAnimal, updateAnimal } from "@/src/lib/storage/animals";
+import { animalsApi, type AnimalDto } from "@/src/lib/api/animals";
+import { ApiError } from "@/src/lib/api/http";
 
 export default function EditAnimalPage() {
   const router = useRouter();
@@ -21,19 +22,20 @@ export default function EditAnimalPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const [animal, setAnimal] = useState<AnimalDto | null>(null);
+
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
 
-  const [defaults, setDefaults] = useState<{
-    name: string;
-    species: string;
-    breed: string;
-    age: string;
-    history: string;
-    health: string;
-    character: string;
-    needs: string;
-  } | null>(null);
+  // defaults
+  const [name, setName] = useState("");
+  const [animalType, setAnimalType] = useState("");
+  const [breed, setBreed] = useState("");
+  const [age, setAge] = useState(""); // UI строка, API нормализует
+  const [history, setHistory] = useState(""); // API не хранит — UI оставляем
+  const [health, setHealth] = useState("");
+  const [character, setCharacter] = useState("");
+  const [needs, setNeeds] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -45,32 +47,31 @@ export default function EditAnimalPage() {
           return;
         }
 
-        const animal = getAnimal(id);
-        if (!animal) {
-          alert("Карточка не найдена");
-          router.push("/profile");
-          return;
-        }
+        const a1 = await animalsApi.getById(id);
 
-        if (animal.ownerUserId !== me.userId) {
+        // доступ: текущий юзер должен быть owner
+        const hasAccess = (a1.owners || []).some((o) => o.id === me.userId);
+        if (!hasAccess) {
           alert("Нет доступа к редактированию этой карточки");
           router.push("/profile");
           return;
         }
 
-        setPhotoPreview(animal.photoUrl);
-        setPhotoDataUrl(animal.photoUrl);
+        setAnimal(a1);
 
-        setDefaults({
-          name: animal.name ?? "",
-          species: animal.species ?? "",
-          breed: animal.breed ?? "",
-          age: animal.age ?? "",
-          history: animal.history ?? "",
-          health: animal.health ?? "",
-          character: animal.character ?? "",
-          needs: animal.needs ?? "",
-        });
+        setPhotoPreview(a1.photoUrl);
+        setPhotoDataUrl(a1.photoUrl);
+
+        setName(a1.name ?? "");
+        setAnimalType(a1.animalType ?? "");
+        setBreed(a1.breed ?? "");
+        setAge(a1.age != null ? String(a1.age) : "");
+        setHistory("");
+        setHealth(a1.health ?? "");
+        setCharacter(a1.character ?? "");
+        setNeeds(a1.specialNeeds ?? "");
+      } catch {
+        setAnimal(null);
       } finally {
         setLoading(false);
       }
@@ -96,45 +97,31 @@ export default function EditAnimalPage() {
     e.preventDefault();
     if (submitting) return;
 
-    // ВАЖНО: читаем FormData до await
-    const form = e.currentTarget;
-    const fd = new FormData(form);
+    const safeName = name.trim() || "Без имени";
+    const safeType = animalType.trim();
+    if (!safeType) return alert("Выберите вид животного");
 
     setSubmitting(true);
     try {
-      const species = String(fd.get("species") ?? "").trim();
-      if (!species) {
-        alert("Выберите вид животного");
-        return;
-      }
-
-      const name = String(fd.get("name") ?? "").trim();
-      const breed = String(fd.get("breed") ?? "").trim();
-      const age = String(fd.get("age") ?? "").trim();
-      const history = String(fd.get("history") ?? "").trim();
-      const health = String(fd.get("health") ?? "").trim();
-      const character = String(fd.get("character") ?? "").trim();
-      const needs = String(fd.get("needs") ?? "").trim();
-
-      const updated = updateAnimal(id, {
-        photoUrl: photoDataUrl,
-        name,
-        species,
-        breed,
-        age,
-        history,
-        health,
-        character,
-        needs,
+      await animalsApi.patch(id, {
+        animalType: safeType,
+        name: safeName,
+        breed: breed.trim() || null,
+        age: age.trim() ? age.trim() : null, // string|null -> animalsApi нормализует
+        health: health.trim() || null,
+        character: character.trim() || null,
+        specialNeeds: needs.trim() || null,
+        photoUrl: photoDataUrl || null, // ✅ пробуем сохранять фото в API
       });
 
-      if (!updated) {
-        alert("Не удалось сохранить (карточка не найдена)");
-        router.push("/profile");
-        return;
-      }
-
       router.replace(`/animals/${id}`);
+    } catch (e2) {
+      let msg = "Не удалось сохранить изменения";
+      if (e2 instanceof ApiError) msg = e2.message;
+      else if (e2 instanceof Error) msg = e2.message;
+
+      console.error(e2);
+      alert(msg);
     } finally {
       setSubmitting(false);
     }
@@ -157,7 +144,7 @@ export default function EditAnimalPage() {
     );
   }
 
-  if (!defaults) return null;
+  if (!animal) return null;
 
   return (
     <div
@@ -169,7 +156,6 @@ export default function EditAnimalPage() {
       <div className={overlay.content}>
         <div className={overlay.scrollBox}>
           <form className={a.formCard} onSubmit={onSubmit}>
-            {/* Крестик закрыть (если ты уже добавил a.closeBtn в CSS) */}
             <button className={a.closeBtn} type="button" onClick={onCancel} aria-label="Закрыть">
               ×
             </button>
@@ -213,7 +199,14 @@ export default function EditAnimalPage() {
               <label className={a.label} htmlFor="name">
                 Имя (если есть)
               </label>
-              <input id="name" name="name" type="text" className={a.input} defaultValue={defaults.name} />
+              <input
+                id="name"
+                name="name"
+                type="text"
+                className={a.input}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
 
             <div className={a.field}>
@@ -225,7 +218,8 @@ export default function EditAnimalPage() {
                 name="species"
                 type="text"
                 className={a.input}
-                defaultValue={defaults.species}
+                value={animalType}
+                onChange={(e) => setAnimalType(e.target.value)}
               />
             </div>
 
@@ -233,14 +227,28 @@ export default function EditAnimalPage() {
               <label className={a.label} htmlFor="breed">
                 Порода
               </label>
-              <input id="breed" name="breed" type="text" className={a.input} defaultValue={defaults.breed} />
+              <input
+                id="breed"
+                name="breed"
+                type="text"
+                className={a.input}
+                value={breed}
+                onChange={(e) => setBreed(e.target.value)}
+              />
             </div>
 
             <div className={a.field}>
               <label className={a.label} htmlFor="age">
                 Возраст
               </label>
-              <input id="age" name="age" type="text" className={a.input} defaultValue={defaults.age} />
+              <input
+                id="age"
+                name="age"
+                type="text"
+                className={a.input}
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+              />
             </div>
 
             <div className={a.field}>
@@ -251,7 +259,8 @@ export default function EditAnimalPage() {
                 id="history"
                 name="history"
                 className={a.textarea}
-                defaultValue={defaults.history}
+                value={history}
+                onChange={(e) => setHistory(e.target.value)}
               />
             </div>
 
@@ -259,7 +268,13 @@ export default function EditAnimalPage() {
               <label className={a.label} htmlFor="health">
                 Состояние здоровья
               </label>
-              <textarea id="health" name="health" className={a.textarea} defaultValue={defaults.health} />
+              <textarea
+                id="health"
+                name="health"
+                className={a.textarea}
+                value={health}
+                onChange={(e) => setHealth(e.target.value)}
+              />
             </div>
 
             <div className={a.field}>
@@ -270,7 +285,8 @@ export default function EditAnimalPage() {
                 id="character"
                 name="character"
                 className={a.textarea}
-                defaultValue={defaults.character}
+                value={character}
+                onChange={(e) => setCharacter(e.target.value)}
               />
             </div>
 
@@ -278,7 +294,13 @@ export default function EditAnimalPage() {
               <label className={a.label} htmlFor="needs">
                 Особые потребности
               </label>
-              <textarea id="needs" name="needs" className={a.textarea} defaultValue={defaults.needs} />
+              <textarea
+                id="needs"
+                name="needs"
+                className={a.textarea}
+                value={needs}
+                onChange={(e) => setNeeds(e.target.value)}
+              />
             </div>
 
             <div className={a.actions}>

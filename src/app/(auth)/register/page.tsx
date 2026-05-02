@@ -3,21 +3,24 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "../auth.module.css";
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
-import { registerSchema, type RegisterFormValues } from "@/src/lib/authSchemas";
+import {
+  registerSchema,
+  type RegisterFormValues,
+} from "@/src/lib/authSchemas";
 import { FieldError } from "../_components/FieldError";
 import { apiRegister } from "@/src/lib/api/auth";
 import { ApiError } from "@/src/lib/api/http";
-import { setPendingFullNameByEmail } from "@/src/lib/storage/userMeta";
 
 /**
  * ВАЖНО: бэкенд требует role ТОЛЬКО:
  * "Волонтёр" или "Организация"
  */
-const ROLE_TO_API: Record<RegisterFormValues["role"], "Волонтёр" | "Организация"> = {
+const ROLE_TO_API: Record<
+  RegisterFormValues["role"],
+  "Волонтёр" | "Организация"
+> = {
   volunteer: "Волонтёр",
   curator: "Организация",
 };
@@ -48,13 +51,14 @@ export default function RegisterPage() {
       await apiRegister({
         email: values.email.trim(),
         password: values.password,
-        role: ROLE_TO_API[values.role], // <-- отправляем строго нужную строку
+        role: ROLE_TO_API[values.role],
       });
 
-      // сохраняем ФИО локально до момента confirm-email (пока нет userId)
-      setPendingFullNameByEmail(values.email.trim(), values.fio.trim());
+      // ✅ Передаём ФИО дальше через query (без localStorage)
+      const email = encodeURIComponent(values.email.trim());
+      const fio = encodeURIComponent(values.fio.trim());
 
-      router.push(`/verify-email?email=${encodeURIComponent(values.email.trim())}`);
+      router.push(`/verify-email?email=${email}&fio=${fio}`);
     } catch (e) {
       let message = "Не удалось зарегистрироваться";
       if (e instanceof ApiError) message = e.message;
@@ -63,7 +67,6 @@ export default function RegisterPage() {
       if (message.toLowerCase().includes("существ")) {
         message = "Пользователь с таким Email уже существует";
       }
-
       setError("root", { message });
     }
   };
@@ -82,7 +85,14 @@ export default function RegisterPage() {
           {errors.root?.message && (
             <div className={styles.formError}>
               <FieldError message={errors.root.message} />
-              <div style={{ marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <div
+                style={{
+                  marginTop: 8,
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
                 <Link
                   href="/login"
                   className={styles.titleLink}
@@ -106,9 +116,8 @@ export default function RegisterPage() {
             <div className={styles.radioGroup}>
               <label className={styles.radio}>
                 <input type="radio" value="curator" {...register("role")} />
-                <span>Куратор/ Организация</span>
+                <span>Куратор / Организация</span>
               </label>
-
               <label className={styles.radio}>
                 <input type="radio" value="volunteer" {...register("role")} />
                 <span>Волонтёр</span>
@@ -125,7 +134,9 @@ export default function RegisterPage() {
               type="email"
               autoComplete="email"
               aria-invalid={!!errors.email}
-              className={`${styles.input} ${errors.email ? styles.inputError : ""}`}
+              className={`${styles.input} ${
+                errors.email ? styles.inputError : ""
+              }`}
               {...register("email")}
             />
             {errors.email?.message && <FieldError message={errors.email.message} />}
@@ -155,10 +166,14 @@ export default function RegisterPage() {
               type="password"
               autoComplete="new-password"
               aria-invalid={!!errors.password}
-              className={`${styles.input} ${errors.password ? styles.inputError : ""}`}
+              className={`${styles.input} ${
+                errors.password ? styles.inputError : ""
+              }`}
               {...register("password")}
             />
-            {errors.password?.message && <FieldError message={errors.password.message} />}
+            {errors.password?.message && (
+              <FieldError message={errors.password.message} />
+            )}
           </div>
 
           <div className={styles.field}>
@@ -170,10 +185,14 @@ export default function RegisterPage() {
               type="password"
               autoComplete="new-password"
               aria-invalid={!!errors.password2}
-              className={`${styles.input} ${errors.password2 ? styles.inputError : ""}`}
+              className={`${styles.input} ${
+                errors.password2 ? styles.inputError : ""
+              }`}
               {...register("password2")}
             />
-            {errors.password2?.message && <FieldError message={errors.password2.message} />}
+            {errors.password2?.message && (
+              <FieldError message={errors.password2.message} />
+            )}
           </div>
 
           <label className={styles.check}>
@@ -182,11 +201,13 @@ export default function RegisterPage() {
           </label>
 
           <div className={styles.termsErrorSlot}>
-            {errors.terms?.message ? <FieldError message={errors.terms.message} /> : null}
+            {errors.terms?.message ? (
+              <FieldError message={errors.terms.message} />
+            ) : null}
           </div>
 
           <button className={styles.btn} type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "..." : "ЗАРЕГИСТРИРОВАТЬСЯ"}
+            {isSubmitting ? ".." : "ЗАРЕГИСТРИРОВАТЬСЯ"}
           </button>
         </form>
       </div>

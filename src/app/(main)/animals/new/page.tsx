@@ -10,6 +10,7 @@ import a from "./animalNew.module.css";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { animalsApi } from "@/src/lib/api/animals";
 import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
+import { ApiError } from "@/src/lib/api/http";
 
 export default function NewAnimalPage() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function NewAnimalPage() {
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
 
+    // ✅ DataURL — попробуем отправлять на бэк как photoUrl
     const dataUrl = await fileToDataUrl(file);
     setPhotoDataUrl(dataUrl);
   };
@@ -38,23 +40,25 @@ export default function NewAnimalPage() {
     e.preventDefault();
     if (submitting) return;
 
-    // читаем FormData до await
-    const form = e.currentTarget;
-    const fd = new FormData(form);
+    const fd = new FormData(e.currentTarget);
 
     const name = String(fd.get("name") ?? "").trim();
     const animalType = String(fd.get("species") ?? "").trim();
     const breed = String(fd.get("breed") ?? "").trim();
-    const age = String(fd.get("age") ?? "").trim();
+    const ageRaw = String(fd.get("age") ?? "").trim();
     const health = String(fd.get("health") ?? "").trim();
     const character = String(fd.get("character") ?? "").trim();
     const needs = String(fd.get("needs") ?? "").trim();
-    // history в API нет — поле UI оставляем, но на бэк не отправляем
+    // history в API нет — UI оставляем, на бэк не шлём
     // const history = String(fd.get("history") ?? "").trim();
 
     if (!animalType) return alert("Выберите вид животного");
-    // Бэк требует name. Если в UI имя опционально — подставим дефолт:
+
+    // Бэк требует name — если пусто, подставляем
     const safeName = name || "Без имени";
+
+    // age на бэке short? — но мы уже нормализуем в animalsApi
+    const age = ageRaw ? ageRaw : null;
 
     setSubmitting(true);
     try {
@@ -69,16 +73,21 @@ export default function NewAnimalPage() {
         animalType,
         name: safeName,
         breed: breed || null,
-        age: age || null,
+        age, // string|null OK -> animalsApi нормализует в number|null
         health: health || null,
         character: character || null,
         specialNeeds: needs || null,
-        photoUrl: photoDataUrl || null,
+        photoUrl: photoDataUrl || null, // ✅ пробуем сохранять фото в API
       });
 
       router.replace(`/animals/${created.id}`);
     } catch (e2) {
-      alert("Не удалось создать карточку животного");
+      let msg = "Не удалось создать карточку животного";
+      if (e2 instanceof ApiError) msg = e2.message;
+      else if (e2 instanceof Error) msg = e2.message;
+
+      console.error(e2);
+      alert(msg);
     } finally {
       setSubmitting(false);
     }

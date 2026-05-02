@@ -16,17 +16,12 @@ import {
   VOLUNTEER_EXTRA_CHANGED_EVENT,
 } from "@/src/lib/storage/volunteerExtra";
 
-import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
-
-import {
-  getFullNameByUserId,
-  USER_META_CHANGED_EVENT,
-} from "@/src/lib/storage/userMeta";
-
 import {
   getUserAvatar,
   USER_AVATAR_CHANGED_EVENT,
 } from "@/src/lib/storage/userAvatar";
+
+import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
 
 import { animalsApi, type AnimalListItemDto } from "@/src/lib/api/animals";
 
@@ -99,10 +94,9 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [localFullName, setLocalFullName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // volunteer extra (пока localStorage)
+  // volunteer extra (пока localStorage — API пока игнорирует массивы)
   const [volExtra, setVolExtra] = useState<VolunteerExtra | null>(null);
 
   // pets from API
@@ -125,7 +119,6 @@ export default function ProfilePage() {
       const res = await animalsApi.my(0, 50);
       setPets(res.animals);
     } catch {
-      // не критично: если упадёт — просто покажем пусто
       setPets([]);
     }
   };
@@ -145,7 +138,6 @@ export default function ProfilePage() {
         setProfile(p);
 
         if (p) {
-          setLocalFullName(getFullNameByUserId(p.userId));
           setAvatarUrl(getUserAvatar(p.userId));
 
           if (!isOrgRole(p.role)) {
@@ -162,24 +154,22 @@ export default function ProfilePage() {
     })();
   }, []);
 
-  // Подписки на localStorage-ивенты (пока не мигрировали имя/аватар/volunteerExtra на API)
+  // Подписки на localStorage-ивенты (пока не мигрировали avatar/volunteerExtra на API)
   useEffect(() => {
     if (!profile) return;
 
     const onVolExtraChanged = () => {
-      if (!isOrgRole(profile.role)) setVolExtra(getVolunteerExtra(profile.userId));
+      if (!isOrgRole(profile.role)) {
+        setVolExtra(getVolunteerExtra(profile.userId));
+      }
     };
-    const onUserMetaChanged = () =>
-      setLocalFullName(getFullNameByUserId(profile.userId));
     const onAvatarChanged = () => setAvatarUrl(getUserAvatar(profile.userId));
 
     window.addEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
-    window.addEventListener(USER_META_CHANGED_EVENT, onUserMetaChanged);
     window.addEventListener(USER_AVATAR_CHANGED_EVENT, onAvatarChanged);
 
     return () => {
       window.removeEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
-      window.removeEventListener(USER_META_CHANGED_EVENT, onUserMetaChanged);
       window.removeEventListener(USER_AVATAR_CHANGED_EVENT, onAvatarChanged);
     };
   }, [profile]);
@@ -205,9 +195,7 @@ export default function ProfilePage() {
       <div className={s.page}>
         <div className={s.container}>
           <h2 style={{ marginBottom: 10 }}>Вы не вошли в аккаунт</h2>
-          <p style={{ color: "#6C757D" }}>
-            Войдите, чтобы увидеть профиль.
-          </p>
+          <p style={{ color: "#6C757D" }}>Войдите, чтобы увидеть профиль.</p>
           <div style={{ marginTop: 12 }}>
             <Link href="/login" className={s.btnLarge} style={{ maxWidth: 260 }}>
               ВОЙТИ
@@ -231,15 +219,11 @@ export default function ProfilePage() {
   const org = isOrgRole(profile.role);
 
   const displayName =
-    localFullName?.trim() ||
-    profile.name?.trim() ||
-    (org ? "Организация" : "Фамилия Имя");
+    profile.name?.trim() ? profile.name.trim() : profile.email;
 
-  const aboutText = (profile.description || "").trim()
-    ? profile.description!
-    : org
-    ? "Расскажите об организации.."
-    : volExtra?.about?.trim() || "Расскажите о себе...";
+  const aboutText =
+    profile.description?.trim() ||
+    (org ? "Расскажите об организации.." : volExtra?.about?.trim() || "Расскажите о себе...");
 
   const locationText = profile.location?.trim() ? profile.location.trim() : "";
 
