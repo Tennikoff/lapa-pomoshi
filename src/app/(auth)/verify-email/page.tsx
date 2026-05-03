@@ -12,6 +12,7 @@ import {
   type VerifyEmailFormValues,
 } from "@/src/lib/authSchemas";
 import { FieldError } from "../_components/FieldError";
+
 import { apiConfirmEmail } from "@/src/lib/api/auth";
 import { ApiError } from "@/src/lib/api/http";
 import { setAccessToken } from "@/src/lib/tokenStorage";
@@ -23,6 +24,7 @@ const EXPIRED_CODE_TEXT = "Срок действия кода истёк. Зап
 
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
+
   const emailFromQuery = (searchParams.get("email") || "").trim();
   const fioFromQuery = (searchParams.get("fio") || "").trim();
 
@@ -50,10 +52,12 @@ export default function VerifyEmailPage() {
   const isExpiredError = errors.code?.message === EXPIRED_CODE_TEXT;
   const isInvalidError = errors.code?.message === INVALID_CODE_TEXT;
 
+  // синхронизируем code в RHF
   useEffect(() => {
     setValue("code", code, { shouldDirty: true, shouldValidate: false });
   }, [code, setValue]);
 
+  // таймер resend
   useEffect(() => {
     if (timeLeft <= 0) return;
     const id = setInterval(() => setTimeLeft((t) => t - 1), 1000);
@@ -72,10 +76,7 @@ export default function VerifyEmailPage() {
     if (onlyDigit && idx < OTP_LEN - 1) focusIndex(idx + 1);
   };
 
-  const handleKeyDown = (
-    idx: number,
-    e: React.KeyboardEvent<HTMLInputElement>
-  ) => {
+  const handleKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Backspace") {
       if (digits[idx]) {
         setDigits((prev) => {
@@ -91,10 +92,7 @@ export default function VerifyEmailPage() {
     if (e.key === "ArrowRight" && idx < OTP_LEN - 1) focusIndex(idx + 1);
   };
 
-  const handlePaste = (
-    idx: number,
-    e: React.ClipboardEvent<HTMLInputElement>
-  ) => {
+  const handlePaste = (idx: number, e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     const paste = e.clipboardData.getData("text").trim();
     const numbers = paste.replace(/\D/g, "");
@@ -126,14 +124,15 @@ export default function VerifyEmailPage() {
         code: values.code,
       });
 
+      // сохраняем токен
       setAccessToken(res.accessToken);
 
-      // ✅ Сохраняем имя в API сразу после подтверждения, если оно передано
+      // ✅ вместо userMeta: сохраняем ФИО в API как name (если оно пришло из query)
       if (fioFromQuery.trim()) {
         try {
           await usersApi.patchProfile({ name: fioFromQuery.trim() });
         } catch {
-          // не критично: подтверждение успешно, просто имя не записали
+          // не критично: email подтверждён, просто имя не записали
         }
       }
 
@@ -161,7 +160,7 @@ export default function VerifyEmailPage() {
   const onResend = async () => {
     if (!canResend) return;
     setTimeLeft(59);
-    // В swagger нет resend endpoint — тут пока только таймер
+    // В swagger нет resend endpoint — пока только таймер
   };
 
   const timerText =
@@ -233,7 +232,9 @@ export default function VerifyEmailPage() {
                   >
                     Отправить повторно
                   </button>
-                  {timerText ? <span className={styles.timer}>{timerText}</span> : null}
+                  {timerText ? (
+                    <span className={styles.timer}>{timerText}</span>
+                  ) : null}
                 </p>
               </div>
 

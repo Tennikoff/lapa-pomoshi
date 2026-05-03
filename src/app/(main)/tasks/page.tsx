@@ -2,18 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-
 import s from "./tasks.module.css";
-
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
-
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
-
 import type { ProfileDto } from "@/src/types/profile";
 import type { HelpTaskDto, HelpTasksListDto } from "@/src/types/helpTask";
-
 import { TaskCard } from "./_components/TaskCard";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
@@ -41,10 +36,8 @@ function loc0OrEmpty(t: HelpTaskDto) {
 
 export default function TasksPage() {
   const router = useRouter();
-
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
-
   const [open, setOpen] = useState<OpenDrop>(null);
 
   // dictionaries
@@ -57,7 +50,6 @@ export default function TasksPage() {
   const [competencies, setCompetencies] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
   const [query, setQuery] = useState("");
-
   const [sort, setSort] = useState<SortMode>("due");
 
   // data
@@ -66,10 +58,14 @@ export default function TasksPage() {
   const org = isOrgRole(profile?.role);
   const mode: "curator" | "volunteer" = org ? "curator" : "volunteer";
 
-  const allLocationNames = useMemo(() => locationsDict.map((x) => x.name), [locationsDict]);
+  const allLocationNames = useMemo(
+    () => locationsDict.map((x) => x.name),
+    [locationsDict]
+  );
 
   const load = async (p: ProfileDto, opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
+
     try {
       const isOrg = isOrgRole(p.role);
 
@@ -79,8 +75,7 @@ export default function TasksPage() {
         return;
       }
 
-      // VOLUNTEER: feed
-      // Мы выяснили, что feed начинает отдавать задачи, если передать Locations
+      // VOLUNTEER: feed (server-side filtering)
       const locs = districts.length ? districts : allLocationNames;
 
       const res = (await helpTasksApi.feed({
@@ -142,26 +137,25 @@ export default function TasksPage() {
 
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("mousedown", onMouseDown);
+
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("mousedown", onMouseDown);
     };
   }, [open]);
 
-  // 🔥 Авто-обновление после create/update/delete (мы диспатчим lp_help_tasks_changed)
+  // 🔥 авто-обновление после create/update/delete
   useEffect(() => {
     if (!profile) return;
 
-    const onChanged = () => {
-      load(profile, { silent: true });
-    };
+    const onChanged = () => load(profile, { silent: true });
 
     window.addEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, districts, competencies, animalTypes, query, allLocationNames.length]);
 
-  // volunteer: reload when filters change (server side feed) with small debounce
+  // volunteer: reload when filters change (server side feed) with debounce
   useEffect(() => {
     if (!profile) return;
     if (isOrgRole(profile.role)) return;
@@ -200,8 +194,11 @@ export default function TasksPage() {
     });
 
     const sorted = [...out].sort((a, b) => {
-      if (sort === "alpha") return a.title.localeCompare(b.title, "ru", { sensitivity: "base" });
+      if (sort === "alpha")
+        return a.title.localeCompare(b.title, "ru", { sensitivity: "base" });
+
       if (sort === "created") return (b.createdAt || "").localeCompare(a.createdAt || "");
+
       const da = a.startedAt ?? a.createdAt;
       const db = b.startedAt ?? b.createdAt;
       return String(da).localeCompare(String(db));
@@ -237,7 +234,9 @@ export default function TasksPage() {
     return (
       <div className={s.page}>
         <div className={s.container}>
-          <div className={s.emptyBox}>Вы не вошли в аккаунт. Войдите, чтобы увидеть задачи.</div>
+          <div className={s.emptyBox}>
+            Вы не вошли в аккаунт. Войдите, чтобы увидеть задачи.
+          </div>
         </div>
       </div>
     );
@@ -246,6 +245,7 @@ export default function TasksPage() {
   return (
     <div className={`${s.page} ${mode === "volunteer" ? s.pageVolunteer : ""}`}>
       <div className={s.container}>
+        {/* 1-я строка: кнопки куратора + фильтры */}
         <div className={s.controlsPanel} data-drop-root>
           {mode === "curator" ? (
             <>
@@ -257,6 +257,7 @@ export default function TasksPage() {
               </button>
             </>
           ) : (
+            // Волонтёр: как было — поиск в первой строке
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -265,7 +266,7 @@ export default function TasksPage() {
             />
           )}
 
-          {/* Вид животного (Preferences) */}
+          {/* Вид животного */}
           <div className={s.dropWrap}>
             <button
               className={`${s.btn} ${s.btnLavender} ${s.dropBtn}`}
@@ -274,7 +275,6 @@ export default function TasksPage() {
             >
               Вид животного +
             </button>
-
             {open === "animal" ? (
               <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: вид животного">
                 <ul className={s.dropList}>
@@ -304,7 +304,6 @@ export default function TasksPage() {
             >
               Компетенции +
             </button>
-
             {open === "competencies" ? (
               <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: компетенции">
                 <ul className={s.dropList}>
@@ -334,7 +333,6 @@ export default function TasksPage() {
             >
               Локация +
             </button>
-
             {open === "location" ? (
               <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: локация">
                 <ul className={s.dropList}>
@@ -355,65 +353,130 @@ export default function TasksPage() {
             ) : null}
           </div>
 
-          {/* сортировка */}
-          <div className={s.sortWrap}>
-            <div
-              className={s.sortControl}
-              role="button"
-              tabIndex={0}
-              onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
-            >
-              Сортировка: {sortLabel(sort)} ▼
-            </div>
-
-            {open === "sort" ? (
-              <div className={s.sortMenuWhite} role="dialog" aria-label="Сортировка">
-                <ul className={s.sortList}>
-                  <li>
-                    <button
-                      type="button"
-                      className={`${s.sortBtn} ${sort === "alpha" ? s.sortBtnActive : ""}`}
-                      onClick={() => {
-                        setSort("alpha");
-                        setOpen(null);
-                      }}
-                    >
-                      По алфавиту
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      className={`${s.sortBtn} ${sort === "created" ? s.sortBtnActive : ""}`}
-                      onClick={() => {
-                        setSort("created");
-                        setOpen(null);
-                      }}
-                    >
-                      По дате создания
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      className={`${s.sortBtn} ${sort === "due" ? s.sortBtnActive : ""}`}
-                      onClick={() => {
-                        setSort("due");
-                        setOpen(null);
-                      }}
-                    >
-                      По дате выполнения
-                    </button>
-                  </li>
-                </ul>
+          {/* Волонтёр: сортировка в 1-й строке (как было) */}
+          {mode === "volunteer" ? (
+            <div className={s.sortWrap}>
+              <div
+                className={s.sortControl}
+                role="button"
+                tabIndex={0}
+                onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
+              >
+                Сортировка: {sortLabel(sort)} ▼
               </div>
-            ) : null}
-          </div>
+              {open === "sort" ? (
+                <div className={s.sortMenuWhite} role="dialog" aria-label="Сортировка">
+                  <ul className={s.sortList}>
+                    <li>
+                      <button
+                        type="button"
+                        className={`${s.sortBtn} ${sort === "alpha" ? s.sortBtnActive : ""}`}
+                        onClick={() => {
+                          setSort("alpha");
+                          setOpen(null);
+                        }}
+                      >
+                        По алфавиту
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className={`${s.sortBtn} ${sort === "created" ? s.sortBtnActive : ""}`}
+                        onClick={() => {
+                          setSort("created");
+                          setOpen(null);
+                        }}
+                      >
+                        По дате создания
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className={`${s.sortBtn} ${sort === "due" ? s.sortBtnActive : ""}`}
+                        onClick={() => {
+                          setSort("due");
+                          setOpen(null);
+                        }}
+                      >
+                        По дате выполнения
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
+
+        {/* 2-я строка: поиск куратора + сортировка (на одном уровне) */}
+        {mode === "curator" ? (
+          <div className={s.searchRowCurator} data-drop-root>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск..."
+              className={s.searchInput}
+            />
+
+            <div className={s.sortWrap}>
+              <div
+                className={s.sortControl}
+                role="button"
+                tabIndex={0}
+                onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
+              >
+                Сортировка: {sortLabel(sort)} ▼
+              </div>
+              {open === "sort" ? (
+                <div className={s.sortMenuWhite} role="dialog" aria-label="Сортировка">
+                  <ul className={s.sortList}>
+                    <li>
+                      <button
+                        type="button"
+                        className={`${s.sortBtn} ${sort === "alpha" ? s.sortBtnActive : ""}`}
+                        onClick={() => {
+                          setSort("alpha");
+                          setOpen(null);
+                        }}
+                      >
+                        По алфавиту
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className={`${s.sortBtn} ${sort === "created" ? s.sortBtnActive : ""}`}
+                        onClick={() => {
+                          setSort("created");
+                          setOpen(null);
+                        }}
+                      >
+                        По дате создания
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className={`${s.sortBtn} ${sort === "due" ? s.sortBtnActive : ""}`}
+                        onClick={() => {
+                          setSort("due");
+                          setOpen(null);
+                        }}
+                      >
+                        По дате выполнения
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         <section className={s.tasksSection}>
           <h2 className={s.sectionTitle}>{org ? "Мои задачи" : "Задачи"}</h2>
-
           {tasksList.length === 0 ? (
             <div className={s.emptyBox}>Пока нет задач.</div>
           ) : (
@@ -432,7 +495,6 @@ export default function TasksPage() {
 
         <section className={s.tasksSection}>
           <h2 className={s.sectionTitle}>{org ? "Мои передержки" : "Передержки"}</h2>
-
           {fostersList.length === 0 ? (
             <div className={s.emptyBox}>Пока нет передержек.</div>
           ) : (

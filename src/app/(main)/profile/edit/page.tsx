@@ -3,11 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import s from "./editProfile.module.css";
-
 import type { ProfileDto } from "@/src/types/profile";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
-
 import {
   AVAILABILITY,
   CITY_DEFAULT,
@@ -16,23 +14,33 @@ import {
   PREF_ANIMALS,
   PREF_INTERACTION,
 } from "@/src/lib/constants/volunteerOptions";
-
 import { ORG_NEEDS } from "@/src/lib/constants/orgOptions";
-
 import {
   getVolunteerExtra,
   setVolunteerExtra,
   type VolunteerExtra,
 } from "@/src/lib/storage/volunteerExtra";
-
 import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
 import { getUserAvatar, setUserAvatar } from "@/src/lib/storage/userAvatar";
-
 import { organizationsApi } from "@/src/lib/api/organizations";
 import { usersApi } from "@/src/lib/api/users";
+import {
+  normalizeAvailabilities,
+  normalizePreferences,
+  denormalizeAvailabilities,
+  denormalizePreferences,
+} from "@/src/lib/normalizeDictionaries";
 
 function toggle(list: string[], value: string) {
   return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
+}
+
+/**
+ * Single select (радио-поведение), но визуально чекбокс-тег.
+ * Либо [value], либо [].
+ */
+function toggleSingle(list: string[], value: string) {
+  return list[0] === value ? [] : [value];
 }
 
 function TagCheckbox({
@@ -64,7 +72,6 @@ function TagCheckbox({
 
 export default function EditProfilePage() {
   const router = useRouter();
-
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
 
@@ -80,14 +87,14 @@ export default function EditProfilePage() {
   const [availability, setAvailability] = useState<string[]>([]);
   const [prefAnimals, setPrefAnimals] = useState<string[]>([]);
   const [prefInteraction, setPrefInteraction] = useState<string[]>([]);
-  const [districts, setDistricts] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<string[]>([]); // <-- теперь строго 0..1
 
   // org state
   const [orgAbout, setOrgAbout] = useState("");
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
   const [needs, setNeeds] = useState<string[]>([]);
-  const [orgDistricts, setOrgDistricts] = useState<string[]>([]);
+  const [orgDistricts, setOrgDistricts] = useState<string[]>([]); // <-- 0..1
   const [donationRequisites, setDonationRequisites] = useState("");
 
   const city = useMemo(() => CITY_DEFAULT, []);
@@ -104,24 +111,41 @@ export default function EditProfilePage() {
         const org = isOrgRole(p.role);
 
         if (org) {
-          // теперь берём всё из API-профиля (он смержен в fetchCurrentProfile)
+          // org: всё из API
           setOrgAbout(p.description ?? "");
           setPhone(p.phone ?? "");
           setWebsite(p.website ?? "");
           setNeeds(p.constantNeeds ?? []);
           setDonationRequisites(p.donationDetails ?? "");
+
+          // организация: только 1 район
           setOrgDistricts(p.location ? [p.location] : []);
         } else {
-          // about берём из API (чтобы не зависеть от localStorage)
+          // volunteer: базовые поля из API
           setAbout(p.description ?? "");
 
-          // массивы пока остаются localStorage (API их не сохраняет)
           const extra = getVolunteerExtra(p.userId);
-          setCompetencies(extra?.competencies ?? []);
-          setAvailability(extra?.availability ?? []);
-          setPrefAnimals(extra?.prefAnimals ?? []);
+
+          setCompetencies(extra?.competencies ?? p.competencies ?? []);
+
+          // availability: API -> UI (Утро -> Утром), LS fallback
+          const apiAvailUI = denormalizeAvailabilities(p.availabilities ?? []);
+          const lsAvailUI = extra?.availability ?? [];
+          setAvailability(apiAvailUI.length ? apiAvailUI : lsAvailUI);
+
+          // preferences animals: API -> UI (обычно без изменений), LS fallback
+          const apiPrefsUI = denormalizePreferences(p.preferences ?? []);
+          const lsPrefsUI = extra?.prefAnimals ?? [];
+          setPrefAnimals(apiPrefsUI.length ? apiPrefsUI : lsPrefsUI);
+
+          // prefInteraction: в API нет, только LS
           setPrefInteraction(extra?.prefInteraction ?? []);
-          setDistricts(extra?.districts ?? (p.location ? [p.location] : []));
+
+          // volunteer location: только 1 район
+          const apiLoc = p.location ? [p.location] : [];
+          const lsLoc = (extra?.districts ?? []).slice(0, 1);
+          const one = apiLoc.length ? apiLoc : lsLoc;
+          setDistricts(one.slice(0, 1));
         }
       } finally {
         setLoading(false);
@@ -129,7 +153,7 @@ export default function EditProfilePage() {
     })();
   }, []);
 
-  // close action sheet (как у тебя было)
+  // close action sheet
   useEffect(() => {
     if (!sheetOpen) return;
 
@@ -192,45 +216,52 @@ export default function EditProfilePage() {
 
     const org = isOrgRole(profile.role);
 
-    if (org) {
-      // ✅ API: organization profile
-      await organizationsApi.patchProfile({
-        description: orgAbout.trim() || null,
-        phone: phone.trim() || null,
-        website: website.trim() || null,
-        donationDetails: donationRequisites.trim() || null,
-        constantNeeds: needs,
-        location: orgDistricts[0] ?? null,
+    try {
+      if (org) {
+        await organizationsApi.patchProfile({
+          description: orgAbout.trim() || null,
+          phone: phone.trim() || null,
+          website: website.trim() || null,
+          donationDetails: donationRequisites.trim() || null,
+          constantNeeds: needs,
+          location: orgDistricts[0] ?? null,
+        });
+
+        router.push("/profile");
+        return;
+      }
+
+      // volunteer -> API
+      const safeAvailApi = normalizeAvailabilities(availability); // "Утром" -> "Утро"
+      const safePrefsApi = normalizePreferences(prefAnimals);
+      const safeDistricts = districts.slice(0, 1);
+
+      await usersApi.patchProfile({
+        description: about.trim() || null,
+        location: safeDistricts[0] ?? null,
+        competencies,
+        preferences: safePrefsApi,
+        availabilities: safeAvailApi,
       });
 
+      // localStorage fallback (prefInteraction + прочее)
+      const payload: VolunteerExtra = {
+        about,
+        competencies,
+        availability, // UI-лейблы
+        prefAnimals, // UI-лейблы
+        prefInteraction,
+        city,
+        districts: safeDistricts, // 0..1
+      };
+      setVolunteerExtra(profile.userId, payload);
+
       router.push("/profile");
-      return;
+    } catch (err) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : "Не удалось сохранить профиль";
+      alert(msg);
     }
-
-    // ✅ API: users profile (сохраняем то, что бэк реально принимает)
-    await usersApi.patchProfile({
-      description: about.trim() || null,
-      location: districts[0] ?? null,
-
-      // эти поля бэк сейчас игнорирует, но пусть уходят — не мешает
-      competencies,
-      preferences: prefAnimals,
-      availabilities: availability,
-    });
-
-    // ⚠️ Временно localStorage: массивы/предпочтения взаимодействия/районы
-    const payload: VolunteerExtra = {
-      about, // оставляем как раньше (чтобы не ломать текущее чтение в профиле)
-      competencies,
-      availability,
-      prefAnimals,
-      prefInteraction,
-      city,
-      districts,
-    };
-    setVolunteerExtra(profile.userId, payload);
-
-    router.push("/profile");
   };
 
   if (loading) {
@@ -274,7 +305,7 @@ export default function EditProfilePage() {
 
                 <div className={s.avatarEditButton}>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v11z" />
+                    <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
                   </svg>
                   <span>Сменить фото</span>
                 </div>
@@ -319,7 +350,6 @@ export default function EditProfilePage() {
                       </button>
                     </li>
                   </ul>
-
                   <div className={s.cancelAction}>
                     <button type="button" className={s.cancelBtn} onClick={() => setSheetOpen(false)}>
                       Отмена
@@ -351,24 +381,20 @@ export default function EditProfilePage() {
             <>
               <section className={s.section}>
                 <h2 className={s.sectionTitle}>Контактные данные</h2>
-
                 <div className={s.field}>
                   <label className={s.fieldLabel}>Телефон</label>
                   <input
                     className={s.input}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+7 (___) ___-__-__"
                   />
                 </div>
-
                 <div className={s.field} style={{ marginTop: 12 }}>
                   <label className={s.fieldLabel}>Сайт</label>
                   <input
                     className={s.input}
                     value={website}
                     onChange={(e) => setWebsite(e.target.value)}
-                    placeholder="dobrydom.ru"
                   />
                 </div>
               </section>
@@ -391,7 +417,6 @@ export default function EditProfilePage() {
               <section className={s.section}>
                 <h2 className={s.sectionTitle}>Локация</h2>
                 <p className={s.city}>Город: {city}</p>
-
                 <div className={s.tags}>
                   {DISTRICTS.map((label) => (
                     <TagCheckbox
@@ -399,7 +424,7 @@ export default function EditProfilePage() {
                       id={`org_loc_${label}`}
                       label={label}
                       checked={orgDistricts.includes(label)}
-                      onChange={() => setOrgDistricts((prev) => toggle(prev, label))}
+                      onChange={() => setOrgDistricts((prev) => toggleSingle(prev, label))}
                     />
                   ))}
                 </div>
@@ -411,7 +436,6 @@ export default function EditProfilePage() {
                   className={`${s.textarea} ${s.textareaSmall}`}
                   value={donationRequisites}
                   onChange={(e) => setDonationRequisites(e.target.value)}
-                  placeholder="Реквизиты"
                 />
               </section>
             </>
@@ -480,7 +504,6 @@ export default function EditProfilePage() {
               <section className={s.section}>
                 <h2 className={s.sectionTitle}>Локация</h2>
                 <p className={s.city}>Город: {city}</p>
-
                 <div className={s.tags}>
                   {DISTRICTS.map((label) => (
                     <TagCheckbox
@@ -488,7 +511,7 @@ export default function EditProfilePage() {
                       id={`vol_loc_${label}`}
                       label={label}
                       checked={districts.includes(label)}
-                      onChange={() => setDistricts((prev) => toggle(prev, label))}
+                      onChange={() => setDistricts((prev) => toggleSingle(prev, label))}
                     />
                   ))}
                 </div>

@@ -4,26 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import s from "./profile.module.css";
-
 import { clearAccessToken, getAccessToken } from "@/src/lib/tokenStorage";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import type { ProfileDto } from "@/src/types/profile";
 import { isOrgRole } from "@/src/lib/role";
-
 import {
   getVolunteerExtra,
   type VolunteerExtra,
   VOLUNTEER_EXTRA_CHANGED_EVENT,
 } from "@/src/lib/storage/volunteerExtra";
-
-import {
-  getUserAvatar,
-  USER_AVATAR_CHANGED_EVENT,
-} from "@/src/lib/storage/userAvatar";
-
+import { getUserAvatar, USER_AVATAR_CHANGED_EVENT } from "@/src/lib/storage/userAvatar";
 import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
-
 import { animalsApi, type AnimalListItemDto } from "@/src/lib/api/animals";
+import { denormalizeAvailabilities, denormalizePreferences } from "@/src/lib/normalizeDictionaries";
 
 type Review = { author: string; text: string; stars: 1 | 2 | 3 | 4 | 5 };
 
@@ -36,7 +29,7 @@ const REVIEWS_BASE: Review[] = [
   {
     author: "Попов Сергей",
     stars: 5,
-    text: "Оперативно откликнулся и помог. Всё сделал аккуратно и во время. Спасибо!",
+    text: "Оперативно откликнулся и помог. Всё сделал аккуратно и вовремя. Спасибо!",
   },
   {
     author: "Суханова Виктория",
@@ -68,9 +61,7 @@ const DEFAULT_PET_BG =
 
 function renderTags(items: string[]) {
   if (!items.length) {
-    return (
-      <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>
-    );
+    return <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>;
   }
   return (
     <div className={s.tagsWrapper}>
@@ -89,14 +80,12 @@ function starsText(n: number) {
 
 export default function ProfilePage() {
   const router = useRouter();
-
   const [token, setToken] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [loading, setLoading] = useState(true);
-
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // volunteer extra (пока localStorage — API пока игнорирует массивы)
+  // volunteer extra (fallback)
   const [volExtra, setVolExtra] = useState<VolunteerExtra | null>(null);
 
   // pets from API
@@ -139,13 +128,8 @@ export default function ProfilePage() {
 
         if (p) {
           setAvatarUrl(getUserAvatar(p.userId));
-
-          if (!isOrgRole(p.role)) {
-            setVolExtra(getVolunteerExtra(p.userId));
-          } else {
-            setVolExtra(null);
-          }
-
+          if (!isOrgRole(p.role)) setVolExtra(getVolunteerExtra(p.userId));
+          else setVolExtra(null);
           await loadPets();
         }
       } finally {
@@ -154,15 +138,14 @@ export default function ProfilePage() {
     })();
   }, []);
 
-  // Подписки на localStorage-ивенты (пока не мигрировали avatar/volunteerExtra на API)
+  // подписки на localStorage-события (avatar + volunteerExtra fallback)
   useEffect(() => {
     if (!profile) return;
 
     const onVolExtraChanged = () => {
-      if (!isOrgRole(profile.role)) {
-        setVolExtra(getVolunteerExtra(profile.userId));
-      }
+      if (!isOrgRole(profile.role)) setVolExtra(getVolunteerExtra(profile.userId));
     };
+
     const onAvatarChanged = () => setAvatarUrl(getUserAvatar(profile.userId));
 
     window.addEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
@@ -183,10 +166,12 @@ export default function ProfilePage() {
 
   const rating = useMemo(() => {
     if (!profile || !profile.countRating) return { avg: "5.0", count: 4 };
+
     const avg =
       profile.sumRating && profile.countRating
         ? (profile.sumRating / profile.countRating).toFixed(1)
         : "0.0";
+
     return { avg, count: profile.countRating };
   }, [profile]);
 
@@ -218,14 +203,26 @@ export default function ProfilePage() {
 
   const org = isOrgRole(profile.role);
 
-  const displayName =
-    profile.name?.trim() ? profile.name.trim() : profile.email;
+  const displayName = profile.name?.trim() ? profile.name.trim() : profile.email;
 
   const aboutText =
     profile.description?.trim() ||
-    (org ? "Расскажите об организации.." : volExtra?.about?.trim() || "Расскажите о себе...");
+    (org ? "Расскажите об организации..." : volExtra?.about?.trim() || "Расскажите о себе...");
 
-  const locationText = profile.location?.trim() ? profile.location.trim() : "";
+  const competenciesView =
+    (profile.competencies?.length ? profile.competencies : volExtra?.competencies) || [];
+
+  const availabilityApi =
+    (profile.availabilities?.length ? profile.availabilities : volExtra?.availability) || [];
+  const availabilityView = denormalizeAvailabilities(availabilityApi);
+
+  const prefAnimalsApi =
+    (profile.preferences?.length ? profile.preferences : volExtra?.prefAnimals) || [];
+  const prefAnimalsView = denormalizePreferences(prefAnimalsApi);
+
+  const prefInteractionView = volExtra?.prefInteraction || [];
+
+  const locationTags = profile.location?.trim() ? [profile.location.trim()] : [];
 
   const onAskDeletePet = (petId: string) => (e: React.MouseEvent) => {
     e.preventDefault();
@@ -241,7 +238,6 @@ export default function ProfilePage() {
 
   const onConfirmDelete = async () => {
     if (!deletePetId) return;
-
     try {
       await animalsApi.delete(deletePetId);
       await loadPets();
@@ -279,28 +275,29 @@ export default function ProfilePage() {
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>О себе</h3>
-            <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-              {aboutText}
-            </p>
+            <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>{aboutText}</p>
           </section>
 
           {!org ? (
             <>
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Компетенции</h3>
-                {renderTags(volExtra?.competencies || [])}
+                {renderTags(competenciesView)}
               </section>
+
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Доступность</h3>
-                {renderTags(volExtra?.availability || [])}
+                {renderTags(availabilityView)}
               </section>
+
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Предпочтения (Животные)</h3>
-                {renderTags(volExtra?.prefAnimals || [])}
+                {renderTags(prefAnimalsView)}
               </section>
+
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Предпочтения (Взаимодействие)</h3>
-                {renderTags(volExtra?.prefInteraction || [])}
+                {renderTags(prefInteractionView)}
               </section>
             </>
           ) : (
@@ -310,19 +307,11 @@ export default function ProfilePage() {
                 <div className={s.contactDetails}>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Телефон:</span>{" "}
-                    {profile.phone?.trim() ? (
-                      profile.phone.trim()
-                    ) : (
-                      <span className={s.muted}>Не указано</span>
-                    )}
+                    {profile.phone?.trim() ? profile.phone.trim() : <span className={s.muted}>Не указано</span>}
                   </p>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Сайт:</span>{" "}
-                    {profile.website?.trim() ? (
-                      profile.website.trim()
-                    ) : (
-                      <span className={s.muted}>Не указано</span>
-                    )}
+                    {profile.website?.trim() ? profile.website.trim() : <span className={s.muted}>Не указано</span>}
                   </p>
                 </div>
               </section>
@@ -335,9 +324,7 @@ export default function ProfilePage() {
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Реквизиты для пожертвований</h3>
                 <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-                  {profile.donationDetails?.trim()
-                    ? profile.donationDetails.trim()
-                    : "Не указано"}
+                  {profile.donationDetails?.trim() ? profile.donationDetails.trim() : "Не указано"}
                 </p>
               </section>
             </>
@@ -345,12 +332,11 @@ export default function ProfilePage() {
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Локация</h3>
-            {renderTags(locationText ? [locationText] : [])}
+            {renderTags(locationTags)}
           </section>
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Мои питомцы</h3>
-
             <div className={s.petsGrid}>
               {pets.map((pet) => (
                 <Link
@@ -369,13 +355,7 @@ export default function ProfilePage() {
                     onClick={onAskDeletePet(pet.id)}
                     aria-label={`Удалить карточку ${pet.name || "животного"}`}
                   >
-                    <svg
-                      className={s.petTrashIcon}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
+                    <svg className={s.petTrashIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M3 6h18" />
                       <path d="M8 6V4h8v2" />
                       <path d="M6 6l1 16h10l1-16" />
@@ -383,18 +363,12 @@ export default function ProfilePage() {
                       <path d="M14 11v6" />
                     </svg>
                   </button>
-
                   <span>{pet.name?.trim() ? pet.name : "Животное"}</span>
                 </Link>
               ))}
 
               <Link href="/animals/new" className={s.addPet}>
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
                 Добавить
@@ -405,9 +379,7 @@ export default function ProfilePage() {
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Активность</h3>
             <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-              {org
-                ? `Созданные задачи: ${profile.countTasks ?? 0}`
-                : `Выполненные задачи: ${profile.countTasks ?? 0}`}
+              {org ? `Созданные задачи: ${profile.countTasks ?? 0}` : `Выполненные задачи: ${profile.countTasks ?? 0}`}
             </p>
           </section>
 
@@ -436,11 +408,7 @@ export default function ProfilePage() {
             </div>
 
             {allReviews.length > 3 ? (
-              <button
-                type="button"
-                className={s.allReviews}
-                onClick={() => setReviewsExpanded((v) => !v)}
-              >
+              <button type="button" className={s.allReviews} onClick={() => setReviewsExpanded((v) => !v)}>
                 {reviewsExpanded ? "Свернуть отзывы" : "Все отзывы"}
               </button>
             ) : null}
@@ -452,11 +420,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <ConfirmDeleteDialog
-        open={deleteOpen}
-        onCancel={onCancelDelete}
-        onConfirm={onConfirmDelete}
-      />
+      <ConfirmDeleteDialog open={deleteOpen} onCancel={onCancelDelete} onConfirm={onConfirmDelete} />
     </>
   );
 }
