@@ -9,19 +9,26 @@ import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { animalsApi } from "@/src/lib/api/animals";
 import { ApiError } from "@/src/lib/api/http";
 
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+
+function isTooLarge(file: File) {
+  return file.size > MAX_PHOTO_BYTES;
+}
+
 export default function NewAnimalPage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
 
   // чтобы не копились objectURL
   useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (previewUrl && previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
 
@@ -31,12 +38,30 @@ export default function NewAnimalPage() {
     const file = e.target.files?.[0] ?? null;
     if (!file) return;
 
+    // ✅ мгновенная проверка размера (чтобы не ловить ApiError)
+    if (isTooLarge(file)) {
+      // оставим превью, но файл не принимаем
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewUrl((prev) => {
+        if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+        return objectUrl;
+      });
+
+      setPhotoFile(null);
+      setPhotoError("Файл не должен превышать 5 MB. Выберите другое фото.");
+      // сбрасываем input, чтобы можно было выбрать тот же файл заново после сжатия
+      e.target.value = "";
+      return;
+    }
+
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return objectUrl;
     });
+
     setPhotoFile(file);
+    setPhotoError(null);
   };
 
   const onCancel = () => router.back();
@@ -44,6 +69,12 @@ export default function NewAnimalPage() {
   const onSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     if (submitting) return;
+
+    // ✅ если фото не подходит — не отправляем форму
+    if (photoError) {
+      // без alert — пользователь уже видит подсказку и крестик
+      return;
+    }
 
     const fd = new FormData(e.currentTarget);
 
@@ -86,10 +117,18 @@ export default function NewAnimalPage() {
 
       router.replace(`/animals/${created.id}`);
     } catch (e2) {
+      // ✅ мягкая обработка “5MB” если вдруг бэк всё равно вернул
       let msg = "Не удалось создать карточку животного";
       if (e2 instanceof ApiError) msg = e2.message;
       else if (e2 instanceof Error) msg = e2.message;
-      console.error(e2);
+
+      if (msg.toLowerCase().includes("5 mb") || msg.toLowerCase().includes("5mb")) {
+        setPhotoError("Файл не должен превышать 5 MB. Выберите другое фото.");
+        // показать крестик (превью уже есть), файл сбрасываем
+        setPhotoFile(null);
+        return;
+      }
+
       alert(msg);
     } finally {
       setSubmitting(false);
@@ -110,6 +149,7 @@ export default function NewAnimalPage() {
 
             <div className={a.field}>
               <label className={a.label}>Фото</label>
+
               <div className={a.photoRow}>
                 <button
                   type="button"
@@ -129,6 +169,8 @@ export default function NewAnimalPage() {
                       </div>
                     </div>
                   )}
+
+                  {photoError ? <div className={a.photoErrorBadge}>×</div> : null}
                 </button>
 
                 <input
@@ -139,6 +181,8 @@ export default function NewAnimalPage() {
                   onChange={onFileChange}
                 />
               </div>
+
+              {photoError ? <p className={a.photoWarning}>{photoError}</p> : null}
             </div>
 
             <div className={a.field}>

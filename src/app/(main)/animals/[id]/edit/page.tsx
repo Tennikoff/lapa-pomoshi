@@ -9,6 +9,12 @@ import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { animalsApi, type AnimalDto } from "@/src/lib/api/animals";
 import { ApiError } from "@/src/lib/api/http";
 
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+
+function isTooLarge(file: File) {
+  return file.size > MAX_PHOTO_BYTES;
+}
+
 export default function EditAnimalPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -23,6 +29,7 @@ export default function EditAnimalPage() {
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   // fields
   const [name, setName] = useState("");
@@ -34,7 +41,6 @@ export default function EditAnimalPage() {
   const [character, setCharacter] = useState("");
   const [needs, setNeeds] = useState("");
 
-  // revoke objectURL
   useEffect(() => {
     return () => {
       if (photoPreview && photoPreview.startsWith("blob:")) {
@@ -55,7 +61,6 @@ export default function EditAnimalPage() {
 
         const a1 = await animalsApi.getById(id);
 
-        // доступ: текущий юзер должен быть owner
         const hasAccess = (a1.owners || []).some((o) => o.id === me.userId);
         if (!hasAccess) {
           alert("Нет доступа к редактированию этой карточки");
@@ -64,15 +69,13 @@ export default function EditAnimalPage() {
         }
 
         setAnimal(a1);
-
-        // preview из API
         setPhotoPreview(a1.photoUrl);
 
         setName(a1.name ?? "");
         setAnimalType(a1.animalType ?? "");
         setBreed(a1.breed ?? "");
         setAge(a1.age != null ? String(a1.age) : "");
-        setHistory(""); // в API поля нет, UI оставляем
+        setHistory("");
         setHealth(a1.health ?? "");
         setCharacter(a1.character ?? "");
         setNeeds(a1.specialNeeds ?? "");
@@ -90,14 +93,27 @@ export default function EditAnimalPage() {
     const file = e.target.files?.[0] ?? null;
     if (!file) return;
 
-    const objectUrl = URL.createObjectURL(file);
+    if (isTooLarge(file)) {
+      const objectUrl = URL.createObjectURL(file);
+      setPhotoPreview((prev) => {
+        if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+        return objectUrl;
+      });
 
+      setPhotoFile(null);
+      setPhotoError("Файл не должен превышать 5 MB. Выберите другое фото.");
+      e.target.value = "";
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
     setPhotoPreview((prev) => {
       if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return objectUrl;
     });
 
     setPhotoFile(file);
+    setPhotoError(null);
   };
 
   const onCancel = () => router.back();
@@ -105,6 +121,8 @@ export default function EditAnimalPage() {
   const onSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     if (submitting) return;
+
+    if (photoError) return;
 
     const safeName = name.trim() || "Без имени";
     const safeType = animalType.trim();
@@ -134,7 +152,13 @@ export default function EditAnimalPage() {
       let msg = "Не удалось сохранить изменения";
       if (e2 instanceof ApiError) msg = e2.message;
       else if (e2 instanceof Error) msg = e2.message;
-      console.error(e2);
+
+      if (msg.toLowerCase().includes("5 mb") || msg.toLowerCase().includes("5mb")) {
+        setPhotoError("Файл не должен превышать 5 MB. Выберите другое фото.");
+        setPhotoFile(null);
+        return;
+      }
+
       alert(msg);
     } finally {
       setSubmitting(false);
@@ -178,13 +202,9 @@ export default function EditAnimalPage() {
 
             <div className={a.field}>
               <label className={a.label}>Фото</label>
+
               <div className={a.photoRow}>
-                <button
-                  type="button"
-                  className={a.photoUpload}
-                  onClick={onPickPhoto}
-                  aria-label="Загрузить фото"
-                >
+                <button type="button" className={a.photoUpload} onClick={onPickPhoto}>
                   {photoPreview ? (
                     <img className={a.photoPreview} src={photoPreview} alt="Превью фото" />
                   ) : (
@@ -197,6 +217,8 @@ export default function EditAnimalPage() {
                       </div>
                     </div>
                   )}
+
+                  {photoError ? <div className={a.photoErrorBadge}>×</div> : null}
                 </button>
 
                 <input
@@ -207,6 +229,8 @@ export default function EditAnimalPage() {
                   onChange={onFileChange}
                 />
               </div>
+
+              {photoError ? <p className={a.photoWarning}>{photoError}</p> : null}
             </div>
 
             <div className={a.field}>
