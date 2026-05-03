@@ -20,8 +20,6 @@ import {
   setVolunteerExtra,
   type VolunteerExtra,
 } from "@/src/lib/storage/volunteerExtra";
-import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
-import { getUserAvatar, setUserAvatar } from "@/src/lib/storage/userAvatar";
 import { organizationsApi } from "@/src/lib/api/organizations";
 import { usersApi } from "@/src/lib/api/users";
 import {
@@ -30,15 +28,15 @@ import {
   denormalizeAvailabilities,
   denormalizePreferences,
 } from "@/src/lib/normalizeDictionaries";
+import { ApiError } from "@/src/lib/api/http";
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
 
 function toggle(list: string[], value: string) {
   return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
 }
 
-/**
- * Single select (радио-поведение), но визуально чекбокс-тег.
- * Либо [value], либо [].
- */
+// single location (волонтёр и организация)
 function toggleSingle(list: string[], value: string) {
   return list[0] === value ? [] : [value];
 }
@@ -87,14 +85,14 @@ export default function EditProfilePage() {
   const [availability, setAvailability] = useState<string[]>([]);
   const [prefAnimals, setPrefAnimals] = useState<string[]>([]);
   const [prefInteraction, setPrefInteraction] = useState<string[]>([]);
-  const [districts, setDistricts] = useState<string[]>([]); // <-- теперь строго 0..1
+  const [districts, setDistricts] = useState<string[]>([]); // 0..1
 
   // org state
   const [orgAbout, setOrgAbout] = useState("");
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
   const [needs, setNeeds] = useState<string[]>([]);
-  const [orgDistricts, setOrgDistricts] = useState<string[]>([]); // <-- 0..1
+  const [orgDistricts, setOrgDistricts] = useState<string[]>([]); // 0..1
   const [donationRequisites, setDonationRequisites] = useState("");
 
   const city = useMemo(() => CITY_DEFAULT, []);
@@ -106,42 +104,35 @@ export default function EditProfilePage() {
         setProfile(p);
         if (!p) return;
 
-        setAvatarUrlState(getUserAvatar(p.userId));
+        // ✅ берём аватар из API
+        setAvatarUrlState(p.photoUrl ?? null);
 
         const org = isOrgRole(p.role);
 
         if (org) {
-          // org: всё из API
           setOrgAbout(p.description ?? "");
           setPhone(p.phone ?? "");
           setWebsite(p.website ?? "");
           setNeeds(p.constantNeeds ?? []);
           setDonationRequisites(p.donationDetails ?? "");
-
-          // организация: только 1 район
           setOrgDistricts(p.location ? [p.location] : []);
         } else {
-          // volunteer: базовые поля из API
           setAbout(p.description ?? "");
 
           const extra = getVolunteerExtra(p.userId);
 
           setCompetencies(extra?.competencies ?? p.competencies ?? []);
 
-          // availability: API -> UI (Утро -> Утром), LS fallback
           const apiAvailUI = denormalizeAvailabilities(p.availabilities ?? []);
           const lsAvailUI = extra?.availability ?? [];
           setAvailability(apiAvailUI.length ? apiAvailUI : lsAvailUI);
 
-          // preferences animals: API -> UI (обычно без изменений), LS fallback
           const apiPrefsUI = denormalizePreferences(p.preferences ?? []);
           const lsPrefsUI = extra?.prefAnimals ?? [];
           setPrefAnimals(apiPrefsUI.length ? apiPrefsUI : lsPrefsUI);
 
-          // prefInteraction: в API нет, только LS
           setPrefInteraction(extra?.prefInteraction ?? []);
 
-          // volunteer location: только 1 район
           const apiLoc = p.location ? [p.location] : [];
           const lsLoc = (extra?.districts ?? []).slice(0, 1);
           const one = apiLoc.length ? apiLoc : lsLoc;
@@ -196,18 +187,63 @@ export default function EditProfilePage() {
     cameraInputRef.current?.click();
   };
 
-  const onDeleteAvatar = () => {
+  const onDeleteAvatar = async () => {
     if (!profile) return;
     setSheetOpen(false);
-    setUserAvatar(profile.userId, null);
-    setAvatarUrlState(null);
+
+    try {
+      // попробуем удалить на сервере (если бэк поддерживает)
+      if (isOrgRole(profile.role)) {
+        const res = await organizationsApi.patchProfile({ photoUrl: null });
+        setAvatarUrlState(res.photoUrl ?? null);
+      } else {
+        const res = await usersApi.patchProfile({ photoUrl: null });
+        setAvatarUrlState(res.photoUrl ?? null);
+      }
+    } catch {
+      // если бэк не поддержит — не падаем
+      setAvatarUrlState(null);
+      alert("Не удалось удалить фото на сервере (возможно, бэк не поддерживает удаление).");
+    }
   };
 
   const onFileSelected = async (file: File | undefined) => {
     if (!profile || !file) return;
-    const dataUrl = await fileToDataUrl(file);
-    setUserAvatar(profile.userId, dataUrl);
-    setAvatarUrlState(dataUrl);
+
+    // ✅ клиентская проверка размера
+    if (file.size > MAX_PHOTO_BYTES) {
+      alert("Файл не должен превышать 5 MB");
+      return;
+    }
+
+    // локальное превью сразу
+    const objectUrl = URL.createObjectURL(file);
+    setAvatarUrlState(objectUrl);
+
+    try {
+      // ✅ загрузка на сервер (multipart, ключ photo)
+      if (isOrgRole(profile.role)) {
+        const res = await organizationsApi.patchProfilePhoto(file);
+        setAvatarUrlState(res.photoUrl ?? null);
+      } else {
+        const res = await usersApi.patchProfilePhoto(file);
+        setAvatarUrlState(res.photoUrl ?? null);
+      }
+    } catch (e) {
+      // откат превью, если загрузка не удалась
+      setAvatarUrlState(profile.photoUrl ?? null);
+
+      let msg = "Не удалось загрузить фото профиля";
+      if (e instanceof ApiError) msg = e.message;
+      else if (e instanceof Error) msg = e.message;
+
+      if (msg.toLowerCase().includes("5 mb") || msg.toLowerCase().includes("5mb")) {
+        msg = "Файл не должен превышать 5 MB";
+      }
+      alert(msg);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -226,13 +262,11 @@ export default function EditProfilePage() {
           constantNeeds: needs,
           location: orgDistricts[0] ?? null,
         });
-
         router.push("/profile");
         return;
       }
 
-      // volunteer -> API
-      const safeAvailApi = normalizeAvailabilities(availability); // "Утром" -> "Утро"
+      const safeAvailApi = normalizeAvailabilities(availability);
       const safePrefsApi = normalizePreferences(prefAnimals);
       const safeDistricts = districts.slice(0, 1);
 
@@ -244,22 +278,23 @@ export default function EditProfilePage() {
         availabilities: safeAvailApi,
       });
 
-      // localStorage fallback (prefInteraction + прочее)
+      // localStorage только для prefInteraction (и fallback)
       const payload: VolunteerExtra = {
         about,
         competencies,
-        availability, // UI-лейблы
-        prefAnimals, // UI-лейблы
+        availability,
+        prefAnimals,
         prefInteraction,
         city,
-        districts: safeDistricts, // 0..1
+        districts: safeDistricts,
       };
       setVolunteerExtra(profile.userId, payload);
 
       router.push("/profile");
-    } catch (err) {
-      console.error(err);
-      const msg = err instanceof Error ? err.message : "Не удалось сохранить профиль";
+    } catch (e2) {
+      let msg = "Не удалось сохранить профиль";
+      if (e2 instanceof ApiError) msg = e2.message;
+      else if (e2 instanceof Error) msg = e2.message;
       alert(msg);
     }
   };
@@ -369,11 +404,6 @@ export default function EditProfilePage() {
               className={`${s.textarea} ${s.textareaSmall}`}
               value={org ? orgAbout : about}
               onChange={(e) => (org ? setOrgAbout(e.target.value) : setAbout(e.target.value))}
-              placeholder={
-                org
-                  ? "Приют для бездомных животных. Помогаем с 2015 года."
-                  : "Расскажите о себе: опыт, навыки, почему хотите помогать животным.."
-              }
             />
           </section>
 
@@ -383,19 +413,11 @@ export default function EditProfilePage() {
                 <h2 className={s.sectionTitle}>Контактные данные</h2>
                 <div className={s.field}>
                   <label className={s.fieldLabel}>Телефон</label>
-                  <input
-                    className={s.input}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
+                  <input className={s.input} value={phone} onChange={(e) => setPhone(e.target.value)} />
                 </div>
                 <div className={s.field} style={{ marginTop: 12 }}>
                   <label className={s.fieldLabel}>Сайт</label>
-                  <input
-                    className={s.input}
-                    value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
-                  />
+                  <input className={s.input} value={website} onChange={(e) => setWebsite(e.target.value)} />
                 </div>
               </section>
 

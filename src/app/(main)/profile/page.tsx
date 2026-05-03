@@ -13,7 +13,6 @@ import {
   type VolunteerExtra,
   VOLUNTEER_EXTRA_CHANGED_EVENT,
 } from "@/src/lib/storage/volunteerExtra";
-import { getUserAvatar, USER_AVATAR_CHANGED_EVENT } from "@/src/lib/storage/userAvatar";
 import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
 import { animalsApi, type AnimalListItemDto } from "@/src/lib/api/animals";
 import { denormalizeAvailabilities, denormalizePreferences } from "@/src/lib/normalizeDictionaries";
@@ -83,12 +82,11 @@ export default function ProfilePage() {
   const [token, setToken] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [loading, setLoading] = useState(true);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // volunteer extra (fallback)
+  // volunteer extra fallback
   const [volExtra, setVolExtra] = useState<VolunteerExtra | null>(null);
 
-  // pets from API
+  // pets
   const [pets, setPets] = useState<AnimalListItemDto[]>([]);
 
   // delete pet dialog
@@ -127,9 +125,9 @@ export default function ProfilePage() {
         setProfile(p);
 
         if (p) {
-          setAvatarUrl(getUserAvatar(p.userId));
           if (!isOrgRole(p.role)) setVolExtra(getVolunteerExtra(p.userId));
           else setVolExtra(null);
+
           await loadPets();
         }
       } finally {
@@ -138,23 +136,18 @@ export default function ProfilePage() {
     })();
   }, []);
 
-  // подписки на localStorage-события (avatar + volunteerExtra fallback)
+  // LS fallback subscription (volunteerExtra)
   useEffect(() => {
     if (!profile) return;
 
     const onVolExtraChanged = () => {
-      if (!isOrgRole(profile.role)) setVolExtra(getVolunteerExtra(profile.userId));
+      if (!isOrgRole(profile.role)) {
+        setVolExtra(getVolunteerExtra(profile.userId));
+      }
     };
-
-    const onAvatarChanged = () => setAvatarUrl(getUserAvatar(profile.userId));
 
     window.addEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
-    window.addEventListener(USER_AVATAR_CHANGED_EVENT, onAvatarChanged);
-
-    return () => {
-      window.removeEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
-      window.removeEventListener(USER_AVATAR_CHANGED_EVENT, onAvatarChanged);
-    };
+    return () => window.removeEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
   }, [profile]);
 
   const onLogout = () => {
@@ -247,6 +240,9 @@ export default function ProfilePage() {
     }
   };
 
+  // ✅ avatar from API
+  const avatarUrl = profile.photoUrl;
+
   return (
     <>
       <div className={s.page}>
@@ -264,10 +260,12 @@ export default function ProfilePage() {
                   : undefined
               }
             />
+
             <div className={s.profileInfo}>
               <h1>{displayName}</h1>
               <p>{org ? "Куратор / Организация" : "Волонтёр"}</p>
             </div>
+
             <button className={s.btnLogout} onClick={onLogout}>
               Выйти
             </button>
