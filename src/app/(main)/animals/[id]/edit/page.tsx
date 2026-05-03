@@ -3,12 +3,9 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-
 import overlay from "../../../@modal/modalOverlay.module.css";
 import a from "../../new/animalNew.module.css";
-
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
-import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
 import { animalsApi, type AnimalDto } from "@/src/lib/api/animals";
 import { ApiError } from "@/src/lib/api/http";
 
@@ -25,17 +22,26 @@ export default function EditAnimalPage() {
   const [animal, setAnimal] = useState<AnimalDto | null>(null);
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
-  // defaults
+  // fields
   const [name, setName] = useState("");
   const [animalType, setAnimalType] = useState("");
   const [breed, setBreed] = useState("");
-  const [age, setAge] = useState(""); // UI строка, API нормализует
-  const [history, setHistory] = useState(""); // API не хранит — UI оставляем
+  const [age, setAge] = useState("");
+  const [history, setHistory] = useState("");
   const [health, setHealth] = useState("");
   const [character, setCharacter] = useState("");
   const [needs, setNeeds] = useState("");
+
+  // revoke objectURL
+  useEffect(() => {
+    return () => {
+      if (photoPreview && photoPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
 
   useEffect(() => {
     (async () => {
@@ -59,14 +65,14 @@ export default function EditAnimalPage() {
 
         setAnimal(a1);
 
+        // preview из API
         setPhotoPreview(a1.photoUrl);
-        setPhotoDataUrl(a1.photoUrl);
 
         setName(a1.name ?? "");
         setAnimalType(a1.animalType ?? "");
         setBreed(a1.breed ?? "");
         setAge(a1.age != null ? String(a1.age) : "");
-        setHistory("");
+        setHistory(""); // в API поля нет, UI оставляем
         setHealth(a1.health ?? "");
         setCharacter(a1.character ?? "");
         setNeeds(a1.specialNeeds ?? "");
@@ -80,15 +86,18 @@ export default function EditAnimalPage() {
 
   const onPickPhoto = () => fileRef.current?.click();
 
-  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
     if (!file) return;
 
     const objectUrl = URL.createObjectURL(file);
-    setPhotoPreview(objectUrl);
 
-    const dataUrl = await fileToDataUrl(file);
-    setPhotoDataUrl(dataUrl);
+    setPhotoPreview((prev) => {
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return objectUrl;
+    });
+
+    setPhotoFile(file);
   };
 
   const onCancel = () => router.back();
@@ -102,24 +111,29 @@ export default function EditAnimalPage() {
     if (!safeType) return alert("Выберите вид животного");
 
     setSubmitting(true);
+
     try {
-      await animalsApi.patch(id, {
+      const dto = {
         animalType: safeType,
         name: safeName,
         breed: breed.trim() || null,
-        age: age.trim() ? age.trim() : null, // string|null -> animalsApi нормализует
+        age: age.trim() ? age.trim() : null,
         health: health.trim() || null,
         character: character.trim() || null,
         specialNeeds: needs.trim() || null,
-        photoUrl: photoDataUrl || null, // ✅ пробуем сохранять фото в API
-      });
+      };
+
+      if (photoFile) {
+        await animalsApi.patchWithPhoto(id, dto, photoFile);
+      } else {
+        await animalsApi.patch(id, dto);
+      }
 
       router.replace(`/animals/${id}`);
     } catch (e2) {
       let msg = "Не удалось сохранить изменения";
       if (e2 instanceof ApiError) msg = e2.message;
       else if (e2 instanceof Error) msg = e2.message;
-
       console.error(e2);
       alert(msg);
     } finally {

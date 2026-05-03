@@ -1,15 +1,12 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-
 import overlay from "../../@modal/modalOverlay.module.css";
 import a from "./animalNew.module.css";
-
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { animalsApi } from "@/src/lib/api/animals";
-import { fileToDataUrl } from "@/src/lib/fileToDataUrl";
 import { ApiError } from "@/src/lib/api/http";
 
 export default function NewAnimalPage() {
@@ -17,21 +14,29 @@ export default function NewAnimalPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
+
+  // чтобы не копились objectURL
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const onPickPhoto = () => fileRef.current?.click();
 
-  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
     if (!file) return;
 
     const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
-
-    // ✅ DataURL — попробуем отправлять на бэк как photoUrl
-    const dataUrl = await fileToDataUrl(file);
-    setPhotoDataUrl(dataUrl);
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return objectUrl;
+    });
+    setPhotoFile(file);
   };
 
   const onCancel = () => router.back();
@@ -49,18 +54,14 @@ export default function NewAnimalPage() {
     const health = String(fd.get("health") ?? "").trim();
     const character = String(fd.get("character") ?? "").trim();
     const needs = String(fd.get("needs") ?? "").trim();
-    // history в API нет — UI оставляем, на бэк не шлём
-    // const history = String(fd.get("history") ?? "").trim();
 
     if (!animalType) return alert("Выберите вид животного");
 
-    // Бэк требует name — если пусто, подставляем
     const safeName = name || "Без имени";
-
-    // age на бэке short? — но мы уже нормализуем в animalsApi
     const age = ageRaw ? ageRaw : null;
 
     setSubmitting(true);
+
     try {
       const me = await fetchCurrentProfile();
       if (!me) {
@@ -69,23 +70,25 @@ export default function NewAnimalPage() {
         return;
       }
 
-      const created = await animalsApi.create({
+      const dto = {
         animalType,
         name: safeName,
         breed: breed || null,
-        age, // string|null OK -> animalsApi нормализует в number|null
+        age,
         health: health || null,
         character: character || null,
         specialNeeds: needs || null,
-        photoUrl: photoDataUrl || null, // ✅ пробуем сохранять фото в API
-      });
+      };
+
+      const created = photoFile
+        ? await animalsApi.createWithPhoto(dto, photoFile)
+        : await animalsApi.create(dto);
 
       router.replace(`/animals/${created.id}`);
     } catch (e2) {
       let msg = "Не удалось создать карточку животного";
       if (e2 instanceof ApiError) msg = e2.message;
       else if (e2 instanceof Error) msg = e2.message;
-
       console.error(e2);
       alert(msg);
     } finally {
