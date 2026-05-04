@@ -1,0 +1,154 @@
+.page {
+  padding: 30px 0 60px;
+  background: #fafafc;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.calendarWidget {
+  background: #fef7f0;              /* ✅ фон календаря */
+  border: 1px solid #dee2e6;
+  border-radius: 20px;
+  padding: 22px;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.06);
+}
+
+.calendarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.monthTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #06355e;
+}
+
+.nav {
+  display: flex;
+  gap: 10px;
+}
+
+.navBtn {
+  width: 40px;                      /* ⬅️ размер кружка вокруг стрелки */
+  height: 40px;                     /* ⬅️ размер кружка вокруг стрелки */
+  border-radius: 999px;
+
+  background: #fef7f0;              /* ✅ фон как у календаря */
+  border: 2px solid rgba(6, 53, 94, 1); /* чтобы кружок был виден на таком же фоне */
+
+  color: #06355e;
+  cursor: pointer;
+
+  font-size: 24px;                  /* ⬅️ размер стрелки */
+  font-weight: 400;                 /* ⬅️ “толщина” стрелки (для символов ← →) */
+  line-height: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navBtn:hover {
+  background: #f9efe7;              /* чуть темнее, чем FEF7F0 */
+}
+
+/* сетка календаря — без изменений */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.weekday {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+  color: #6c757d;
+  user-select: none;
+}
+
+/* ✅ день теперь НЕ овальный, а круглый */
+.dayBtn {
+  height: 44px;
+  width: 44px;                      /* ✅ фиксируем ширину = высоте */
+  padding: 0;
+  justify-self: center;             /* ✅ центрируем круг в ячейке сетки */
+
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+
+  cursor: pointer;
+  color: #212529;
+  font-size: 18px;
+  font-weight: 600;
+
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* ✅ hover: чуть темнее, чем FEF7F0, но намного светлее EAAC99 */
+.dayBtn:hover {
+  background: #f7e5d8;              /* можно подбирать тут */
+}
+
+/* пустые ячейки — чтобы сетка была ровной */
+.dayEmpty {
+  height: 44px;
+  width: 44px;
+  justify-self: center;
+  border-radius: 999px;
+  background: transparent;
+}
+
+/* ✅ дни с задачами */
+.dayHasEvent {
+  background: #eaac99;              /* ✅ нужный цвет */
+}
+
+/* ✅ выбранный день (оставил прежний принцип обводки) */
+.daySelected {
+  box-shadow: 0 0 0 1.5px #06355e inset;
+  background: transparent;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #06355e;
+}
+
+.muted {
+  color: #6c757d;
+  font-size: 14px;
+  margin: 0;
+}
+
+.cardsWrap {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 920px) {
+  /* если хочешь 2 колонки как в ленте — включи */
+  .cardsWrap {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
