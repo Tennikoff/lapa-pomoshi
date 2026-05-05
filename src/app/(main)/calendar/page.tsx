@@ -6,10 +6,17 @@ import styles from "./calendar.module.css";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
-import type { HelpTaskDto } from "@/src/types/helpTask";
+import type { HelpTaskDto, HelpTasksListDto } from "@/src/types/helpTask";
+import { ApiError } from "@/src/lib/api/http";
 
 // карточки должны быть 1-в-1 как в ленте задач у волонтера
 import { TaskCard } from "@/src/app/(main)/tasks/_components/TaskCard";
+
+const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
+
+// Чтобы не тащить бесконечно много (на всякий случай)
+const PAGE_SIZE = 50;
+const MAX_TOTAL = 500;
 
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -76,10 +83,35 @@ type TaskRange = {
   end: Date; // startOfDay
 };
 
+async function loadAllMyTasks(isOrg: boolean): Promise<HelpTaskDto[]> {
+  const all: HelpTaskDto[] = [];
+  let offset = 0;
+
+  while (all.length < MAX_TOTAL) {
+    const res: HelpTasksListDto = isOrg
+      ? await helpTasksApi.myCreated(offset, PAGE_SIZE)
+      : await helpTasksApi.myWorking(offset, PAGE_SIZE);
+
+    const chunk = res.tasks ?? [];
+    all.push(...chunk);
+
+    if (!res.hasMore) break;
+
+    offset += PAGE_SIZE;
+
+    // защита: если бэк внезапно начал возвращать hasMore=true, но tasks=[]
+    if (!chunk.length) break;
+  }
+
+  return all.slice(0, MAX_TOTAL);
+}
+
 export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [meRoleOrg, setMeRoleOrg] = useState<boolean | null>(null);
   const [items, setItems] = useState<HelpTaskDto[]>([]);
+  const [errorText, setErrorText] = useState<string | null>(null);
+
   const [currentMonth, setCurrentMonth] = useState<Date>(() =>
     startOfDay(new Date())
   );
@@ -87,34 +119,55 @@ export default function CalendarPage() {
     startOfDay(new Date())
   );
 
-  // 1) грузим список задач “моих” в зависимости от роли
-  useEffect(() => {
-    (async () => {
+  const reload = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
       setLoading(true);
-      try {
-        const me = await fetchCurrentProfile();
-        if (!me) {
-          setItems([]);
-          setMeRoleOrg(null);
-          return;
-        }
+    }
+    setErrorText(null);
 
-        const org = isOrgRole(me.role);
-        setMeRoleOrg(org);
+    try {
+      const me = await fetchCurrentProfile();
+      if (!me) {
+        setItems([]);
+        setMeRoleOrg(null);
+        return;
+      }
 
-        // MVP: берём первой пачкой (можно потом сделать пагинацию по hasMore)
-        const res = org
-          ? await helpTasksApi.myCreated(0, 200)
-          : await helpTasksApi.myWorking(0, 200);
+      const org = isOrgRole(me.role);
+      setMeRoleOrg(org);
 
-        setItems(res.tasks ?? []);
-      } finally {
+      const tasks = await loadAllMyTasks(org);
+      setItems(tasks);
+    } catch (e) {
+      let msg = "Не удалось загрузить календарь";
+      if (e instanceof ApiError) msg = e.message;
+      else if (e instanceof Error) msg = e.message;
+      setErrorText(msg);
+    } finally {
+      if (!opts?.silent) {
         setLoading(false);
       }
-    })();
+    }
+  };
+
+  // init
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2) если перелистнули месяц — selectedDay остаётся в этом месяце
+  // автообновление после create/update/delete задач
+  useEffect(() => {
+    const onChanged = () => {
+      // тихо перезагрузим, без глобального "Загрузка…"
+      reload({ silent: true });
+    };
+    window.addEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // если перелистнули месяц — selectedDay остаётся в этом месяце
   useEffect(() => {
     const ms = getMonthStart(currentMonth);
     const me = getMonthEnd(currentMonth);
@@ -147,7 +200,6 @@ export default function CalendarPage() {
       const sa = startOfDay(a);
       const sb = startOfDay(b);
 
-      // на случай кривых данных: если endedAt раньше startedAt
       const start = sa <= sb ? sa : sb;
       const end = sa <= sb ? sb : sa;
 
@@ -157,12 +209,11 @@ export default function CalendarPage() {
     return out;
   }, [items]);
 
-  // набор дней месяца, которые надо подсветить (есть хотя бы 1 задача в этот день)
+  // набор дней месяца, которые надо подсветить
   const monthEventDays = useMemo(() => {
     const set = new Set<string>();
 
     for (const r of ranges) {
-      // пересечение с текущим месяцем
       const from = r.start > monthStart ? r.start : monthStart;
       const to = r.end < monthEnd ? r.end : monthEnd;
       if (from > to) continue;
@@ -187,14 +238,14 @@ export default function CalendarPage() {
     return list;
   }, [ranges, selectedDay]);
 
-  // сетка 6 недель (42 ячейки) — UI не прыгает
+  // сетка 6 недель (42 ячейки)
   const calendarCells = useMemo(() => {
     const y = currentMonth.getFullYear();
     const m = currentMonth.getMonth();
 
     const first = new Date(y, m, 1);
     const daysInMonth = getMonthEnd(currentMonth).getDate();
-    const offset = mondayIndex(first.getDay()); // сколько пустых ячеек до 1-го числа
+    const offset = mondayIndex(first.getDay());
 
     const cells: Array<Date | null> = [];
     for (let i = 0; i < 42; i++) {
@@ -206,12 +257,20 @@ export default function CalendarPage() {
   }, [currentMonth]);
 
   const onPrevMonth = () => {
-    const d = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+    const d = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth() - 1,
+      1
+    );
     setCurrentMonth(d);
   };
 
   const onNextMonth = () => {
-    const d = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+    const d = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth() + 1,
+      1
+    );
     setCurrentMonth(d);
   };
 
@@ -310,20 +369,22 @@ export default function CalendarPage() {
           Задачи на {formatSelectedTitle(selectedDay)}
         </h3>
 
-        {tasksForSelectedDay.length === 0 ? (
+        {errorText ? <p className={styles.muted}>{errorText}</p> : null}
+
+        {!errorText && tasksForSelectedDay.length === 0 ? (
           <p className={styles.muted}>На этот день задач нет.</p>
-        ) : (
+        ) : !errorText ? (
           <div className={styles.cardsWrap}>
             {tasksForSelectedDay.map((t) => (
               <TaskCard
                 key={t.id}
                 task={t}
-                mode="volunteer"
+                mode="volunteer" // внешний вид как в ленте волонтёра + кликабельность
                 onEdit={() => {}}
               />
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
