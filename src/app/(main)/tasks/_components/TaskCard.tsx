@@ -15,20 +15,19 @@ function formatTimeRange(task: HelpTaskDto) {
   const b = task.endedAt ? new Date(task.endedAt) : null;
   if (!a || !b) return "—";
 
-  // передержка: 01.05 - 07.05
+  // передержка: 01.05 - 07.05 (как было)
   if (task.isTaskOverexposure) {
     return `${fmtShortDate(a)} - ${fmtShortDate(b)}`;
   }
 
-  // задача: 01 мая 2026, 18:00 - 20:00
-  const date = a.toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-  const ta = a.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  const tb = b.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  return `${date}, ${ta} - ${tb}`;
+  // ✅ задача: только дата (без времени)
+  // если вдруг задача пересекает 2 дня — покажем диапазон дат
+  const sameDay =
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  return sameDay ? fmtShortDate(a) : `${fmtShortDate(a)} - ${fmtShortDate(b)}`;
 }
 
 export function TaskCard({
