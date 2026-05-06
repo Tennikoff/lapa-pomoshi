@@ -447,3 +447,28 @@
   color: var(--color-text-secondary);
   font-size: 14px;
 }
+
+.responsesBtn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+
+  font: inherit;
+  color: inherit;
+
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.responsesBtn:hover {
+  text-decoration: underline;
+}
+
+.responsesBtn:disabled {
+  cursor: default;
+  opacity: 0.6;
+  text-decoration: none;
+}

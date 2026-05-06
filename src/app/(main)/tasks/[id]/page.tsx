@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Calendar, Clock } from "lucide-react";
 
@@ -13,14 +13,23 @@ import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
-
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
-import { animalsApi, type AnimalDto, type AnimalListItemDto } from "@/src/lib/api/animals";
+import {
+  animalsApi,
+  type AnimalDto,
+  type AnimalListItemDto,
+  type CreateAnimalDto,
+} from "@/src/lib/api/animals";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
 
 import type { HelpTaskDto } from "@/src/types/helpTask";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+function isTooLarge(file: File) {
+  return file.size > MAX_PHOTO_BYTES;
+}
 
 function toIsoDateStart(value: string): string | null {
   if (!value) return null;
@@ -62,7 +71,6 @@ export default function TaskEditPage() {
 
   const [loading, setLoading] = useState(true);
   const [task, setTask] = useState<HelpTaskDto | null>(null);
-
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   // dictionaries
@@ -75,10 +83,13 @@ export default function TaskEditPage() {
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [selectedAnimalFull, setSelectedAnimalFull] = useState<AnimalDto | null>(null);
 
-  // create animal screen
+  // create animal screen (inside edit)
   const [createAnimalOpen, setCreateAnimalOpen] = useState(false);
   const animalFileRef = useRef<HTMLInputElement | null>(null);
   const [animalPreviewUrl, setAnimalPreviewUrl] = useState<string | null>(null);
+
+  const [animalPhotoFile, setAnimalPhotoFile] = useState<File | null>(null);
+  const [animalPhotoError, setAnimalPhotoError] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
   const [anType, setAnType] = useState("");
@@ -93,7 +104,6 @@ export default function TaskEditPage() {
   // common fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-
   const [district, setDistrict] = useState<string>("");
 
   // task-only
@@ -106,12 +116,11 @@ export default function TaskEditPage() {
   const [endDate, setEndDate] = useState("");
   const [endTime, setEndTime] = useState("");
 
-  // refs
+  // refs for pickers
   const startDateRef = useRef<HTMLInputElement | null>(null);
   const startTimeRef = useRef<HTMLInputElement | null>(null);
   const endDateRef = useRef<HTMLInputElement | null>(null);
   const endTimeRef = useRef<HTMLInputElement | null>(null);
-
   const fosterStartRef = useRef<HTMLInputElement | null>(null);
   const fosterEndRef = useRef<HTMLInputElement | null>(null);
 
@@ -129,6 +138,7 @@ export default function TaskEditPage() {
     setAnimals(res.animals);
   };
 
+  // init
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -139,10 +149,13 @@ export default function TaskEditPage() {
           return;
         }
 
+        // доступ к редактированию задач сейчас по UI только для организации
+        // но фактическая проверка — создатель задачи
         const [locs, comps] = await Promise.all([
           dictionariesApi.locations(),
           dictionariesApi.competencies(),
         ]);
+
         setLocationsDict(locs);
         setCompetenciesDict(comps);
 
@@ -162,7 +175,6 @@ export default function TaskEditPage() {
         // fill state
         setTitle(t.title ?? "");
         setDescription(t.description ?? "");
-
         setDistrict(t.locations?.[0] ?? "");
 
         // animal
@@ -193,6 +205,7 @@ export default function TaskEditPage() {
     })();
   }, [id, router]);
 
+  // load selected animal full
   useEffect(() => {
     if (!selectedAnimalId) {
       setSelectedAnimalFull(null);
@@ -208,11 +221,26 @@ export default function TaskEditPage() {
     })();
   }, [selectedAnimalId]);
 
+  // cleanup preview
+  useEffect(() => {
+    return () => {
+      if (animalPreviewUrl && animalPreviewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(animalPreviewUrl);
+      }
+    };
+  }, [animalPreviewUrl]);
+
   const onCancel = () => router.back();
 
   // ===== create animal inside edit =====
   const resetAnimalDraft = () => {
+    if (animalPreviewUrl && animalPreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(animalPreviewUrl);
+    }
     setAnimalPreviewUrl(null);
+    setAnimalPhotoFile(null);
+    setAnimalPhotoError(null);
+
     setAnName("");
     setAnType("");
     setAnBreed("");
@@ -231,10 +259,24 @@ export default function TaskEditPage() {
   const onPickAnimalPhoto = () => animalFileRef.current?.click();
 
   const onAnimalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files?.[0] ?? null;
     if (!file) return;
+
     const objectUrl = URL.createObjectURL(file);
-    setAnimalPreviewUrl(objectUrl);
+    setAnimalPreviewUrl((prev) => {
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return objectUrl;
+    });
+
+    if (isTooLarge(file)) {
+      setAnimalPhotoFile(null);
+      setAnimalPhotoError("Файл не должен превышать 5 MB. Выберите другое фото.");
+      e.target.value = "";
+      return;
+    }
+
+    setAnimalPhotoFile(file);
+    setAnimalPhotoError(null);
   };
 
   const onCancelCreateAnimal = () => setCreateAnimalOpen(false);
@@ -247,10 +289,11 @@ export default function TaskEditPage() {
 
     if (!animalType) return alert("Выберите тип животного");
     if (!name) return alert("Укажите имя животного");
+    if (animalPhotoError) return alert(animalPhotoError);
 
     setAnimalSubmitting(true);
     try {
-      const created = await animalsApi.create({
+      const dto: CreateAnimalDto = {
         animalType,
         name,
         breed: anBreed.trim() || null,
@@ -258,7 +301,12 @@ export default function TaskEditPage() {
         health: anHealth.trim() || null,
         character: anCharacter.trim() || null,
         specialNeeds: anNeeds.trim() || null,
-      });
+      };
+
+      // ✅ Главное исправление: если выбрано фото — создаём через multipart
+      const created = animalPhotoFile
+        ? await animalsApi.createWithPhoto(dto, animalPhotoFile)
+        : await animalsApi.create(dto);
 
       await loadAnimals();
       setSelectedAnimalId(created.id);
@@ -269,14 +317,13 @@ export default function TaskEditPage() {
     }
   };
 
-  // ===== delete flow: close first, then delete =====
+  // ===== delete flow =====
   const onAskDelete = () => setDeleteOpen(true);
   const onCancelDelete = () => setDeleteOpen(false);
 
   const onConfirmDelete = () => {
     setDeleteOpen(false);
     router.back();
-
     window.setTimeout(async () => {
       try {
         await helpTasksApi.delete(id);
@@ -289,7 +336,6 @@ export default function TaskEditPage() {
   // ===== submit update =====
   const onSubmitEdit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
-
     if (!task) return;
 
     const me = await fetchCurrentProfile();
@@ -314,6 +360,7 @@ export default function TaskEditPage() {
 
       const startedAt = toIsoDateStart(startDate);
       const endedAt = toIsoDateStart(endDate);
+
       if (!startedAt || !endedAt) return alert("Некорректная дата");
 
       await helpTasksApi.update(id, {
@@ -339,6 +386,7 @@ export default function TaskEditPage() {
 
     const startedAt = toIsoDateTime(startDate, startTime);
     const endedAt = toIsoDateTime(endDate, endTime);
+
     if (!startedAt || !endedAt) return alert("Некорректная дата/время");
 
     if (!requiredVolunteers || requiredVolunteers < 1) {
@@ -389,7 +437,12 @@ export default function TaskEditPage() {
         <div className={overlay.content}>
           <div className={overlay.scrollBox}>
             <div className={a.formCard} style={{ margin: 0, position: "relative" }}>
-              <button className={a.closeBtn} type="button" onClick={onCancelCreateAnimal} aria-label="Закрыть">
+              <button
+                className={a.closeBtn}
+                type="button"
+                onClick={onCancelCreateAnimal}
+                aria-label="Закрыть"
+              >
                 ×
               </button>
 
@@ -398,7 +451,12 @@ export default function TaskEditPage() {
               <div className={a.field}>
                 <label className={a.label}>Фото</label>
                 <div className={a.photoRow}>
-                  <button type="button" className={a.photoUpload} onClick={onPickAnimalPhoto} aria-label="Загрузить фото">
+                  <button
+                    type="button"
+                    className={a.photoUpload}
+                    onClick={onPickAnimalPhoto}
+                    aria-label="Загрузить фото"
+                  >
                     {animalPreviewUrl ? (
                       <img className={a.photoPreview} src={animalPreviewUrl} alt="Превью фото" />
                     ) : (
@@ -424,50 +482,117 @@ export default function TaskEditPage() {
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-name">Имя*</label>
-                <input id="an-name" className={a.input} value={anName} onChange={(e) => setAnName(e.target.value)} />
+                <label className={a.label} htmlFor="an-name">
+                  Имя*
+                </label>
+                <input
+                  id="an-name"
+                  className={a.input}
+                  value={anName}
+                  onChange={(e) => setAnName(e.target.value)}
+                />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-type">Тип животного*</label>
-                <input id="an-type" className={a.input} value={anType} onChange={(e) => setAnType(e.target.value)} />
+                <label className={a.label} htmlFor="an-type">
+                  Тип животного*
+                </label>
+                <input
+                  id="an-type"
+                  className={a.input}
+                  value={anType}
+                  onChange={(e) => setAnType(e.target.value)}
+                />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-breed">Порода</label>
-                <input id="an-breed" className={a.input} value={anBreed} onChange={(e) => setAnBreed(e.target.value)} />
+                <label className={a.label} htmlFor="an-breed">
+                  Порода
+                </label>
+                <input
+                  id="an-breed"
+                  className={a.input}
+                  value={anBreed}
+                  onChange={(e) => setAnBreed(e.target.value)}
+                />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-age">Возраст</label>
-                <input id="an-age" className={a.input} value={anAge} onChange={(e) => setAnAge(e.target.value)} />
+                <label className={a.label} htmlFor="an-age">
+                  Возраст
+                </label>
+                <input
+                  id="an-age"
+                  className={a.input}
+                  value={anAge}
+                  onChange={(e) => setAnAge(e.target.value)}
+                />
+              </div>
+
+              {/* поле есть в UI, но пока не уходит в API */}
+              <div className={a.field}>
+                <label className={a.label} htmlFor="an-history">
+                  История
+                </label>
+                <textarea
+                  id="an-history"
+                  className={a.textarea}
+                  value={anHistory}
+                  onChange={(e) => setAnHistory(e.target.value)}
+                />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-history">История</label>
-                <textarea id="an-history" className={a.textarea} value={anHistory} onChange={(e) => setAnHistory(e.target.value)} />
+                <label className={a.label} htmlFor="an-health">
+                  Состояние здоровья
+                </label>
+                <textarea
+                  id="an-health"
+                  className={a.textarea}
+                  value={anHealth}
+                  onChange={(e) => setAnHealth(e.target.value)}
+                />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-health">Состояние здоровья</label>
-                <textarea id="an-health" className={a.textarea} value={anHealth} onChange={(e) => setAnHealth(e.target.value)} />
+                <label className={a.label} htmlFor="an-character">
+                  Характер
+                </label>
+                <textarea
+                  id="an-character"
+                  className={a.textarea}
+                  value={anCharacter}
+                  onChange={(e) => setAnCharacter(e.target.value)}
+                />
               </div>
 
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-character">Характер</label>
-                <textarea id="an-character" className={a.textarea} value={anCharacter} onChange={(e) => setAnCharacter(e.target.value)} />
-              </div>
-
-              <div className={a.field}>
-                <label className={a.label} htmlFor="an-needs">Особые потребности</label>
-                <textarea id="an-needs" className={a.textarea} value={anNeeds} onChange={(e) => setAnNeeds(e.target.value)} />
+                <label className={a.label} htmlFor="an-needs">
+                  Особые потребности
+                </label>
+                <textarea
+                  id="an-needs"
+                  className={a.textarea}
+                  value={anNeeds}
+                  onChange={(e) => setAnNeeds(e.target.value)}
+                />
               </div>
 
               <div className={a.actions}>
-                <button type="button" className={a.btn} onClick={onCancelCreateAnimal} disabled={animalSubmitting}>
+                <button
+                  type="button"
+                  className={a.btn}
+                  onClick={onCancelCreateAnimal}
+                  disabled={animalSubmitting}
+                >
                   ОТМЕНИТЬ
                 </button>
-                <button type="button" className={a.btn} onClick={onSaveAnimal} disabled={animalSubmitting}>
+                <button
+                  type="button"
+                  className={a.btn}
+                  onClick={onSaveAnimal}
+                  disabled={animalSubmitting}
+                >
                   {animalSubmitting ? "..." : "СОХРАНИТЬ"}
                 </button>
               </div>
@@ -672,6 +797,7 @@ export default function TaskEditPage() {
                 // Foster only
                 <section className={f.section}>
                   <h2 className={f.sectionTitle}>Период передержки</h2>
+
                   <div className={f.dateGrid}>
                     <div>
                       <label className={f.fieldLabel}>Дата начала</label>

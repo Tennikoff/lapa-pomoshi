@@ -1,24 +1,18 @@
 .modal {
   width: 100%;
   max-width: 520px;
-
   /* ✅ фон карточки просмотра */
   background: #fff;
-
   border-radius: 24px;
   padding: 24px;
   position: relative;
-
   /* ✅ центрирование по горизонтали внутри scrollBox */
   margin: 0 auto;
-
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.18), 0 10px 10px -5px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
   gap: 18px;
-
-  /* ✅ чтобы t.tag (из tasks.module.css) имел такое же выделение как в ленте
-     (там background-color: var(--color-tag-blue)) */
+  /* ✅ чтобы t.tag (из tasks.module.css) имел такое же выделение как в ленте */
   --color-tag-blue: #c3eaff;
 }
 
@@ -119,4 +113,26 @@
   font-size: 13px;
   color: #6c757d;
   text-align: center;
+}
+
+/* ====== Статусы кнопки отклика (только фон, остальной стиль остаётся из f.actionBtn) ====== */
+.ctaPending {
+  background-color: #fef08a;
+}
+.ctaPending:hover {
+  background-color: #fef08a;
+}
+
+.ctaAccepted {
+  background-color: #a7f3d0;
+}
+.ctaAccepted:hover {
+  background-color: #a7f3d0;
+}
+
+.ctaDeclined {
+  background-color: #fecdd3;
+}
+.ctaDeclined:hover {
+  background-color: #fecdd3;
 }

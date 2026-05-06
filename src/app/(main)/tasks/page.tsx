@@ -2,14 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import s from "./tasks.module.css";
+
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
+
 import type { ProfileDto } from "@/src/types/profile";
 import type { HelpTaskDto, HelpTasksListDto } from "@/src/types/helpTask";
+
 import { TaskCard } from "./_components/TaskCard";
+import { RespondersModal } from "./_components/RespondersModal";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 
@@ -36,6 +41,7 @@ function loc0OrEmpty(t: HelpTaskDto) {
 
 export default function TasksPage() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [open, setOpen] = useState<OpenDrop>(null);
@@ -55,6 +61,11 @@ export default function TasksPage() {
   // data
   const [items, setItems] = useState<HelpTaskDto[]>([]);
 
+  // responses modal (curator)
+  const [responsesOpen, setResponsesOpen] = useState(false);
+  const [responsesTaskId, setResponsesTaskId] = useState<string | null>(null);
+  const [responsesTaskTitle, setResponsesTaskTitle] = useState<string>("");
+
   const org = isOrgRole(profile?.role);
   const mode: "curator" | "volunteer" = org ? "curator" : "volunteer";
 
@@ -63,12 +74,25 @@ export default function TasksPage() {
     [locationsDict]
   );
 
+  const openResponses = (t: HelpTaskDto) => {
+    setResponsesTaskId(t.id);
+    setResponsesTaskTitle(t.title ?? "");
+    setResponsesOpen(true);
+  };
+
+  const closeResponses = () => {
+    setResponsesOpen(false);
+    setResponsesTaskId(null);
+    setResponsesTaskTitle("");
+  };
+
   const load = async (p: ProfileDto, opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
 
     try {
       const isOrg = isOrgRole(p.role);
 
+      // ORG: my-created
       if (isOrg) {
         const res = (await helpTasksApi.myCreated(0, 50)) as HelpTasksListDto;
         setItems(res.tasks);
@@ -144,18 +168,18 @@ export default function TasksPage() {
     };
   }, [open]);
 
-  // 🔥 авто-обновление после create/update/delete
+  // auto-refresh after create/update/delete
   useEffect(() => {
     if (!profile) return;
-
     const onChanged = () => load(profile, { silent: true });
 
     window.addEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, districts, competencies, animalTypes, query, allLocationNames.length]);
 
-  // volunteer: reload when filters change (server side feed) with debounce
+  // volunteer: reload when filters change (debounce)
   useEffect(() => {
     if (!profile) return;
     if (isOrgRole(profile.role)) return;
@@ -166,6 +190,7 @@ export default function TasksPage() {
     }, 250);
 
     return () => window.clearTimeout(id);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, query, districts, competencies, animalTypes, locationsDict.length]);
 
@@ -194,11 +219,12 @@ export default function TasksPage() {
     });
 
     const sorted = [...out].sort((a, b) => {
-      if (sort === "alpha")
+      if (sort === "alpha") {
         return a.title.localeCompare(b.title, "ru", { sensitivity: "base" });
-
-      if (sort === "created") return (b.createdAt || "").localeCompare(a.createdAt || "");
-
+      }
+      if (sort === "created") {
+        return (b.createdAt || "").localeCompare(a.createdAt || "");
+      }
       const da = a.startedAt ?? a.createdAt;
       const db = b.startedAt ?? b.createdAt;
       return String(da).localeCompare(String(db));
@@ -243,274 +269,294 @@ export default function TasksPage() {
   }
 
   return (
-    <div className={`${s.page} ${mode === "volunteer" ? s.pageVolunteer : ""}`}>
-      <div className={s.container}>
-        {/* 1-я строка: кнопки куратора + фильтры */}
-        <div className={s.controlsPanel} data-drop-root>
-          {mode === "curator" ? (
-            <>
-              <button className={`${s.btn} ${s.btnPeach}`} onClick={onCreateTask}>
-                Создать задачу
-              </button>
-              <button className={`${s.btn} ${s.btnPeach}`} onClick={onCreateFoster}>
-                Запросить передержку
-              </button>
-            </>
-          ) : (
-            // Волонтёр: как было — поиск в первой строке
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск..."
-              className={s.searchInput}
-            />
-          )}
+    <>
+      <div className={`${s.page} ${mode === "volunteer" ? s.pageVolunteer : ""}`}>
+        <div className={s.container}>
+          {/* 1-я строка: кнопки куратора + фильтры */}
+          <div className={s.controlsPanel} data-drop-root>
+            {mode === "curator" ? (
+              <>
+                <button className={`${s.btn} ${s.btnPeach}`} onClick={onCreateTask}>
+                  Создать задачу
+                </button>
+                <button className={`${s.btn} ${s.btnPeach}`} onClick={onCreateFoster}>
+                  Запросить передержку
+                </button>
+              </>
+            ) : (
+              // Волонтёр: поиск в первой строке
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Поиск..."
+                className={s.searchInput}
+              />
+            )}
 
-          {/* Вид животного */}
-          <div className={s.dropWrap}>
-            <button
-              className={`${s.btn} ${s.btnLavender} ${s.dropBtn}`}
-              type="button"
-              onClick={() => setOpen((v) => (v === "animal" ? null : "animal"))}
-            >
-              Вид животного +
-            </button>
-            {open === "animal" ? (
-              <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: вид животного">
-                <ul className={s.dropList}>
-                  {preferencesDict.map((x) => (
-                    <li key={x.id}>
-                      <label className={s.dropItem}>
-                        <input
-                          type="checkbox"
-                          checked={animalTypes.includes(x.name)}
-                          onChange={() => setAnimalTypes((p) => toggle(p, x.name))}
-                        />
-                        <span>{x.name}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Компетенции */}
-          <div className={s.dropWrap}>
-            <button
-              className={`${s.btn} ${s.btnLavender} ${s.dropBtn}`}
-              type="button"
-              onClick={() => setOpen((v) => (v === "competencies" ? null : "competencies"))}
-            >
-              Компетенции +
-            </button>
-            {open === "competencies" ? (
-              <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: компетенции">
-                <ul className={s.dropList}>
-                  {competenciesDict.map((x) => (
-                    <li key={x.id}>
-                      <label className={s.dropItem}>
-                        <input
-                          type="checkbox"
-                          checked={competencies.includes(x.name)}
-                          onChange={() => setCompetencies((p) => toggle(p, x.name))}
-                        />
-                        <span>{x.name}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Локация */}
-          <div className={s.dropWrap}>
-            <button
-              className={`${s.btn} ${s.btnLavender} ${s.dropBtn}`}
-              type="button"
-              onClick={() => setOpen((v) => (v === "location" ? null : "location"))}
-            >
-              Локация +
-            </button>
-            {open === "location" ? (
-              <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: локация">
-                <ul className={s.dropList}>
-                  {locationsDict.map((x) => (
-                    <li key={x.id}>
-                      <label className={s.dropItem}>
-                        <input
-                          type="checkbox"
-                          checked={districts.includes(x.name)}
-                          onChange={() => setDistricts((p) => toggle(p, x.name))}
-                        />
-                        <span>{x.name}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Волонтёр: сортировка в 1-й строке (как было) */}
-          {mode === "volunteer" ? (
-            <div className={s.sortWrap}>
-              <div
-                className={s.sortControl}
-                role="button"
-                tabIndex={0}
-                onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
+            {/* Вид животного */}
+            <div className={s.dropWrap}>
+              <button
+                className={`${s.btn} ${s.btnLavender} ${s.dropBtn}`}
+                type="button"
+                onClick={() => setOpen((v) => (v === "animal" ? null : "animal"))}
               >
-                Сортировка: {sortLabel(sort)} ▼
-              </div>
-              {open === "sort" ? (
-                <div className={s.sortMenuWhite} role="dialog" aria-label="Сортировка">
-                  <ul className={s.sortList}>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "alpha" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("alpha");
-                          setOpen(null);
-                        }}
-                      >
-                        По алфавиту
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "created" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("created");
-                          setOpen(null);
-                        }}
-                      >
-                        По дате создания
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "due" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("due");
-                          setOpen(null);
-                        }}
-                      >
-                        По дате выполнения
-                      </button>
-                    </li>
+                Вид животного +
+              </button>
+              {open === "animal" ? (
+                <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: вид животного">
+                  <ul className={s.dropList}>
+                    {preferencesDict.map((x) => (
+                      <li key={x.id}>
+                        <label className={s.dropItem}>
+                          <input
+                            type="checkbox"
+                            checked={animalTypes.includes(x.name)}
+                            onChange={() => setAnimalTypes((p) => toggle(p, x.name))}
+                          />
+                          <span>{x.name}</span>
+                        </label>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               ) : null}
+            </div>
+
+            {/* Компетенции */}
+            <div className={s.dropWrap}>
+              <button
+                className={`${s.btn} ${s.btnLavender} ${s.dropBtn}`}
+                type="button"
+                onClick={() =>
+                  setOpen((v) => (v === "competencies" ? null : "competencies"))
+                }
+              >
+                Компетенции +
+              </button>
+              {open === "competencies" ? (
+                <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: компетенции">
+                  <ul className={s.dropList}>
+                    {competenciesDict.map((x) => (
+                      <li key={x.id}>
+                        <label className={s.dropItem}>
+                          <input
+                            type="checkbox"
+                            checked={competencies.includes(x.name)}
+                            onChange={() => setCompetencies((p) => toggle(p, x.name))}
+                          />
+                          <span>{x.name}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Локация */}
+            <div className={s.dropWrap}>
+              <button
+                className={`${s.btn} ${s.btnLavender} ${s.dropBtn}`}
+                type="button"
+                onClick={() => setOpen((v) => (v === "location" ? null : "location"))}
+              >
+                Локация +
+              </button>
+              {open === "location" ? (
+                <div className={s.dropMenuLavender} role="dialog" aria-label="Фильтр: локация">
+                  <ul className={s.dropList}>
+                    {locationsDict.map((x) => (
+                      <li key={x.id}>
+                        <label className={s.dropItem}>
+                          <input
+                            type="checkbox"
+                            checked={districts.includes(x.name)}
+                            onChange={() => setDistricts((p) => toggle(p, x.name))}
+                          />
+                          <span>{x.name}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Волонтёр: сортировка в 1-й строке */}
+            {mode === "volunteer" ? (
+              <div className={s.sortWrap}>
+                <div
+                  className={s.sortControl}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
+                >
+                  Сортировка: {sortLabel(sort)} ▼
+                </div>
+
+                {open === "sort" ? (
+                  <div className={s.sortMenuWhite} role="dialog" aria-label="Сортировка">
+                    <ul className={s.sortList}>
+                      <li>
+                        <button
+                          type="button"
+                          className={`${s.sortBtn} ${sort === "alpha" ? s.sortBtnActive : ""}`}
+                          onClick={() => {
+                            setSort("alpha");
+                            setOpen(null);
+                          }}
+                        >
+                          По алфавиту
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className={`${s.sortBtn} ${sort === "created" ? s.sortBtnActive : ""}`}
+                          onClick={() => {
+                            setSort("created");
+                            setOpen(null);
+                          }}
+                        >
+                          По дате создания
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className={`${s.sortBtn} ${sort === "due" ? s.sortBtnActive : ""}`}
+                          onClick={() => {
+                            setSort("due");
+                            setOpen(null);
+                          }}
+                        >
+                          По дате выполнения
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          {/* 2-я строка: поиск куратора + сортировка */}
+          {mode === "curator" ? (
+            <div className={s.searchRowCurator} data-drop-root>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Поиск..."
+                className={s.searchInput}
+              />
+
+              <div className={s.sortWrap}>
+                <div
+                  className={s.sortControl}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
+                >
+                  Сортировка: {sortLabel(sort)} ▼
+                </div>
+
+                {open === "sort" ? (
+                  <div className={s.sortMenuWhite} role="dialog" aria-label="Сортировка">
+                    <ul className={s.sortList}>
+                      <li>
+                        <button
+                          type="button"
+                          className={`${s.sortBtn} ${sort === "alpha" ? s.sortBtnActive : ""}`}
+                          onClick={() => {
+                            setSort("alpha");
+                            setOpen(null);
+                          }}
+                        >
+                          По алфавиту
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className={`${s.sortBtn} ${sort === "created" ? s.sortBtnActive : ""}`}
+                          onClick={() => {
+                            setSort("created");
+                            setOpen(null);
+                          }}
+                        >
+                          По дате создания
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className={`${s.sortBtn} ${sort === "due" ? s.sortBtnActive : ""}`}
+                          onClick={() => {
+                            setSort("due");
+                            setOpen(null);
+                          }}
+                        >
+                          По дате выполнения
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : null}
-        </div>
 
-        {/* 2-я строка: поиск куратора + сортировка (на одном уровне) */}
-        {mode === "curator" ? (
-          <div className={s.searchRowCurator} data-drop-root>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск..."
-              className={s.searchInput}
-            />
+          {/* TASKS */}
+          <section className={s.tasksSection}>
+            <h2 className={s.sectionTitle}>{org ? "Мои задачи" : "Задачи"}</h2>
 
-            <div className={s.sortWrap}>
-              <div
-                className={s.sortControl}
-                role="button"
-                tabIndex={0}
-                onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
-              >
-                Сортировка: {sortLabel(sort)} ▼
+            {tasksList.length === 0 ? (
+              <div className={s.emptyBox}>Пока нет задач.</div>
+            ) : (
+              <div className={s.cardsGrid}>
+                {tasksList.map((t) => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    onEdit={() => router.push(`/tasks/${t.id}`)}
+                    mode={mode}
+                    onOpenResponses={mode === "curator" ? () => openResponses(t) : undefined}
+                  />
+                ))}
               </div>
-              {open === "sort" ? (
-                <div className={s.sortMenuWhite} role="dialog" aria-label="Сортировка">
-                  <ul className={s.sortList}>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "alpha" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("alpha");
-                          setOpen(null);
-                        }}
-                      >
-                        По алфавиту
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "created" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("created");
-                          setOpen(null);
-                        }}
-                      >
-                        По дате создания
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        className={`${s.sortBtn} ${sort === "due" ? s.sortBtnActive : ""}`}
-                        onClick={() => {
-                          setSort("due");
-                          setOpen(null);
-                        }}
-                      >
-                        По дате выполнения
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
+            )}
+          </section>
 
-        <section className={s.tasksSection}>
-          <h2 className={s.sectionTitle}>{org ? "Мои задачи" : "Задачи"}</h2>
-          {tasksList.length === 0 ? (
-            <div className={s.emptyBox}>Пока нет задач.</div>
-          ) : (
-            <div className={s.cardsGrid}>
-              {tasksList.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  task={t}
-                  onEdit={() => router.push(`/tasks/${t.id}`)}
-                  mode={mode}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+          {/* FOSTERS */}
+          <section className={s.tasksSection}>
+            <h2 className={s.sectionTitle}>{org ? "Мои передержки" : "Передержки"}</h2>
 
-        <section className={s.tasksSection}>
-          <h2 className={s.sectionTitle}>{org ? "Мои передержки" : "Передержки"}</h2>
-          {fostersList.length === 0 ? (
-            <div className={s.emptyBox}>Пока нет передержек.</div>
-          ) : (
-            <div className={`${s.cardsGrid} ${s.cardsGridFoster}`}>
-              {fostersList.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  task={t}
-                  onEdit={() => router.push(`/tasks/${t.id}`)}
-                  mode={mode}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+            {fostersList.length === 0 ? (
+              <div className={s.emptyBox}>Пока нет передержек.</div>
+            ) : (
+              <div className={`${s.cardsGrid} ${s.cardsGridFoster}`}>
+                {fostersList.map((t) => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    onEdit={() => router.push(`/tasks/${t.id}`)}
+                    mode={mode}
+                    onOpenResponses={mode === "curator" ? () => openResponses(t) : undefined}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
-    </div>
+
+      {/* MODAL: responders list */}
+      <RespondersModal
+        open={responsesOpen}
+        taskId={responsesTaskId}
+        taskTitle={responsesTaskTitle}
+        onClose={closeResponses}
+      />
+    </>
   );
 }

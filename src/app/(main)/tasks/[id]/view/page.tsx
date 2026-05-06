@@ -12,9 +12,9 @@ import m from "./taskView.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
-
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
 import { responsesApi } from "@/src/lib/api/responses";
+
 import type { HelpTaskDto } from "@/src/types/helpTask";
 import type { ResponseDto } from "@/src/types/response";
 
@@ -30,11 +30,30 @@ function formatDateTimeRange(task: HelpTaskDto) {
     month: "long",
     year: "numeric",
   });
-
   const ta = a.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
   const tb = b.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 
   return `${date}, ${ta} – ${tb}`;
+}
+
+type RespKind = "none" | "pending" | "accepted" | "declined" | "other";
+
+function normalizeStatus(s: string | null | undefined) {
+  return String(s ?? "").trim();
+}
+
+function getRespKind(status: string | null | undefined): RespKind {
+  const s = normalizeStatus(status);
+  if (!s) return "pending";
+
+  const low = s.toLowerCase();
+
+  // Словарь бэка: "На рассмотрении", "Принят", "Отклонен"
+  if (s === "На рассмотрении" || low.includes("рассмотр")) return "pending";
+  if (s === "Принят" || low.includes("прин")) return "accepted";
+  if (s === "Отклонен" || low.includes("отклон")) return "declined";
+
+  return "other";
 }
 
 export default function TaskViewPage() {
@@ -43,13 +62,26 @@ export default function TaskViewPage() {
   const id = String(params.id || "");
 
   const [loading, setLoading] = useState(true);
-
   const [me, setMe] = useState<Awaited<ReturnType<typeof fetchCurrentProfile>> | null>(null);
   const [task, setTask] = useState<HelpTaskDto | null>(null);
 
   const [responding, setResponding] = useState(false);
   const [alreadyResponded, setAlreadyResponded] = useState(false);
   const [myResponse, setMyResponse] = useState<ResponseDto | null>(null);
+
+  const loadMyResponse = async (taskId: string, profile: NonNullable<typeof me>) => {
+    if (isOrgRole(profile.role)) return;
+
+    try {
+      const sent = await responsesApi.mySent(0, 200);
+      const found = sent.responses.find((r) => r.taskId === taskId) ?? null;
+      setAlreadyResponded(Boolean(found));
+      setMyResponse(found);
+    } catch {
+      setAlreadyResponded(false);
+      setMyResponse(null);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -61,18 +93,8 @@ export default function TaskViewPage() {
         const tsk = await helpTasksApi.getById(id);
         setTask(tsk);
 
-        // если волонтёр — проверим через my-sent, откликался ли уже
         if (profile && !isOrgRole(profile.role)) {
-          try {
-            const sent = await responsesApi.mySent(0, 50);
-            const found = sent.responses.find((r) => r.taskId === id) ?? null;
-            setAlreadyResponded(Boolean(found));
-            setMyResponse(found);
-          } catch {
-            // не критично
-            setAlreadyResponded(false);
-            setMyResponse(null);
-          }
+          await loadMyResponse(id, profile);
         }
       } finally {
         setLoading(false);
@@ -80,21 +102,57 @@ export default function TaskViewPage() {
     })();
   }, [id]);
 
+  // Обновлять статус при возврате в окно (когда куратор принял/отклонил)
+  useEffect(() => {
+    if (!me) return;
+    if (isOrgRole(me.role)) return;
+    if (!alreadyResponded) return;
+
+    const onFocus = async () => {
+      const profile = me ?? (await fetchCurrentProfile());
+      if (profile) await loadMyResponse(id, profile);
+    };
+
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [alreadyResponded, id, me]);
+
   const onClose = () => router.back();
 
-  const canRespond = useMemo(() => {
-    if (!me) return false;
-    if (!task) return false;
-    if (isOrgRole(me.role)) return false;
-    if (alreadyResponded) return false;
-    return true;
-  }, [alreadyResponded, me, task]);
+  const respKind: RespKind = useMemo(() => {
+    if (!myResponse) return alreadyResponded ? "pending" : "none";
+    return getRespKind(myResponse.status);
+  }, [alreadyResponded, myResponse]);
 
-  const ctaText = alreadyResponded
-    ? "ОТКЛИК ОТПРАВЛЕН"
-    : responding
-      ? "..."
-      : "ОТКЛИКНУТЬСЯ";
+  const canRespond = useMemo(() => {
+    if (!task) return false;
+    if (responding) return false;
+    if (alreadyResponded) return false;
+
+    if (!me) return true; // можно нажать — дальше попросим логин
+    if (isOrgRole(me.role)) return false;
+
+    return true;
+  }, [alreadyResponded, me, responding, task]);
+
+  const ctaText = useMemo(() => {
+    if (responding) return "...";
+
+    if (respKind === "none") return "ОТКЛИКНУТЬСЯ";
+    if (respKind === "pending") return "НА РАССМОТРЕНИИ";
+    if (respKind === "accepted") return "ПРИНЯТА";
+    if (respKind === "declined") return "ОТКЛОНЕНА";
+
+    // fallback
+    return normalizeStatus(myResponse?.status) || "—";
+  }, [myResponse?.status, respKind, responding]);
+
+  const ctaClassName = useMemo(() => {
+    if (respKind === "pending") return m.ctaPending;
+    if (respKind === "accepted") return m.ctaAccepted;
+    if (respKind === "declined") return m.ctaDeclined;
+    return "";
+  }, [respKind]);
 
   const onRespond = async () => {
     if (!task) return;
@@ -111,7 +169,7 @@ export default function TaskViewPage() {
       return;
     }
 
-    if (responding) return;
+    if (responding || alreadyResponded) return;
 
     setResponding(true);
     try {
@@ -119,8 +177,7 @@ export default function TaskViewPage() {
       setAlreadyResponded(true);
       setMyResponse(res);
       alert("Отклик отправлен");
-    } catch (e) {
-      // если бэк вернёт текстом "уже откликались" — просто покажем общую ошибку
+    } catch {
       alert("Не удалось отправить отклик");
     } finally {
       setResponding(false);
@@ -144,11 +201,7 @@ export default function TaskViewPage() {
 
   const firstAnimal = task.animals?.[0] ?? null;
   const photoUrl = firstAnimal?.photoUrl || FALLBACK_PHOTO;
-
-  const animalTitle = firstAnimal?.name?.trim()
-    ? firstAnimal.name.trim()
-    : "Животное";
-
+  const animalTitle = firstAnimal?.name?.trim() ? firstAnimal.name.trim() : "Животное";
   const district = task.locations?.[0] ?? "—";
   const comps = task.competencies ?? [];
   const dateTimeText = formatDateTimeRange(task);
@@ -175,7 +228,6 @@ export default function TaskViewPage() {
                 <img src={photoUrl} alt={animalTitle} className={m.animalPhoto} />
                 <div className={m.animalText}>
                   <h3 className={m.animalName}>{animalTitle}</h3>
-
                   {firstAnimal ? (
                     <Link className={m.moreLink} href={`/animals/${firstAnimal.id}`}>
                       Подробнее
@@ -190,7 +242,8 @@ export default function TaskViewPage() {
               {/* Детали */}
               <div className={m.details}>
                 <div className={m.row}>
-                  <span className={m.label}>Куратор:</span> {task.creator?.name?.trim() ? task.creator.name : "—"}
+                  <span className={m.label}>Куратор:</span>{" "}
+                  {task.creator?.name?.trim() ? task.creator.name : "—"}
                 </div>
 
                 <div className={m.row}>
@@ -219,20 +272,16 @@ export default function TaskViewPage() {
                   <span className={m.label}>Волонтёров:</span> {task.requiredVolunteers}
                 </div>
 
-                {myResponse ? (
-                  <div className={m.row}>
-                    <span className={m.label}>Статус отклика:</span> {myResponse.status}
-                  </div>
-                ) : null}
+                {/* ❌ УБРАНО: "Статус отклика:" */}
               </div>
 
-              {/* Кнопка отклика — как "Удалить" */}
+              {/* Кнопка отклика — стиль прежний (f.actionBtn), добавляем только класс-фон по статусу */}
               <div className={f.deleteRow}>
                 <button
                   type="button"
-                  className={f.actionBtn}
+                  className={`${f.actionBtn} ${ctaClassName}`}
                   onClick={onRespond}
-                  disabled={!canRespond || responding}
+                  disabled={!canRespond || responding || respKind !== "none"}
                 >
                   {ctaText}
                 </button>

@@ -1,0 +1,156 @@
+:root {
+  --bg-modal: #f0f7f8;
+  --text-primary: #1a202c;
+
+  --btn-accept-bg: #d1fae5;
+  --btn-accept-text: #067647;
+  --btn-accept-bg-hover: #bbf7d0;
+
+  --btn-decline-bg: #fee2e2;
+  --btn-decline-text: #b91c1c;
+  --btn-decline-bg-hover: #fecaca;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.5);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.modal {
+  position: relative;
+  width: 100%;
+  max-width: 450px;
+
+  background: var(--bg-modal);
+  border-radius: 24px;
+  padding: 28px 26px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  color: var(--text-primary);
+}
+
+.closeBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+
+  background: transparent;
+  border: none;
+  cursor: pointer;
+
+  font-size: 28px;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.title {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 0;
+}
+
+.name {
+  font-size: 18px;
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* --- Стили кнопок --- */
+.btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.btnAccept {
+  background: var(--btn-accept-bg);
+  color: var(--btn-accept-text);
+}
+.btnAccept:hover {
+  background: var(--btn-accept-bg-hover);
+}
+
+.btnDecline {
+  background: var(--btn-decline-bg);
+  color: var(--btn-decline-text);
+}
+.btnDecline:hover {
+  background: var(--btn-decline-bg-hover);
+}
+
+.btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* --- Плашки статуса (после решения) --- */
+.badge {
+  padding: 8px 18px;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.badgeAccepted {
+  background: var(--btn-accept-bg-hover); /* ✅ как hover у "Принять" */
+  color: var(--btn-accept-text);
+}
+
+.badgeDeclined {
+  background: var(--btn-decline-bg-hover); /* ✅ как hover у "Отклонить" */
+  color: var(--btn-decline-text);
+}
+
+.meta {
+  margin: 0 0 14px;
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.empty {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.8;
+}
