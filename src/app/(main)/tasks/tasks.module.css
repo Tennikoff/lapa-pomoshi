@@ -473,3 +473,25 @@
   opacity: 0.6;
   text-decoration: none;
 }
+
+.loadMoreRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.loadMoreBtn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+
+  color: #6c757d;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.loadMoreBtn:hover {
+  opacity: 0.85;
+}

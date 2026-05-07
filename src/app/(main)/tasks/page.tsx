@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-
 import s from "./tasks.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
+import { animalsApi } from "@/src/lib/api/animals";
 
 import type { ProfileDto } from "@/src/types/profile";
 import type { HelpTaskDto, HelpTasksListDto } from "@/src/types/helpTask";
@@ -17,6 +17,18 @@ import { TaskCard } from "./_components/TaskCard";
 import { RespondersModal } from "./_components/RespondersModal";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
+
+// “Загрузить ещё” после 2 строк (3 в ряд) => 6 карточек
+const INITIAL_VISIBLE = 6;
+const LOAD_MORE_STEP = 6;
+
+// защита от бесконечного списка
+const PAGE_SIZE = 50;
+const MAX_TOTAL = 500;
+
+// localStorage cache (чтобы при возврате на страницу не дергать бэк лишний раз)
+const ALL_CACHE_PREFIX = "lp_helpTasks_all_v1:";
+const ALL_CACHE_TTL_MS = 2 * 60 * 1000; // 2 минуты
 
 type OpenDrop = null | "animal" | "competencies" | "location" | "sort";
 type SortMode = "alpha" | "created" | "due";
@@ -39,6 +51,134 @@ function loc0OrEmpty(t: HelpTaskDto) {
   return t.locations?.[0] ?? "";
 }
 
+function canUseLS() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function cacheKeyFor(userId: string, mode: "volunteer" | "curator") {
+  return `${ALL_CACHE_PREFIX}${userId}:${mode}`;
+}
+
+function readAllCache(key: string): {
+  tasks: HelpTaskDto[];
+  animalTypeById: Record<string, string>;
+  savedAt: number;
+} | null {
+  if (!canUseLS()) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      savedAt: number;
+      tasks: HelpTaskDto[];
+      animalTypeById: Record<string, string>;
+    };
+    if (!parsed?.savedAt || !Array.isArray(parsed.tasks) || !parsed.animalTypeById) return null;
+    if (Date.now() - parsed.savedAt > ALL_CACHE_TTL_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeAllCache(key: string, tasks: HelpTaskDto[], animalTypeById: Record<string, string>) {
+  if (!canUseLS()) return;
+  try {
+    localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), tasks, animalTypeById }));
+  } catch {
+    // quota / private mode — игнорируем
+  }
+}
+
+// сопоставление фильтра Preferences (мн. число) с animalType (часто ед. число)
+const PREF_TO_TYPES: Record<string, string[]> = {
+  Грызуны: ["Грызун", "Грызуны"],
+  Кошки: ["Кошка", "Кошки"],
+  Кролики: ["Кролик", "Кролики"],
+  Птицы: ["Птица", "Птицы"],
+  Рептилии: ["Рептилия", "Рептилии"],
+  Рыбы: ["Рыба", "Рыбы"],
+  Собаки: ["Собака", "Собаки"],
+  Хорьки: ["Хорёк", "Хорек", "Хорьки"],
+};
+
+function matchPreference(preferencePlural: string, animalType: string) {
+  const variants = PREF_TO_TYPES[preferencePlural] ?? [preferencePlural];
+  const a = animalType.trim().toLowerCase();
+  return variants.some((v) => v.trim().toLowerCase() === a);
+}
+
+async function loadAllMyCreated(): Promise<HelpTaskDto[]> {
+  const all: HelpTaskDto[] = [];
+  let offset = 0;
+
+  while (all.length < MAX_TOTAL) {
+    const res = (await helpTasksApi.myCreated(offset, PAGE_SIZE)) as HelpTasksListDto;
+    const chunk = res.tasks ?? [];
+    all.push(...chunk);
+
+    if (!res.hasMore) break;
+    offset += PAGE_SIZE;
+    if (!chunk.length) break;
+  }
+
+  return all.slice(0, MAX_TOTAL);
+}
+
+/**
+ * ВАЖНО: на вашем бэке feed без Locations может вернуть пусто.
+ * Поэтому “загрузить всё” для волонтёра делаем через Locations=все районы.
+ */
+async function loadAllFeed(allLocations: string[]): Promise<HelpTaskDto[]> {
+  const all: HelpTaskDto[] = [];
+  let offset = 0;
+
+  while (all.length < MAX_TOTAL) {
+    const res = (await helpTasksApi.feed({
+      offset,
+      limit: PAGE_SIZE,
+      locations: allLocations.length ? allLocations : undefined,
+    })) as HelpTasksListDto;
+
+    const chunk = res.tasks ?? [];
+    all.push(...chunk);
+
+    if (!res.hasMore) break;
+    offset += PAGE_SIZE;
+    if (!chunk.length) break;
+  }
+
+  return all.slice(0, MAX_TOTAL);
+}
+
+async function buildAnimalTypeMap(tasks: HelpTaskDto[]): Promise<Record<string, string>> {
+  // собираем уникальные animalId из задач
+  const ids = new Set<string>();
+  for (const t of tasks) {
+    for (const an of t.animals ?? []) {
+      if (an?.id) ids.add(an.id);
+    }
+  }
+
+  const unique = Array.from(ids);
+  if (!unique.length) return {};
+
+  // один раз дергаем детали животных, чтобы знать animalType
+  const out: Record<string, string> = {};
+  await Promise.all(
+    unique.map(async (id) => {
+      try {
+        const full = await animalsApi.getById(id);
+        if (full?.animalType) out[id] = full.animalType;
+      } catch {
+        // не критично
+      }
+    })
+  );
+
+  return out;
+}
+
 export default function TasksPage() {
   const router = useRouter();
 
@@ -51,15 +191,20 @@ export default function TasksPage() {
   const [competenciesDict, setCompetenciesDict] = useState<DictionaryItemDto[]>([]);
   const [preferencesDict, setPreferencesDict] = useState<DictionaryItemDto[]>([]);
 
-  // filters
+  // filters (локальные)
   const [animalTypes, setAnimalTypes] = useState<string[]>([]);
   const [competencies, setCompetencies] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("due");
 
-  // data
-  const [items, setItems] = useState<HelpTaskDto[]>([]);
+  // data (полный список, фильтруем локально)
+  const [allItems, setAllItems] = useState<HelpTaskDto[]>([]);
+  const [animalTypeById, setAnimalTypeById] = useState<Record<string, string>>({});
+
+  // visible (load more)
+  const [visibleTasks, setVisibleTasks] = useState(INITIAL_VISIBLE);
+  const [visibleFosters, setVisibleFosters] = useState(INITIAL_VISIBLE);
 
   // responses modal (curator)
   const [responsesOpen, setResponsesOpen] = useState(false);
@@ -69,12 +214,9 @@ export default function TasksPage() {
   const org = isOrgRole(profile?.role);
   const mode: "curator" | "volunteer" = org ? "curator" : "volunteer";
 
-  const allLocationNames = useMemo(
-    () => locationsDict.map((x) => x.name),
-    [locationsDict]
-  );
+  const allLocationNames = useMemo(() => locationsDict.map((x) => x.name), [locationsDict]);
 
-  const openResponses = (t: HelpTaskDto) => {
+  const openResponsesModal = (t: HelpTaskDto) => {
     setResponsesTaskId(t.id);
     setResponsesTaskTitle(t.title ?? "");
     setResponsesOpen(true);
@@ -86,32 +228,31 @@ export default function TasksPage() {
     setResponsesTaskTitle("");
   };
 
-  const load = async (p: ProfileDto, opts?: { silent?: boolean }) => {
+  const loadOnce = async (
+    me: ProfileDto,
+    allLocations: string[],
+    opts?: { silent?: boolean }
+  ) => {
     if (!opts?.silent) setLoading(true);
 
     try {
-      const isOrg = isOrgRole(p.role);
-
-      // ORG: my-created
-      if (isOrg) {
-        const res = (await helpTasksApi.myCreated(0, 50)) as HelpTasksListDto;
-        setItems(res.tasks);
+      const cacheKey = cacheKeyFor(me.userId, isOrgRole(me.role) ? "curator" : "volunteer");
+      const cached = readAllCache(cacheKey);
+      if (cached) {
+        setAllItems(cached.tasks ?? []);
+        setAnimalTypeById(cached.animalTypeById ?? {});
         return;
       }
 
-      // VOLUNTEER: feed (server-side filtering)
-      const locs = districts.length ? districts : allLocationNames;
+      // 1) грузим “всё” один раз
+      const tasks = isOrgRole(me.role) ? await loadAllMyCreated() : await loadAllFeed(allLocations);
+      setAllItems(tasks);
 
-      const res = (await helpTasksApi.feed({
-        offset: 0,
-        limit: 50,
-        search: query.trim() || undefined,
-        locations: locs.length ? locs : undefined,
-        competencies: competencies.length ? competencies : undefined,
-        preferences: animalTypes.length ? animalTypes : undefined,
-      })) as HelpTasksListDto;
+      // 2) обогащаем animalType (для фильтра “Вид животного”)
+      const map = await buildAnimalTypeMap(tasks);
+      setAnimalTypeById(map);
 
-      setItems(res.tasks);
+      writeAllCache(cacheKey, tasks, map);
     } finally {
       if (!opts?.silent) setLoading(false);
     }
@@ -136,12 +277,12 @@ export default function TasksPage() {
         setCompetenciesDict(comps);
         setPreferencesDict(prefs);
 
-        await load(me, { silent: true });
+        const allLocNames = locs.map((x) => x.name);
+        await loadOnce(me, allLocNames, { silent: true });
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // close dropdowns on outside click / esc
@@ -168,50 +309,63 @@ export default function TasksPage() {
     };
   }, [open]);
 
-  // auto-refresh after create/update/delete
+  // автообновление после create/update/delete
   useEffect(() => {
     if (!profile) return;
-    const onChanged = () => load(profile, { silent: true });
+
+    const onChanged = async () => {
+      const key = cacheKeyFor(profile.userId, isOrgRole(profile.role) ? "curator" : "volunteer");
+      if (canUseLS()) localStorage.removeItem(key);
+
+      // если словари уже есть — используем их
+      const allLoc = allLocationNames.length ? allLocationNames : [];
+      await loadOnce(profile, allLoc, { silent: true });
+    };
 
     window.addEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, districts, competencies, animalTypes, query, allLocationNames.length]);
+  }, [profile, allLocationNames.length]);
 
-  // volunteer: reload when filters change (debounce)
+  // при изменении фильтров сбрасываем “Загрузить ещё” обратно на 2 строки
   useEffect(() => {
-    if (!profile) return;
-    if (isOrgRole(profile.role)) return;
-    if (!locationsDict.length) return;
+    setVisibleTasks(INITIAL_VISIBLE);
+    setVisibleFosters(INITIAL_VISIBLE);
+  }, [query, sort, animalTypes.join("|"), competencies.join("|"), districts.join("|")]);
 
-    const id = window.setTimeout(() => {
-      load(profile, { silent: true });
-    }, 250);
-
-    return () => window.clearTimeout(id);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, query, districts, competencies, animalTypes, locationsDict.length]);
-
+  // локальная фильтрация
   const filteredSorted = useMemo(() => {
-    // org: client-side filtering
-    const out = items.filter((t) => {
-      if (!org) return true;
-
+    const out = allItems.filter((t0) => {
+      // компетенции
       if (competencies.length) {
-        const ok = competencies.some((c) => (t.competencies || []).includes(c));
+        const ok = competencies.some((c) => (t0.competencies || []).includes(c));
         if (!ok) return false;
       }
 
+      // локация
       if (districts.length) {
-        const loc0 = loc0OrEmpty(t);
+        const loc0 = loc0OrEmpty(t0);
         if (!districts.includes(loc0)) return false;
       }
 
+      // вид животного (preferences)
+      if (animalTypes.length) {
+        const ids = (t0.animals ?? []).map((x) => x?.id).filter(Boolean) as string[];
+        if (!ids.length) return false;
+
+        const has = ids.some((id) => {
+          const type = animalTypeById[id];
+          if (!type) return false;
+          return animalTypes.some((pref) => matchPreference(pref, type));
+        });
+
+        if (!has) return false;
+      }
+
+      // поиск
       if (query.trim()) {
-        const animalName = t.animals?.[0]?.name ?? "";
-        const hay = [t.title, t.description, loc0OrEmpty(t), animalName].join(" ");
+        const animalName = t0.animals?.[0]?.name ?? "";
+        const hay = [t0.title, t0.description, loc0OrEmpty(t0), animalName].join(" ");
         if (!includesCI(hay, query.trim())) return false;
       }
 
@@ -219,29 +373,21 @@ export default function TasksPage() {
     });
 
     const sorted = [...out].sort((a, b) => {
-      if (sort === "alpha") {
-        return a.title.localeCompare(b.title, "ru", { sensitivity: "base" });
-      }
-      if (sort === "created") {
-        return (b.createdAt || "").localeCompare(a.createdAt || "");
-      }
+      if (sort === "alpha") return a.title.localeCompare(b.title, "ru", { sensitivity: "base" });
+      if (sort === "created") return (b.createdAt || "").localeCompare(a.createdAt || "");
       const da = a.startedAt ?? a.createdAt;
       const db = b.startedAt ?? b.createdAt;
       return String(da).localeCompare(String(db));
     });
 
     return sorted;
-  }, [items, org, competencies, districts, query, sort]);
+  }, [allItems, animalTypeById, animalTypes, competencies, districts, query, sort]);
 
-  const tasksList = useMemo(
-    () => filteredSorted.filter((x) => !x.isTaskOverexposure),
-    [filteredSorted]
-  );
+  const tasksList = useMemo(() => filteredSorted.filter((x) => !x.isTaskOverexposure), [filteredSorted]);
+  const fostersList = useMemo(() => filteredSorted.filter((x) => x.isTaskOverexposure), [filteredSorted]);
 
-  const fostersList = useMemo(
-    () => filteredSorted.filter((x) => x.isTaskOverexposure),
-    [filteredSorted]
-  );
+  const visibleTasksList = useMemo(() => tasksList.slice(0, visibleTasks), [tasksList, visibleTasks]);
+  const visibleFostersList = useMemo(() => fostersList.slice(0, visibleFosters), [fostersList, visibleFosters]);
 
   const onCreateTask = () => router.push("/tasks/new");
   const onCreateFoster = () => router.push("/tasks/foster/new");
@@ -260,9 +406,7 @@ export default function TasksPage() {
     return (
       <div className={s.page}>
         <div className={s.container}>
-          <div className={s.emptyBox}>
-            Вы не вошли в аккаунт. Войдите, чтобы увидеть задачи.
-          </div>
+          <div className={s.emptyBox}>Вы не вошли в аккаунт. Войдите, чтобы увидеть задачи.</div>
         </div>
       </div>
     );
@@ -284,7 +428,6 @@ export default function TasksPage() {
                 </button>
               </>
             ) : (
-              // Волонтёр: поиск в первой строке
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -327,9 +470,7 @@ export default function TasksPage() {
               <button
                 className={`${s.btn} ${s.btnLavender} ${s.dropBtn}`}
                 type="button"
-                onClick={() =>
-                  setOpen((v) => (v === "competencies" ? null : "competencies"))
-                }
+                onClick={() => setOpen((v) => (v === "competencies" ? null : "competencies"))}
               >
                 Компетенции +
               </button>
@@ -513,17 +654,31 @@ export default function TasksPage() {
             {tasksList.length === 0 ? (
               <div className={s.emptyBox}>Пока нет задач.</div>
             ) : (
-              <div className={s.cardsGrid}>
-                {tasksList.map((t) => (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    onEdit={() => router.push(`/tasks/${t.id}`)}
-                    mode={mode}
-                    onOpenResponses={mode === "curator" ? () => openResponses(t) : undefined}
-                  />
-                ))}
-              </div>
+              <>
+                <div className={s.cardsGrid}>
+                  {visibleTasksList.map((t0) => (
+                    <TaskCard
+                      key={t0.id}
+                      task={t0}
+                      onEdit={() => router.push(`/tasks/${t0.id}`)}
+                      mode={mode}
+                      onOpenResponses={mode === "curator" ? () => openResponsesModal(t0) : undefined}
+                    />
+                  ))}
+                </div>
+
+                {tasksList.length > visibleTasks ? (
+                  <div className={s.loadMoreRow}>
+                    <button
+                      type="button"
+                      className={s.loadMoreBtn}
+                      onClick={() => setVisibleTasks((v) => v + LOAD_MORE_STEP)}
+                    >
+                      Загрузить ещё
+                    </button>
+                  </div>
+                ) : null}
+              </>
             )}
           </section>
 
@@ -534,23 +689,36 @@ export default function TasksPage() {
             {fostersList.length === 0 ? (
               <div className={s.emptyBox}>Пока нет передержек.</div>
             ) : (
-              <div className={`${s.cardsGrid} ${s.cardsGridFoster}`}>
-                {fostersList.map((t) => (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    onEdit={() => router.push(`/tasks/${t.id}`)}
-                    mode={mode}
-                    onOpenResponses={mode === "curator" ? () => openResponses(t) : undefined}
-                  />
-                ))}
-              </div>
+              <>
+                <div className={`${s.cardsGrid} ${s.cardsGridFoster}`}>
+                  {visibleFostersList.map((t0) => (
+                    <TaskCard
+                      key={t0.id}
+                      task={t0}
+                      onEdit={() => router.push(`/tasks/${t0.id}`)}
+                      mode={mode}
+                      onOpenResponses={mode === "curator" ? () => openResponsesModal(t0) : undefined}
+                    />
+                  ))}
+                </div>
+
+                {fostersList.length > visibleFosters ? (
+                  <div className={s.loadMoreRow}>
+                    <button
+                      type="button"
+                      className={s.loadMoreBtn}
+                      onClick={() => setVisibleFosters((v) => v + LOAD_MORE_STEP)}
+                    >
+                      Загрузить ещё
+                    </button>
+                  </div>
+                ) : null}
+              </>
             )}
           </section>
         </div>
       </div>
 
-      {/* MODAL: responders list */}
       <RespondersModal
         open={responsesOpen}
         taskId={responsesTaskId}
