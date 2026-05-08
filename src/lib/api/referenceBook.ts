@@ -1,17 +1,11 @@
-import { apiFetch } from "@/src/lib/api/http";
+import { apiFetch, ApiError } from "@/src/lib/api/http";
 import { authHeaders } from "@/src/lib/api/authHeaders";
 
 export type ReferenceBookItemDto = {
   id?: string | number;
 
-  // чтобы UI мог нормально жить на единых полях
-  typeId?: number;
-  themeId?: number;
-
   title?: string | null;
   description?: string | null;
-
-  // по факту бэк отдает videoUrl (судя по твоему ответу 200)
   videoUrl?: string | null;
 };
 
@@ -27,35 +21,45 @@ function buildQs(p: Record<string, string | number | undefined | null>) {
 }
 
 function normalizeToArray(res: unknown): ReferenceBookItemDto[] {
-  // вариант 1: уже массив
+  // 1) array
   if (Array.isArray(res)) return res as ReferenceBookItemDto[];
 
-  // вариант 2: { items: [...] }
+  // 2) { items: [...] }
   if (res && typeof res === "object") {
     const o = res as Record<string, unknown>;
     if (Array.isArray(o.items)) return o.items as ReferenceBookItemDto[];
 
-    // вариант 3: одиночный объект статьи (как у тебя в тесте)
-    // { title, description, videoUrl }
-    const maybeTitle = o.title;
-    const maybeDesc = o.description;
-    if (typeof maybeTitle === "string" || typeof maybeDesc === "string") {
-      return [res as ReferenceBookItemDto];
-    }
+    // 3) single article object
+    const hasTitle = typeof o.title === "string";
+    const hasDesc = typeof o.description === "string";
+    if (hasTitle || hasDesc) return [res as ReferenceBookItemDto];
   }
 
   return [];
 }
 
+async function fetchWithOptionalAuth(path: string): Promise<unknown> {
+  // пробуем с auth (как и остальные запросы в проекте)
+  try {
+    return await apiFetch(path, { headers: authHeaders() });
+  } catch (e) {
+    // если токен битый/просроченный, а ручка публичная — ретраим без Authorization
+    if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+      return await apiFetch(path);
+    }
+    throw e;
+  }
+}
+
 export const referenceBookApi = {
   /**
-   * Реальный бэк (по твоему тесту) принимает:
+   * Реальный бэк (по твоим тестам) принимает:
    * GET /api/ReferenceBook?AnimalType=Кошка&Theme=Кормление
    *
    * ВАЖНО:
    * - AnimalType: ЕД. число (из Dictionaries/animal-types)
    * - Theme: обязателен
-   * - Ответ: объект, не массив (но мы нормализуем в массив из 1 элемента)
+   * - Ответ может быть объектом (не массив) => нормализуем в массив из 1 элемента
    */
   listByNames: async (params: ParamsByNames): Promise<ReferenceBookItemDto[]> => {
     const animalType = String(params.animalType ?? "").trim();
@@ -66,7 +70,7 @@ export const referenceBookApi = {
       Theme: theme,
     });
 
-    const res = await apiFetch(`/api/ReferenceBook?${qs}`, { headers: authHeaders() });
+    const res = await fetchWithOptionalAuth(`/api/ReferenceBook?${qs}`);
     return normalizeToArray(res);
   },
 };

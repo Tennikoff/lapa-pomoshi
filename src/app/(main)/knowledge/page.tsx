@@ -1,28 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import styles from "./knowledge.module.css";
 
+// ✅ фильтры 1-в-1 как у волонтёра в /tasks
 import taskStyles from "@/src/app/(main)/tasks/tasks.module.css";
 
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
-import { referenceBookApi, type ReferenceBookItemDto } from "@/src/lib/api/referenceBook";
+import { referenceBookApi } from "@/src/lib/api/referenceBook";
 import { ApiError } from "@/src/lib/api/http";
 
 type OpenDrop = null | "type" | "theme";
 
 type NormalizedArticle = {
   key: string;
-  typeId: number;
-  themeId: number;
+  typeId: number; // id из Dictionaries/animal-types (ед. число)
+  themeId: number; // id из Dictionaries/themes
   title: string;
   description: string;
   videoUrl?: string | null;
 };
 
 const UI_LS_KEY = "lp_knowledge_ui_v3";
-const RB_CACHE_PREFIX = "lp_referenceBook_cache_v3:";
-const CACHE_TTL_MS = 5 * 60 * 1000;
+
+// кеш всей медиатеки (1 загрузка на вход)
+const RB_ALL_CACHE_KEY = "lp_referenceBook_all_cache_v1";
+const RB_ALL_CACHE_TTL_MS = 30 * 60 * 1000; // 30 минут
 
 function canUseLS() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -37,52 +40,85 @@ function safeJsonParse<T>(raw: string | null): T | null {
   }
 }
 
-function normItem(x: ReferenceBookItemDto, idx: number): NormalizedArticle | null {
-  const typeId = Number(x.typeId);
-  const themeId = Number(x.themeId);
-  if (!Number.isFinite(typeId) || !Number.isFinite(themeId)) return null;
-
-  const title = String(x.title ?? "").trim() || "Без названия";
-  const description = String(x.description ?? "").trim() || "—";
-  const id = x.id != null ? String(x.id) : `rb_${typeId}_${themeId}_${idx}`;
-
-  return {
-    key: id,
-    typeId,
-    themeId,
-    title,
-    description,
-    videoUrl: x.videoUrl ?? null,
-  };
+function dedupeByKey(items: NormalizedArticle[]) {
+  const map = new Map<string, NormalizedArticle>();
+  for (const x of items) map.set(x.key, x);
+  return Array.from(map.values());
 }
 
-function rbCacheKey(themeId: number, typeIds: number[]) {
-  const sorted = [...typeIds].sort((a, b) => a - b).join(",");
-  return `${RB_CACHE_PREFIX}theme=${themeId}|types=${sorted}`;
-}
-
-function readRbCache(key: string): NormalizedArticle[] | null {
+// ✅ если кеш пустой — считаем его битым и игнорируем
+function readAllCache(): NormalizedArticle[] | null {
   if (!canUseLS()) return null;
-  const cached = safeJsonParse<{ savedAt: number; items: ReferenceBookItemDto[] }>(localStorage.getItem(key));
-  if (!cached?.savedAt || !Array.isArray(cached.items)) return null;
-  if (Date.now() - cached.savedAt > CACHE_TTL_MS) return null;
 
-  return (cached.items ?? []).map(normItem).filter(Boolean) as NormalizedArticle[];
+  const cached = safeJsonParse<{ savedAt: number; items: NormalizedArticle[] }>(localStorage.getItem(RB_ALL_CACHE_KEY));
+  if (!cached?.savedAt || !Array.isArray(cached.items)) return null;
+  if (Date.now() - cached.savedAt > RB_ALL_CACHE_TTL_MS) return null;
+
+  if (!cached.items.length) {
+    // защищаемся от "закешировали пустоту и всё пропало"
+    try {
+      localStorage.removeItem(RB_ALL_CACHE_KEY);
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
+  return cached.items;
 }
 
-function writeRbCache(key: string, items: ReferenceBookItemDto[]) {
+function writeAllCache(items: NormalizedArticle[]) {
   if (!canUseLS()) return;
+  if (!items.length) return; // ✅ не кешируем пустоту
+
   try {
-    localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), items }));
+    localStorage.setItem(RB_ALL_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), items }));
   } catch {
     // ignore
   }
 }
 
-function dedupeByKey(items: NormalizedArticle[]) {
-  const map = new Map<string, NormalizedArticle>();
-  for (const x of items) map.set(x.key, x);
-  return Array.from(map.values());
+// CSS vars из tasks.module.css (.page) — чтобы lavender-стили совпали
+type TaskVars = CSSProperties & {
+  ["--color-bg-page"]?: string;
+  ["--color-bg-card"]?: string;
+  ["--color-text-primary"]?: string;
+  ["--color-text-secondary"]?: string;
+  ["--color-accent-peach"]?: string;
+  ["--color-accent-peach-hover"]?: string;
+  ["--color-accent-lavender"]?: string;
+  ["--color-tag-blue"]?: string;
+  ["--color-border"]?: string;
+};
+
+const TASK_VARS: TaskVars = {
+  ["--color-bg-page"]: "#f8f9fa",
+  ["--color-bg-card"]: "#ebf3fc",
+  ["--color-text-primary"]: "#212529",
+  ["--color-text-secondary"]: "#6c757d",
+  ["--color-accent-peach"]: "#e9b8a7",
+  ["--color-accent-peach-hover"]: "#dda693",
+  ["--color-accent-lavender"]: "#d9c4ec",
+  ["--color-tag-blue"]: "#c3eaff",
+  ["--color-border"]: "#dee2e6",
+};
+
+// ✅ простой лимитер параллелизма (без библиотек)
+async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T, idx: number) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  const worker = async () => {
+    while (true) {
+      const idx = nextIndex++;
+      if (idx >= items.length) return;
+      out[idx] = await mapper(items[idx], idx);
+    }
+  };
+
+  const workers = Array.from({ length: Math.max(1, limit) }, () => worker());
+  await Promise.all(workers);
+  return out;
 }
 
 export default function KnowledgePage() {
@@ -94,18 +130,22 @@ export default function KnowledgePage() {
 
   // dictionaries
   const [themes, setThemes] = useState<DictionaryItemDto[]>([]);
-  const [prefs, setPrefs] = useState<DictionaryItemDto[]>([]); // preferences: Собаки/Кошки/...
-  const [animalTypes, setAnimalTypes] = useState<DictionaryItemDto[]>([]); // animal-types: Собака/Кошка/...
+  const [prefs, setPrefs] = useState<DictionaryItemDto[]>([]); // preferences: мн. число (UI)
+  const [animalTypes, setAnimalTypes] = useState<DictionaryItemDto[]>([]); // animal-types: ед. число (ReferenceBook)
 
-  // filters (по ID)
+  // filters (по ID); пусто => показываем ВСЮ медиатеку
   const [selectedPrefIds, setSelectedPrefIds] = useState<number[]>([]);
   const [selectedThemeIds, setSelectedThemeIds] = useState<number[]>([]);
 
-  // sidebar active theme
-  const [activeThemeId, setActiveThemeId] = useState<number | null>(null);
+  const hasFilters = selectedPrefIds.length > 0 || selectedThemeIds.length > 0;
 
-  // loaded articles for active theme + selected types
-  const [articles, setArticles] = useState<NormalizedArticle[]>([]);
+  // sidebar navigation + flash highlight
+  const [activeThemeId, setActiveThemeId] = useState<number | null>(null);
+  const [flashThemeId, setFlashThemeId] = useState<number | null>(null);
+  const flashTimerRef = useRef<number | null>(null);
+
+  // ALL articles (после 1 загрузки)
+  const [allArticles, setAllArticles] = useState<NormalizedArticle[]>([]);
 
   // opened article
   const [activeArticleKey, setActiveArticleKey] = useState<string | null>(null);
@@ -167,7 +207,7 @@ export default function KnowledgePage() {
     };
   }, [open]);
 
-  // load dictionaries (themes + preferences + animal-types)
+  // load dictionaries
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -176,23 +216,15 @@ export default function KnowledgePage() {
       try {
         const [themesRes, prefsRes, animalTypesRes] = await Promise.all([
           dictionariesApi.themes(),
-          dictionariesApi.preferences(), // мн. число
-          dictionariesApi.animalTypes(), // ед. число (для ReferenceBook!)
+          dictionariesApi.preferences(),
+          dictionariesApi.animalTypes(),
         ]);
 
         setThemes(themesRes);
         setPrefs(prefsRes);
         setAnimalTypes(animalTypesRes);
 
-        // ✅ если тема не выбрана — выбираем первую
-        if (activeThemeId == null && themesRes.length) {
-          setActiveThemeId(themesRes[0].id);
-        }
-
-        // ✅ если тип не выбран — выбираем первый
-        if (!selectedPrefIds.length && prefsRes.length) {
-          setSelectedPrefIds([prefsRes[0].id]);
-        }
+        setActiveThemeId((prev) => (prev != null ? prev : themesRes[0]?.id ?? null));
       } catch (e) {
         let msg = "Не удалось загрузить словари медиатеки";
         if (e instanceof ApiError) msg = e.message;
@@ -202,47 +234,16 @@ export default function KnowledgePage() {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // derived: sidebar themes (учитываем фильтр Тема+)
-  const sidebarThemes = useMemo(() => {
-    if (!selectedThemeIds.length) return themes;
-    const set = new Set(selectedThemeIds);
-    return themes.filter((x) => set.has(x.id));
-  }, [selectedThemeIds, themes]);
-
-  // если активную тему “вырезали” фильтром тем — переключаем на первую доступную
-  useEffect(() => {
-    if (!themes.length) return;
-    if (!sidebarThemes.length) return;
-
-    if (activeThemeId == null) {
-      setActiveThemeId(sidebarThemes[0].id);
-      setActiveArticleKey(null);
-      return;
-    }
-
-    const exists = sidebarThemes.some((x) => x.id === activeThemeId);
-    if (!exists) {
-      setActiveThemeId(sidebarThemes[0].id);
-      setActiveArticleKey(null);
-    }
-  }, [activeThemeId, sidebarThemes, themes.length]);
-
-  // load articles for active theme + selected types
+  // load ALL articles once
   useEffect(() => {
     (async () => {
-      if (activeThemeId == null) return;
-      if (!selectedPrefIds.length) return;
+      if (!themes.length || !animalTypes.length) return;
 
-      const themeName = themes.find((t) => t.id === activeThemeId)?.name ?? "";
-      if (!themeName) return;
-
-      const cacheKey = rbCacheKey(activeThemeId, selectedPrefIds);
-      const cached = readRbCache(cacheKey);
+      const cached = readAllCache();
       if (cached) {
-        setArticles(cached);
+        setAllArticles(cached);
         return;
       }
 
@@ -250,79 +251,128 @@ export default function KnowledgePage() {
       setErrorText(null);
 
       try {
-        const settled = await Promise.allSettled(
-          selectedPrefIds.map(async (prefId) => {
-            // ReferenceBook принимает AnimalType в ЕД. числе → берем из animal-types по тому же id
-            const animalTypeName = animalTypes.find((x) => x.id === prefId)?.name ?? "";
-            if (!animalTypeName) return null;
+        const combos: Array<{ type: DictionaryItemDto; theme: DictionaryItemDto }> = [];
+        for (const t of animalTypes) for (const th of themes) combos.push({ type: t, theme: th });
 
-            const res = await referenceBookApi.listByNames({ animalType: animalTypeName, theme: themeName });
-            const first = res[0];
-            if (!first) return null;
+        const CONCURRENCY = 4;
 
-            // обогащаем typeId/themeId (в ответе их нет)
-            const dto: ReferenceBookItemDto = {
-              id: `rb_${prefId}_${activeThemeId}`,
-              typeId: prefId,
-              themeId: activeThemeId,
-              title: first.title ?? null,
-              description: first.description ?? null,
-              videoUrl: first.videoUrl ?? null, // ✅ без any
-            };
+        const results = await mapWithConcurrency(combos, CONCURRENCY, async ({ type, theme }) => {
+          try {
+            const res = await referenceBookApi.listByNames({
+              animalType: type.name, // "Кошка"
+              theme: theme.name, // "Кормление"
+            });
 
-            return dto;
-          })
-        );
+            return res
+              .map((x, idx) => {
+                const title = String(x.title ?? "").trim();
+                const description = String(x.description ?? "").trim();
+                if (!title && !description) return null;
 
-        const rawItems: ReferenceBookItemDto[] = settled
-          .filter((x) => x.status === "fulfilled" && x.value)
-          .map((x) => (x as PromiseFulfilledResult<ReferenceBookItemDto>).value);
+                const key = `rb_${type.id}_${theme.id}_${idx}`;
+                const item: NormalizedArticle = {
+                  key,
+                  typeId: type.id,
+                  themeId: theme.id,
+                  title: title || "Без названия",
+                  description: description || "—",
+                  videoUrl: x.videoUrl ?? null,
+                };
+                return item;
+              })
+              .filter(Boolean) as NormalizedArticle[];
+          } catch (e) {
+            // 400 для конкретной комбинации — норма (нет статьи)
+            if (e instanceof ApiError && e.status === 400) return [];
+            throw e;
+          }
+        });
 
-        const normalized = dedupeByKey(rawItems.map(normItem).filter(Boolean) as NormalizedArticle[]);
+        const merged = results.flat();
+        const normalized = dedupeByKey(merged);
 
-        setArticles(normalized);
-        writeRbCache(cacheKey, rawItems);
+        if (!normalized.length) {
+          // здесь уже реально "ничего не загрузили" — это ошибка окружения/доступа
+          setErrorText("Не удалось загрузить статьи медиатеки (получили 0 статей). Проверь доступность /api/ReferenceBook.");
+          setAllArticles([]);
+          return;
+        }
+
+        setAllArticles(normalized);
+        writeAllCache(normalized);
       } catch (e) {
-        let msg = "Не удалось загрузить статьи медиатеки";
+        let msg = "Не удалось загрузить медиатеку";
         if (e instanceof ApiError) msg = e.message;
         else if (e instanceof Error) msg = e.message;
         setErrorText(msg);
-        setArticles([]);
+        setAllArticles([]);
       } finally {
         setLoadingArticles(false);
       }
     })();
-    // ✅ фиксированный размер dependency array
-  }, [activeThemeId, selectedPrefIds.join(","), themes.length, animalTypes.length]);
+  }, [themes.length, animalTypes.length]);
 
-  const activeTheme = useMemo(() => themes.find((x) => x.id === activeThemeId) ?? null, [activeThemeId, themes]);
+  // sidebar themes: если фильтр тем выбран — показываем только их, иначе все
+  const sidebarThemes = useMemo(() => {
+    if (!selectedThemeIds.length) return themes;
+    const set = new Set(selectedThemeIds);
+    return themes.filter((x) => set.has(x.id));
+  }, [selectedThemeIds, themes]);
 
-  const articlesForActiveTheme = useMemo(() => {
-    if (!activeThemeId) return [];
-    return articles.filter((x) => x.themeId === activeThemeId);
-  }, [activeThemeId, articles]);
+  // local filtering
+  const filteredArticles = useMemo(() => {
+    let out = allArticles;
+
+    if (selectedPrefIds.length) {
+      const set = new Set(selectedPrefIds);
+      out = out.filter((a) => set.has(a.typeId));
+    }
+
+    if (selectedThemeIds.length) {
+      const set = new Set(selectedThemeIds);
+      out = out.filter((a) => set.has(a.themeId));
+    }
+
+    return out;
+  }, [allArticles, selectedPrefIds, selectedThemeIds]);
+
+  const themeSections = useMemo(() => {
+    return sidebarThemes.map((th) => ({
+      theme: th,
+      items: filteredArticles.filter((a) => a.themeId === th.id),
+    }));
+  }, [filteredArticles, sidebarThemes]);
 
   const activeArticle = useMemo(() => {
     if (!activeArticleKey) return null;
-    return articles.find((x) => x.key === activeArticleKey) ?? null;
-  }, [activeArticleKey, articles]);
+    return filteredArticles.find((x) => x.key === activeArticleKey) ?? null;
+  }, [activeArticleKey, filteredArticles]);
 
   const togglePrefId = (id: number) => {
-    setSelectedPrefIds((prev) => {
-      const has = prev.includes(id);
-      // нельзя снять последний тип, иначе не будет что грузить
-      if (has && prev.length === 1) return prev;
-      return has ? prev.filter((x) => x !== id) : [...prev, id];
-    });
+    setSelectedPrefIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const toggleThemeId = (id: number) => {
     setSelectedThemeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
+  const flashTheme = (themeId: number) => {
+    setFlashThemeId(themeId);
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => setFlashThemeId(null), 1800);
+  };
+
+  const scrollToTheme = (themeId: number) => {
+    const el = document.getElementById(`theme_${themeId}`);
+    if (!el) return;
+    setOpen(null);
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    flashTheme(themeId);
+  };
+
   if (loading) {
     return (
-      <div className={styles.page}>
+      <div className={`${styles.page} ${taskStyles.pageVolunteer}`} style={TASK_VARS}>
         <div className={styles.container}>
           <p className={styles.muted}>Загрузка…</p>
         </div>
@@ -332,7 +382,7 @@ export default function KnowledgePage() {
 
   if (errorText) {
     return (
-      <div className={styles.page}>
+      <div className={`${styles.page} ${taskStyles.pageVolunteer}`} style={TASK_VARS}>
         <div className={styles.container}>
           <p className={styles.muted}>{errorText}</p>
         </div>
@@ -341,9 +391,8 @@ export default function KnowledgePage() {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${taskStyles.pageVolunteer}`} style={TASK_VARS}>
       <div className={styles.container}>
-        {/* SIDEBAR */}
         <aside className={styles.sidebar}>
           <ul className={styles.sidebarList}>
             {sidebarThemes.map((th) => {
@@ -356,6 +405,7 @@ export default function KnowledgePage() {
                     onClick={() => {
                       setActiveThemeId(th.id);
                       setActiveArticleKey(null);
+                      scrollToTheme(th.id);
                     }}
                   >
                     {th.name}
@@ -366,10 +416,8 @@ export default function KnowledgePage() {
           </ul>
         </aside>
 
-        {/* CONTENT */}
         <main className={styles.content}>
           <div className={styles.filtersRow} data-drop-root>
-            {/* Вид животного + */}
             <div className={taskStyles.dropWrap}>
               <button
                 className={`${taskStyles.btn} ${taskStyles.btnLavender} ${taskStyles.dropBtn}`}
@@ -399,7 +447,6 @@ export default function KnowledgePage() {
               ) : null}
             </div>
 
-            {/* Тема + */}
             <div className={taskStyles.dropWrap}>
               <button
                 className={`${taskStyles.btn} ${taskStyles.btnLavender} ${taskStyles.dropBtn}`}
@@ -430,8 +477,7 @@ export default function KnowledgePage() {
             </div>
           </div>
 
-          <h1 className={styles.sectionTitle}>{activeTheme?.name ?? "Медиатека"}</h1>
-
+          <h1 className={styles.sectionTitle}>Медиатека</h1>
           {loadingArticles ? <p className={styles.muted}>Загрузка статей…</p> : null}
 
           {activeArticle ? (
@@ -447,39 +493,67 @@ export default function KnowledgePage() {
                   ×
                 </button>
               </div>
-
               <p className={styles.articleText}>{activeArticle.description}</p>
             </div>
           ) : (
             <>
-              {!loadingArticles && articlesForActiveTheme.length === 0 ? (
-                <p className={styles.muted}>По выбранным фильтрам статей нет.</p>
-              ) : null}
+              {themeSections.map(({ theme, items }) => {
+                const isFlash = flashThemeId === theme.id;
 
-              {articlesForActiveTheme.length ? (
-                <div className={styles.cardsGrid}>
-                  {articlesForActiveTheme.map((a) => (
-                    <button
-                      key={a.key}
-                      type="button"
-                      className={styles.cardBtn}
-                      onClick={() => setActiveArticleKey(a.key)}
-                      aria-label={a.title}
+                return (
+                  <section
+                    key={theme.id}
+                    id={`theme_${theme.id}`}
+                    style={{
+                      scrollMarginTop: 110,
+                      paddingTop: 6,
+                      marginTop: 18,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "inline-block",
+                        padding: "6px 10px",
+                        borderRadius: 12,
+                        background: isFlash ? "#f3f4f6" : "transparent",
+                        transition: "background 220ms ease",
+                      }}
                     >
-                      <h3 className={styles.cardTitle}>{a.title}</h3>
+                      <h2 className={styles.sectionTitle} style={{ margin: 0 }}>
+                        {theme.name}
+                      </h2>
+                    </div>
 
-                      <div className={styles.cardMeta}>
-                        <span className={styles.tag}>
-                          {prefs.find((p) => p.id === a.typeId)?.name ?? `Тип #${a.typeId}`}
-                        </span>
-                        <span className={styles.tag}>
-                          {themes.find((t) => t.id === a.themeId)?.name ?? `Тема #${a.themeId}`}
-                        </span>
+                    {items.length ? (
+                      <div className={styles.cardsGrid} style={{ marginTop: 16 }}>
+                        {items.map((a) => (
+                          <button
+                            key={a.key}
+                            type="button"
+                            className={styles.cardBtn}
+                            onClick={() => setActiveArticleKey(a.key)}
+                            aria-label={a.title}
+                          >
+                            <h3 className={styles.cardTitle}>{a.title}</h3>
+
+                            <div className={styles.cardMeta}>
+                              <span className={styles.tag}>
+                                {prefs.find((p) => p.id === a.typeId)?.name ?? `Тип #${a.typeId}`}
+                              </span>
+                              <span className={styles.tag}>{theme.name}</span>
+                            </div>
+                          </button>
+                        ))}
                       </div>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+                    ) : (
+                      // ✅ как ты просил: под каждой темой, если статей реально нет
+                      <p className={styles.muted} style={{ marginTop: 10 }}>
+                        По выбранным фильтрам статей нет.
+                      </p>
+                    )}
+                  </section>
+                );
+              })}
             </>
           )}
         </main>
