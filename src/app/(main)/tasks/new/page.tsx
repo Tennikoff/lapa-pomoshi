@@ -9,15 +9,22 @@ import overlay from "@/src/app/(main)/@modal/modalOverlay.module.css";
 import f from "@/src/app/(main)/tasks/foster/new/fosterNew.module.css";
 import a from "@/src/app/(main)/animals/new/animalNew.module.css";
 
+import { AnimalTypeSelect } from "@/src/components/ui/AnimalTypeSelect/AnimalTypeSelect";
+
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
-import { animalsApi, type AnimalDto, type AnimalListItemDto, type CreateAnimalDto } from "@/src/lib/api/animals";
+import {
+  animalsApi,
+  type AnimalDto,
+  type AnimalListItemDto,
+  type CreateAnimalDto,
+} from "@/src/lib/api/animals";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
-
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+
 function isTooLarge(file: File) {
   return file.size > MAX_PHOTO_BYTES;
 }
@@ -47,14 +54,14 @@ export default function TaskNewPage() {
 
   // create animal screen
   const [createAnimalOpen, setCreateAnimalOpen] = useState(false);
+
   const animalFileRef = useRef<HTMLInputElement | null>(null);
   const [animalPreviewUrl, setAnimalPreviewUrl] = useState<string | null>(null);
-
   const [animalPhotoFile, setAnimalPhotoFile] = useState<File | null>(null);
   const [animalPhotoError, setAnimalPhotoError] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
-  const [anType, setAnType] = useState(""); // -> animalType
+  const [anType, setAnType] = useState(""); // -> animalType (ЕД. число)
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
   const [anHistory, setAnHistory] = useState(""); // UI есть, но API сейчас не принимает
@@ -226,6 +233,7 @@ export default function TaskNewPage() {
 
     const animalType = anType.trim();
     const name = anName.trim();
+
     if (!animalType) return alert("Выберите тип животного");
     if (!name) return alert("Укажите имя животного");
     if (animalPhotoError) return alert(animalPhotoError);
@@ -242,7 +250,6 @@ export default function TaskNewPage() {
         specialNeeds: anNeeds.trim() || null,
       };
 
-      // ✅ Главное исправление: если выбрано фото — создаём через multipart
       const created = animalPhotoFile
         ? await animalsApi.createWithPhoto(dto, animalPhotoFile)
         : await animalsApi.create(dto);
@@ -333,12 +340,7 @@ export default function TaskNewPage() {
         <div className={overlay.content}>
           <div className={overlay.scrollBox}>
             <div className={a.formCard} style={{ margin: 0, position: "relative" }}>
-              <button
-                className={a.closeBtn}
-                type="button"
-                onClick={onCancelCreateAnimal}
-                aria-label="Закрыть"
-              >
+              <button className={a.closeBtn} type="button" onClick={onCancelCreateAnimal} aria-label="Закрыть">
                 ×
               </button>
 
@@ -389,15 +391,14 @@ export default function TaskNewPage() {
                 />
               </div>
 
+              {/* ✅ ЗАМЕНА: input -> AnimalTypeSelect (как в профиле) */}
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-type">
-                  Тип животного*
-                </label>
-                <input
-                  id="an-type"
-                  className={a.input}
+                <label className={a.label}>Тип животного*</label>
+                <AnimalTypeSelect
+                  name="anType"
                   value={anType}
-                  onChange={(e) => setAnType(e.target.value)}
+                  onChange={setAnType}
+                  placeholder="Выберите вид животного"
                 />
               </div>
 
@@ -417,12 +418,7 @@ export default function TaskNewPage() {
                 <label className={a.label} htmlFor="an-age">
                   Возраст
                 </label>
-                <input
-                  id="an-age"
-                  className={a.input}
-                  value={anAge}
-                  onChange={(e) => setAnAge(e.target.value)}
-                />
+                <input id="an-age" className={a.input} value={anAge} onChange={(e) => setAnAge(e.target.value)} />
               </div>
 
               {/* поле есть в UI, но пока не уходит в API */}
@@ -475,20 +471,10 @@ export default function TaskNewPage() {
               </div>
 
               <div className={a.actions}>
-                <button
-                  type="button"
-                  className={a.btn}
-                  onClick={onCancelCreateAnimal}
-                  disabled={animalSubmitting}
-                >
+                <button type="button" className={a.btn} onClick={onCancelCreateAnimal} disabled={animalSubmitting}>
                   ОТМЕНИТЬ
                 </button>
-                <button
-                  type="button"
-                  className={a.btn}
-                  onClick={onSaveAnimal}
-                  disabled={animalSubmitting}
-                >
+                <button type="button" className={a.btn} onClick={onSaveAnimal} disabled={animalSubmitting}>
                   {animalSubmitting ? "..." : "СОХРАНИТЬ"}
                 </button>
               </div>
@@ -553,9 +539,7 @@ export default function TaskNewPage() {
                               aria-pressed={active}
                               title={a2.name}
                             >
-                              {a2.photoUrl ? (
-                                <img className={f.animalImg} src={a2.photoUrl} alt="" />
-                              ) : null}
+                              {a2.photoUrl ? <img className={f.animalImg} src={a2.photoUrl} alt="" /> : null}
                               <span className={f.animalCardLabel}>{a2.name}</span>
                             </button>
                           );
@@ -624,11 +608,7 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Дата начала</label>
                   <div className={f.dateInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(startDateRef)}
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(startDateRef)}>
                       <Calendar className={f.dateIcon} />
                     </button>
                     <input
@@ -644,11 +624,7 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Время начала</label>
                   <div className={f.timeInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(startTimeRef)}
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(startTimeRef)}>
                       <Clock className={f.dateIcon} />
                     </button>
                     <input
@@ -664,11 +640,7 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Дата окончания</label>
                   <div className={f.dateInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(endDateRef)}
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(endDateRef)}>
                       <Calendar className={f.dateIcon} />
                     </button>
                     <input
@@ -684,11 +656,7 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Время окончания</label>
                   <div className={f.timeInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(endTimeRef)}
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(endTimeRef)}>
                       <Clock className={f.dateIcon} />
                     </button>
                     <input

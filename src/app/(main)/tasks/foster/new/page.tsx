@@ -9,15 +9,22 @@ import overlay from "@/src/app/(main)/@modal/modalOverlay.module.css";
 import f from "./fosterNew.module.css";
 import a from "@/src/app/(main)/animals/new/animalNew.module.css";
 
+import { AnimalTypeSelect } from "@/src/components/ui/AnimalTypeSelect/AnimalTypeSelect";
+
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
-import { animalsApi, type AnimalDto, type AnimalListItemDto, type CreateAnimalDto } from "@/src/lib/api/animals";
+import {
+  animalsApi,
+  type AnimalDto,
+  type AnimalListItemDto,
+  type CreateAnimalDto,
+} from "@/src/lib/api/animals";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
-
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+
 function isTooLarge(file: File) {
   return file.size > MAX_PHOTO_BYTES;
 }
@@ -45,14 +52,14 @@ export default function FosterNewPage() {
 
   // create animal screen
   const [createAnimalOpen, setCreateAnimalOpen] = useState(false);
+
   const animalFileRef = useRef<HTMLInputElement | null>(null);
   const [animalPreviewUrl, setAnimalPreviewUrl] = useState<string | null>(null);
-
   const [animalPhotoFile, setAnimalPhotoFile] = useState<File | null>(null);
   const [animalPhotoError, setAnimalPhotoError] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
-  const [anType, setAnType] = useState("");
+  const [anType, setAnType] = useState(""); // ✅ animalType (ед. число)
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
   const [anHistory, setAnHistory] = useState("");
@@ -96,7 +103,7 @@ export default function FosterNewPage() {
           return;
         }
 
-        // как было: доступ только куратору/организации
+        // доступ только куратору/организации
         if (!isOrgRole(me.role)) {
           alert("Запрос передержки доступен только куратору/организации");
           router.replace("/tasks");
@@ -222,7 +229,6 @@ export default function FosterNewPage() {
         specialNeeds: anNeeds.trim() || null,
       };
 
-      // ✅ Главное исправление: если выбрано фото — создаём через multipart
       const created = animalPhotoFile
         ? await animalsApi.createWithPhoto(dto, animalPhotoFile)
         : await animalsApi.create(dto);
@@ -246,7 +252,6 @@ export default function FosterNewPage() {
       return;
     }
 
-    // как было: доступ только куратору/организации
     if (!isOrgRole(me.role)) {
       alert("Запрос передержки доступен только куратору/организации");
       return;
@@ -310,12 +315,7 @@ export default function FosterNewPage() {
         <div className={overlay.content}>
           <div className={overlay.scrollBox}>
             <div className={a.formCard} style={{ margin: 0, position: "relative" }}>
-              <button
-                className={a.closeBtn}
-                type="button"
-                onClick={onCancelCreateAnimal}
-                aria-label="Закрыть"
-              >
+              <button className={a.closeBtn} type="button" onClick={onCancelCreateAnimal} aria-label="Закрыть">
                 ×
               </button>
 
@@ -358,23 +358,17 @@ export default function FosterNewPage() {
                 <label className={a.label} htmlFor="an-name">
                   Имя*
                 </label>
-                <input
-                  id="an-name"
-                  className={a.input}
-                  value={anName}
-                  onChange={(e) => setAnName(e.target.value)}
-                />
+                <input id="an-name" className={a.input} value={anName} onChange={(e) => setAnName(e.target.value)} />
               </div>
 
+              {/* ✅ ЗАМЕНА: input -> AnimalTypeSelect (как в профиле) */}
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-type">
-                  Тип животного*
-                </label>
-                <input
-                  id="an-type"
-                  className={a.input}
+                <label className={a.label}>Тип животного*</label>
+                <AnimalTypeSelect
+                  name="anType"
                   value={anType}
-                  onChange={(e) => setAnType(e.target.value)}
+                  onChange={setAnType}
+                  placeholder="Выберите вид животного"
                 />
               </div>
 
@@ -394,12 +388,7 @@ export default function FosterNewPage() {
                 <label className={a.label} htmlFor="an-age">
                   Возраст
                 </label>
-                <input
-                  id="an-age"
-                  className={a.input}
-                  value={anAge}
-                  onChange={(e) => setAnAge(e.target.value)}
-                />
+                <input id="an-age" className={a.input} value={anAge} onChange={(e) => setAnAge(e.target.value)} />
               </div>
 
               {/* поле есть в UI, но пока не уходит в API */}
@@ -452,20 +441,10 @@ export default function FosterNewPage() {
               </div>
 
               <div className={a.actions}>
-                <button
-                  type="button"
-                  className={a.btn}
-                  onClick={onCancelCreateAnimal}
-                  disabled={animalSubmitting}
-                >
+                <button type="button" className={a.btn} onClick={onCancelCreateAnimal} disabled={animalSubmitting}>
                   ОТМЕНИТЬ
                 </button>
-                <button
-                  type="button"
-                  className={a.btn}
-                  onClick={onSaveAnimal}
-                  disabled={animalSubmitting}
-                >
+                <button type="button" className={a.btn} onClick={onSaveAnimal} disabled={animalSubmitting}>
                   {animalSubmitting ? "..." : "СОХРАНИТЬ"}
                 </button>
               </div>
@@ -529,9 +508,7 @@ export default function FosterNewPage() {
                               aria-pressed={active}
                               title={a2.name}
                             >
-                              {a2.photoUrl ? (
-                                <img className={f.animalImg} src={a2.photoUrl} alt="" />
-                              ) : null}
+                              {a2.photoUrl ? <img className={f.animalImg} src={a2.photoUrl} alt="" /> : null}
                               <span className={f.animalCardLabel}>{a2.name}</span>
                             </button>
                           );
@@ -577,11 +554,7 @@ export default function FosterNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Дата начала</label>
                   <div className={f.dateInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(startRef)}
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(startRef)}>
                       <Calendar className={f.dateIcon} />
                     </button>
                     <input
@@ -597,11 +570,7 @@ export default function FosterNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Дата окончания</label>
                   <div className={f.dateInputWrap}>
-                    <button
-                      type="button"
-                      className={f.dateIconBtn}
-                      onClick={() => openPicker(endRef)}
-                    >
+                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(endRef)}>
                       <Calendar className={f.dateIcon} />
                     </button>
                     <input

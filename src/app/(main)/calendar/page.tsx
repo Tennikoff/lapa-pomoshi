@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import styles from "./calendar.module.css";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
@@ -11,6 +11,9 @@ import { ApiError } from "@/src/lib/api/http";
 
 // карточки должны быть 1-в-1 как в ленте задач у волонтера
 import { TaskCard } from "@/src/app/(main)/tasks/_components/TaskCard";
+
+// ✅ берем сетку/стили из ленты задач
+import tasksFeedStyles from "@/src/app/(main)/tasks/tasks.module.css";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 
@@ -49,9 +52,7 @@ function capitalizeFirstRu(s: string) {
 
 function formatMonthTitle(d: Date) {
   // “Апрель 2025”
-  return capitalizeFirstRu(
-    d.toLocaleDateString("ru-RU", { month: "long", year: "numeric" })
-  );
+  return capitalizeFirstRu(d.toLocaleDateString("ru-RU", { month: "long", year: "numeric" }));
 }
 
 function formatSelectedTitle(d: Date) {
@@ -98,7 +99,6 @@ async function loadAllMyTasks(isOrg: boolean): Promise<HelpTaskDto[]> {
     if (!res.hasMore) break;
 
     offset += PAGE_SIZE;
-
     // защита: если бэк внезапно начал возвращать hasMore=true, но tasks=[]
     if (!chunk.length) break;
   }
@@ -106,23 +106,42 @@ async function loadAllMyTasks(isOrg: boolean): Promise<HelpTaskDto[]> {
   return all.slice(0, MAX_TOTAL);
 }
 
+// ✅ CSS vars из tasks.module.css (.page), чтобы TaskCard выглядел 1-в-1 как в ленте
+type TaskVars = CSSProperties & {
+  ["--color-bg-page"]?: string;
+  ["--color-bg-card"]?: string;
+  ["--color-text-primary"]?: string;
+  ["--color-text-secondary"]?: string;
+  ["--color-accent-peach"]?: string;
+  ["--color-accent-peach-hover"]?: string;
+  ["--color-accent-lavender"]?: string;
+  ["--color-tag-blue"]?: string;
+  ["--color-border"]?: string;
+};
+
+const TASK_VARS: TaskVars = {
+  ["--color-bg-page"]: "#f8f9fa",
+  ["--color-bg-card"]: "#ebf3fc",
+  ["--color-text-primary"]: "#212529",
+  ["--color-text-secondary"]: "#6c757d",
+  ["--color-accent-peach"]: "#e9b8a7",
+  ["--color-accent-peach-hover"]: "#dda693",
+  ["--color-accent-lavender"]: "#d9c4ec",
+  ["--color-tag-blue"]: "#c3eaff",
+  ["--color-border"]: "#dee2e6",
+};
+
 export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [meRoleOrg, setMeRoleOrg] = useState<boolean | null>(null);
   const [items, setItems] = useState<HelpTaskDto[]>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
 
-  const [currentMonth, setCurrentMonth] = useState<Date>(() =>
-    startOfDay(new Date())
-  );
-  const [selectedDay, setSelectedDay] = useState<Date>(() =>
-    startOfDay(new Date())
-  );
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfDay(new Date()));
+  const [selectedDay, setSelectedDay] = useState<Date>(() => startOfDay(new Date()));
 
   const reload = async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) {
-      setLoading(true);
-    }
+    if (!opts?.silent) setLoading(true);
     setErrorText(null);
 
     try {
@@ -144,9 +163,7 @@ export default function CalendarPage() {
       else if (e instanceof Error) msg = e.message;
       setErrorText(msg);
     } finally {
-      if (!opts?.silent) {
-        setLoading(false);
-      }
+      if (!opts?.silent) setLoading(false);
     }
   };
 
@@ -172,68 +189,49 @@ export default function CalendarPage() {
     const ms = getMonthStart(currentMonth);
     const me = getMonthEnd(currentMonth);
     const sel = selectedDay;
-
     if (sel < startOfDay(ms) || sel > startOfDay(me)) {
       setSelectedDay(startOfDay(ms));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth]);
 
-  const monthStart = useMemo(
-    () => startOfDay(getMonthStart(currentMonth)),
-    [currentMonth]
-  );
-  const monthEnd = useMemo(
-    () => startOfDay(getMonthEnd(currentMonth)),
-    [currentMonth]
-  );
+  const monthStart = useMemo(() => startOfDay(getMonthStart(currentMonth)), [currentMonth]);
+  const monthEnd = useMemo(() => startOfDay(getMonthEnd(currentMonth)), [currentMonth]);
 
   // нормализуем задачи в диапазоны по дням
   const ranges: TaskRange[] = useMemo(() => {
     const out: TaskRange[] = [];
-
     for (const t of items) {
       const a = parseISO(t.startedAt);
       const b = parseISO(t.endedAt);
       if (!a || !b) continue;
-
       const sa = startOfDay(a);
       const sb = startOfDay(b);
-
       const start = sa <= sb ? sa : sb;
       const end = sa <= sb ? sb : sa;
-
       out.push({ task: t, start, end });
     }
-
     return out;
   }, [items]);
 
   // набор дней месяца, которые надо подсветить
   const monthEventDays = useMemo(() => {
     const set = new Set<string>();
-
     for (const r of ranges) {
       const from = r.start > monthStart ? r.start : monthStart;
       const to = r.end < monthEnd ? r.end : monthEnd;
       if (from > to) continue;
-
       for (let d = from; d <= to; d = addDays(d, 1)) {
         set.add(dayKey(d));
       }
     }
-
     return set;
   }, [ranges, monthStart, monthEnd]);
 
-  // задачи/передержки для выбранного дня: всё, что покрывает этот день
+  // задачи для выбранного дня: всё, что покрывает этот день
   const tasksForSelectedDay = useMemo(() => {
     const sel = startOfDay(selectedDay);
-
-    const list = ranges
-      .filter((r) => sel >= r.start && sel <= r.end)
-      .map((r) => r.task);
-
+    const list = ranges.filter((r) => sel >= r.start && sel <= r.end).map((r) => r.task);
     list.sort((a, b) => String(a.startedAt).localeCompare(String(b.startedAt)));
     return list;
   }, [ranges, selectedDay]);
@@ -242,11 +240,9 @@ export default function CalendarPage() {
   const calendarCells = useMemo(() => {
     const y = currentMonth.getFullYear();
     const m = currentMonth.getMonth();
-
     const first = new Date(y, m, 1);
     const daysInMonth = getMonthEnd(currentMonth).getDate();
     const offset = mondayIndex(first.getDay());
-
     const cells: Array<Date | null> = [];
     for (let i = 0; i < 42; i++) {
       const dayNum = i - offset + 1;
@@ -256,23 +252,8 @@ export default function CalendarPage() {
     return cells;
   }, [currentMonth]);
 
-  const onPrevMonth = () => {
-    const d = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth() - 1,
-      1
-    );
-    setCurrentMonth(d);
-  };
-
-  const onNextMonth = () => {
-    const d = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth() + 1,
-      1
-    );
-    setCurrentMonth(d);
-  };
+  const onPrevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  const onNextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
 
   if (loading) {
     return (
@@ -289,9 +270,7 @@ export default function CalendarPage() {
       <div className={styles.page}>
         <div className={styles.container}>
           <h2 className={styles.sectionTitle}>Календарь</h2>
-          <p className={styles.muted}>
-            Войдите в аккаунт, чтобы увидеть свои задачи в календаре.
-          </p>
+          <p className={styles.muted}>Войдите в аккаунт, чтобы увидеть свои задачи в календаре.</p>
         </div>
       </div>
     );
@@ -305,23 +284,11 @@ export default function CalendarPage() {
         <div className={styles.calendarWidget}>
           <div className={styles.calendarHeader}>
             <h2 className={styles.monthTitle}>{formatMonthTitle(currentMonth)}</h2>
-
             <div className={styles.nav}>
-              <button
-                type="button"
-                className={styles.navBtn}
-                onClick={onPrevMonth}
-                aria-label="Предыдущий месяц"
-              >
+              <button type="button" className={styles.navBtn} onClick={onPrevMonth} aria-label="Предыдущий месяц">
                 ←
               </button>
-
-              <button
-                type="button"
-                className={styles.navBtn}
-                onClick={onNextMonth}
-                aria-label="Следующий месяц"
-              >
+              <button type="button" className={styles.navBtn} onClick={onNextMonth} aria-label="Следующий месяц">
                 →
               </button>
             </div>
@@ -338,26 +305,15 @@ export default function CalendarPage() {
 
             {calendarCells.map((d, idx) => {
               if (!d) return <div key={idx} className={styles.dayEmpty} />;
-
               const k = dayKey(d);
               const hasEvent = monthEventDays.has(k);
               const isSelected = k === selKey;
-
-              const className = [
-                styles.dayBtn,
-                hasEvent ? styles.dayHasEvent : "",
-                isSelected ? styles.daySelected : "",
-              ]
+              const className = [styles.dayBtn, hasEvent ? styles.dayHasEvent : "", isSelected ? styles.daySelected : ""]
                 .filter(Boolean)
                 .join(" ");
 
               return (
-                <button
-                  key={k}
-                  type="button"
-                  className={className}
-                  onClick={() => setSelectedDay(startOfDay(d))}
-                >
+                <button key={k} type="button" className={className} onClick={() => setSelectedDay(startOfDay(d))}>
                   {d.getDate()}
                 </button>
               );
@@ -365,21 +321,19 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <h3 className={styles.sectionTitle}>
-          Задачи на {formatSelectedTitle(selectedDay)}
-        </h3>
-
+        <h3 className={styles.sectionTitle}>Задачи на {formatSelectedTitle(selectedDay)}</h3>
         {errorText ? <p className={styles.muted}>{errorText}</p> : null}
 
         {!errorText && tasksForSelectedDay.length === 0 ? (
           <p className={styles.muted}>На этот день задач нет.</p>
         ) : !errorText ? (
-          <div className={styles.cardsWrap}>
+          // ✅ вот здесь карточки теперь выглядят 1-в-1 как в ленте задач волонтёра
+          <div className={tasksFeedStyles.cardsGrid} style={TASK_VARS}>
             {tasksForSelectedDay.map((t) => (
               <TaskCard
                 key={t.id}
                 task={t}
-                mode="volunteer" // внешний вид как в ленте волонтёра + кликабельность
+                mode="volunteer" // внешний вид как в ленте задач волонтёра + кликабельность
                 onEdit={() => {}}
               />
             ))}

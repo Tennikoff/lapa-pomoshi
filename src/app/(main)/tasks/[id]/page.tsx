@@ -9,8 +9,9 @@ import overlay from "@/src/app/(main)/@modal/modalOverlay.module.css";
 import f from "@/src/app/(main)/tasks/foster/new/fosterNew.module.css";
 import a from "@/src/app/(main)/animals/new/animalNew.module.css";
 
-import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
+import { AnimalTypeSelect } from "@/src/components/ui/AnimalTypeSelect/AnimalTypeSelect";
 
+import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
@@ -21,12 +22,11 @@ import {
   type CreateAnimalDto,
 } from "@/src/lib/api/animals";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
-
 import type { HelpTaskDto } from "@/src/types/helpTask";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
-
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+
 function isTooLarge(file: File) {
   return file.size > MAX_PHOTO_BYTES;
 }
@@ -71,6 +71,7 @@ export default function TaskEditPage() {
 
   const [loading, setLoading] = useState(true);
   const [task, setTask] = useState<HelpTaskDto | null>(null);
+
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   // dictionaries
@@ -85,14 +86,14 @@ export default function TaskEditPage() {
 
   // create animal screen (inside edit)
   const [createAnimalOpen, setCreateAnimalOpen] = useState(false);
+
   const animalFileRef = useRef<HTMLInputElement | null>(null);
   const [animalPreviewUrl, setAnimalPreviewUrl] = useState<string | null>(null);
-
   const [animalPhotoFile, setAnimalPhotoFile] = useState<File | null>(null);
   const [animalPhotoError, setAnimalPhotoError] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
-  const [anType, setAnType] = useState("");
+  const [anType, setAnType] = useState(""); // ✅ animalType (ед. число)
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
   const [anHistory, setAnHistory] = useState("");
@@ -149,13 +150,10 @@ export default function TaskEditPage() {
           return;
         }
 
-        // доступ к редактированию задач сейчас по UI только для организации
-        // но фактическая проверка — создатель задачи
         const [locs, comps] = await Promise.all([
           dictionariesApi.locations(),
           dictionariesApi.competencies(),
         ]);
-
         setLocationsDict(locs);
         setCompetenciesDict(comps);
 
@@ -303,7 +301,6 @@ export default function TaskEditPage() {
         specialNeeds: anNeeds.trim() || null,
       };
 
-      // ✅ Главное исправление: если выбрано фото — создаём через multipart
       const created = animalPhotoFile
         ? await animalsApi.createWithPhoto(dto, animalPhotoFile)
         : await animalsApi.create(dto);
@@ -357,10 +354,8 @@ export default function TaskEditPage() {
     if (task.isTaskOverexposure) {
       // foster: date-only
       if (!startDate || !endDate) return alert("Укажите дату начала и дату окончания");
-
       const startedAt = toIsoDateStart(startDate);
       const endedAt = toIsoDateStart(endDate);
-
       if (!startedAt || !endedAt) return alert("Некорректная дата");
 
       await helpTasksApi.update(id, {
@@ -386,7 +381,6 @@ export default function TaskEditPage() {
 
     const startedAt = toIsoDateTime(startDate, startTime);
     const endedAt = toIsoDateTime(endDate, endTime);
-
     if (!startedAt || !endedAt) return alert("Некорректная дата/время");
 
     if (!requiredVolunteers || requiredVolunteers < 1) {
@@ -437,12 +431,7 @@ export default function TaskEditPage() {
         <div className={overlay.content}>
           <div className={overlay.scrollBox}>
             <div className={a.formCard} style={{ margin: 0, position: "relative" }}>
-              <button
-                className={a.closeBtn}
-                type="button"
-                onClick={onCancelCreateAnimal}
-                aria-label="Закрыть"
-              >
+              <button className={a.closeBtn} type="button" onClick={onCancelCreateAnimal} aria-label="Закрыть">
                 ×
               </button>
 
@@ -493,15 +482,14 @@ export default function TaskEditPage() {
                 />
               </div>
 
+              {/* ✅ ЗАМЕНА: input -> AnimalTypeSelect */}
               <div className={a.field}>
-                <label className={a.label} htmlFor="an-type">
-                  Тип животного*
-                </label>
-                <input
-                  id="an-type"
-                  className={a.input}
+                <label className={a.label}>Тип животного*</label>
+                <AnimalTypeSelect
+                  name="anType"
                   value={anType}
-                  onChange={(e) => setAnType(e.target.value)}
+                  onChange={setAnType}
+                  placeholder="Выберите вид животного"
                 />
               </div>
 
@@ -521,12 +509,7 @@ export default function TaskEditPage() {
                 <label className={a.label} htmlFor="an-age">
                   Возраст
                 </label>
-                <input
-                  id="an-age"
-                  className={a.input}
-                  value={anAge}
-                  onChange={(e) => setAnAge(e.target.value)}
-                />
+                <input id="an-age" className={a.input} value={anAge} onChange={(e) => setAnAge(e.target.value)} />
               </div>
 
               {/* поле есть в UI, но пока не уходит в API */}
@@ -579,20 +562,10 @@ export default function TaskEditPage() {
               </div>
 
               <div className={a.actions}>
-                <button
-                  type="button"
-                  className={a.btn}
-                  onClick={onCancelCreateAnimal}
-                  disabled={animalSubmitting}
-                >
+                <button type="button" className={a.btn} onClick={onCancelCreateAnimal} disabled={animalSubmitting}>
                   ОТМЕНИТЬ
                 </button>
-                <button
-                  type="button"
-                  className={a.btn}
-                  onClick={onSaveAnimal}
-                  disabled={animalSubmitting}
-                >
+                <button type="button" className={a.btn} onClick={onSaveAnimal} disabled={animalSubmitting}>
                   {animalSubmitting ? "..." : "СОХРАНИТЬ"}
                 </button>
               </div>
@@ -620,7 +593,7 @@ export default function TaskEditPage() {
                 ×
               </button>
 
-              <h1 className={f.title}>{isFoster ? "Запрос передержки" : "Создание задачи"}</h1>
+              <h1 className={f.title}>{isFoster ? "Запрос передержки" : "Редактирование задачи"}</h1>
 
               {/* Животное */}
               <section className={f.section}>

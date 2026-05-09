@@ -515,7 +515,7 @@ export default function KnowledgePage() {
                         display: "inline-block",
                         padding: "6px 10px",
                         borderRadius: 12,
-                        background: isFlash ? "#f3f4f6" : "transparent",
+                        background: isFlash ? "#eff1f3" : "transparent",
                         transition: "background 220ms ease",
                       }}
                     >
