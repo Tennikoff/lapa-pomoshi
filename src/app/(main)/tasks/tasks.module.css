@@ -345,6 +345,17 @@
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 6px;
+
+  /* ✅ обрезка длинного заголовка */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  /* ✅ чтобы текст не заходил под иконку редактирования (справа сверху) */
+  padding-right: 44px;
+
+  /* ✅ важно для ellipsis в flex/grid-контейнерах */
+  min-width: 0;
 }
 
 .fosterDescription {

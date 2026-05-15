@@ -1,0 +1,184 @@
+/* --- CSS Переменные для стилей --- */
+:root {
+  --text-primary: #1A202C;
+  --text-secondary: #4A5568;
+  --bg-page: #FFFFFF;
+  --bg-review: #F7FAFC;
+  --border-color: #E2E8F0;
+  --accent-blue-bg: #E0F2FE;
+  --accent-blue-text: #0C569A;
+  --star-color: #FBBF24;
+}
+
+/* --- Основной контейнер профиля --- */
+.profilePage {
+  max-width: 700px;
+  margin: 48px auto;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  color: var(--text-primary);
+}
+
+/* --- Верхний блок с аватаром и именем --- */
+.profileHeader {
+  text-align: center;
+}
+
+.profileAvatar {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background-color: #1A202C;
+  margin: 0 auto 16px;
+}
+
+.profileName {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.profileRole {
+  font-size: 18px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* --- Секции профиля --- */
+.profileSection {
+  text-align: center;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 16px 0;
+}
+
+.profileSection p,
+.profileSection .infoItem {
+  font-size: 16px;
+  color: var(--text-primary);
+  margin: 4px 0;
+}
+
+.infoLabel {
+  color: var(--text-secondary);
+}
+
+.tags {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  background-color: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* --- Блок "Мои питомцы" --- */
+.petsGrid {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.petCard {
+  text-align: center;
+}
+
+.petCard img {
+  width: 100px;
+  height: 100px;
+  border-radius: 16px;
+  object-fit: cover;
+  display: block;
+}
+
+.petName {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+/* --- Рейтинг --- */
+.ratingDisplay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.stars {
+  display: flex;
+  gap: 4px;
+}
+
+.stars svg {
+  width: 24px;
+  height: 24px;
+  color: var(--star-color);
+}
+
+.ratingText {
+  color: var(--text-secondary);
+}
+
+/* --- Отзывы --- */
+.reviewsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.reviewCard {
+  background-color: var(--bg-review);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.reviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.reviewAuthorInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reviewAuthor {
+  font-weight: 600;
+}
+
+.reviewTime {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.reviewText {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.allReviewsLink {
+  display: inline-block;
+  margin-top: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}

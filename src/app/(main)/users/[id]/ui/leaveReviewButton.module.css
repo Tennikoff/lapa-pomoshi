@@ -1,0 +1,31 @@
+.wrap {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 14px;
+}
+
+.btn {
+  width: 100%;
+  max-width: 760px;
+  height: 44px;
+
+  /* близко к стилю отзывов (reviewItem) */
+  background: #f0f2f5;
+  border: 2px solid #d7dadd;
+  border-radius: 12px;
+
+  color: #313131;
+  font-size: 16px;
+  font-weight: 500;
+
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn:hover {
+  background: #e9ecef;
+}
+
+.btn:active {
+  background: #e2e6ea;
+}

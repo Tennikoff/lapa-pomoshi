@@ -8,6 +8,12 @@ export const usersApi = {
     return res as ProfileDto;
   },
 
+
+  getPublicProfile: async (userId: string): Promise<ProfileDto> => {
+    const res = await apiFetch(`/api/Users/public/${userId}`, { cache: "no-store" });
+    return res as ProfileDto;
+  },
+
   // JSON PATCH (как раньше)
   patchProfile: async (dto: Partial<ProfileDto>): Promise<ProfileDto> => {
     const res = await apiFetch("/api/Users/profile", {

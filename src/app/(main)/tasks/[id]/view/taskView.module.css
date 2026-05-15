@@ -136,3 +136,14 @@
 .ctaDeclined:hover {
   background-color: #fecdd3;
 }
+
+.creatorLink {
+  color: #1c274c;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 400;
+}
+
+.creatorLink:hover {
+  opacity: 0.85;
+}

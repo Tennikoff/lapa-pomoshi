@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
 
 import overlay from "@/src/app/(main)/@modal/modalOverlay.module.css";
 import f from "@/src/app/(main)/tasks/foster/new/fosterNew.module.css";
@@ -30,8 +30,15 @@ function formatDateTimeRange(task: HelpTaskDto) {
     month: "long",
     year: "numeric",
   });
-  const ta = a.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  const tb = b.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
+  const ta = a.toLocaleTimeString("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const tb = b.toLocaleTimeString("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return `${date}, ${ta} – ${tb}`;
 }
@@ -48,7 +55,7 @@ function getRespKind(status: string | null | undefined): RespKind {
 
   const low = s.toLowerCase();
 
-  // Словарь бэка: "На рассмотрении", "Принят", "Отклонен"
+  // словарь бэка: "На рассмотрении", "Принят", "Отклонен"
   if (s === "На рассмотрении" || low.includes("рассмотр")) return "pending";
   if (s === "Принят" || low.includes("прин")) return "accepted";
   if (s === "Отклонен" || low.includes("отклон")) return "declined";
@@ -58,23 +65,35 @@ function getRespKind(status: string | null | undefined): RespKind {
 
 export default function TaskViewPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useParams<{ id: string }>();
-  const id = String(params.id || "");
+
+  // ✅ это id задачи из URL
+  const taskId = String(params.id || "");
+
+  // ✅ если мы уже ушли на другой URL (например /users/...), модалка должна исчезнуть
+  const expectedPath = `/tasks/${taskId}/view`;
+  const shouldShowModal = pathname === expectedPath;
 
   const [loading, setLoading] = useState(true);
-  const [me, setMe] = useState<Awaited<ReturnType<typeof fetchCurrentProfile>> | null>(null);
+  const [me, setMe] = useState<
+    Awaited<ReturnType<typeof fetchCurrentProfile>> | null
+  >(null);
   const [task, setTask] = useState<HelpTaskDto | null>(null);
 
   const [responding, setResponding] = useState(false);
   const [alreadyResponded, setAlreadyResponded] = useState(false);
   const [myResponse, setMyResponse] = useState<ResponseDto | null>(null);
 
-  const loadMyResponse = async (taskId: string, profile: NonNullable<typeof me>) => {
+  const loadMyResponse = async (
+    id: string,
+    profile: NonNullable<typeof me>
+  ) => {
     if (isOrgRole(profile.role)) return;
 
     try {
       const sent = await responsesApi.mySent(0, 200);
-      const found = sent.responses.find((r) => r.taskId === taskId) ?? null;
+      const found = sent.responses.find((r) => r.taskId === id) ?? null;
       setAlreadyResponded(Boolean(found));
       setMyResponse(found);
     } catch {
@@ -84,38 +103,51 @@ export default function TaskViewPage() {
   };
 
   useEffect(() => {
+    // ✅ если модалка сейчас не должна показываться — не грузим данные
+    if (!shouldShowModal) return;
+
+    let cancelled = false;
+
     (async () => {
       setLoading(true);
       try {
         const profile = await fetchCurrentProfile();
+        if (cancelled) return;
         setMe(profile);
 
-        const tsk = await helpTasksApi.getById(id);
+        const tsk = await helpTasksApi.getById(taskId);
+        if (cancelled) return;
         setTask(tsk);
 
         if (profile && !isOrgRole(profile.role)) {
-          await loadMyResponse(id, profile);
+          await loadMyResponse(taskId, profile);
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [id]);
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskId, shouldShowModal]);
 
   // Обновлять статус при возврате в окно (когда куратор принял/отклонил)
   useEffect(() => {
+    if (!shouldShowModal) return;
     if (!me) return;
     if (isOrgRole(me.role)) return;
     if (!alreadyResponded) return;
 
     const onFocus = async () => {
       const profile = me ?? (await fetchCurrentProfile());
-      if (profile) await loadMyResponse(id, profile);
+      if (profile) await loadMyResponse(taskId, profile);
     };
 
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [alreadyResponded, id, me]);
+  }, [alreadyResponded, me, taskId, shouldShowModal]);
 
   const onClose = () => router.back();
 
@@ -128,22 +160,17 @@ export default function TaskViewPage() {
     if (!task) return false;
     if (responding) return false;
     if (alreadyResponded) return false;
-
     if (!me) return true; // можно нажать — дальше попросим логин
     if (isOrgRole(me.role)) return false;
-
     return true;
   }, [alreadyResponded, me, responding, task]);
 
   const ctaText = useMemo(() => {
     if (responding) return "...";
-
     if (respKind === "none") return "ОТКЛИКНУТЬСЯ";
     if (respKind === "pending") return "НА РАССМОТРЕНИИ";
     if (respKind === "accepted") return "ПРИНЯТА";
     if (respKind === "declined") return "ОТКЛОНЕНА";
-
-    // fallback
     return normalizeStatus(myResponse?.status) || "—";
   }, [myResponse?.status, respKind, responding]);
 
@@ -163,12 +190,10 @@ export default function TaskViewPage() {
       router.push("/login");
       return;
     }
-
     if (isOrgRole(profile.role)) {
       alert("Отклик доступен только волонтёрам");
       return;
     }
-
     if (responding || alreadyResponded) return;
 
     setResponding(true);
@@ -183,6 +208,9 @@ export default function TaskViewPage() {
       setResponding(false);
     }
   };
+
+  // ✅ ключевая штука: если мы уже ушли с /tasks/:id/view — не рендерим модалку вообще
+  if (!shouldShowModal) return null;
 
   if (loading || !task) {
     return (
@@ -201,10 +229,16 @@ export default function TaskViewPage() {
 
   const firstAnimal = task.animals?.[0] ?? null;
   const photoUrl = firstAnimal?.photoUrl || FALLBACK_PHOTO;
-  const animalTitle = firstAnimal?.name?.trim() ? firstAnimal.name.trim() : "Животное";
+  const animalTitle = firstAnimal?.name?.trim()
+    ? firstAnimal.name.trim()
+    : "Животное";
+
   const district = task.locations?.[0] ?? "—";
   const comps = task.competencies ?? [];
   const dateTimeText = formatDateTimeRange(task);
+
+  // ✅ creatorId — это id куратора/организации (userId в public endpoint)
+  const creatorId = task.creator?.id || null;
 
   return (
     <div
@@ -216,7 +250,12 @@ export default function TaskViewPage() {
       <div className={overlay.content}>
         <div className={overlay.scrollBox}>
           <div className={m.modal}>
-            <button className={m.closeBtn} type="button" onClick={onClose} aria-label="Закрыть">
+            <button
+              className={m.closeBtn}
+              type="button"
+              onClick={onClose}
+              aria-label="Закрыть"
+            >
               ×
             </button>
 
@@ -225,11 +264,18 @@ export default function TaskViewPage() {
             <div className={m.body}>
               {/* Животное */}
               <div className={m.animalInfo}>
-                <img src={photoUrl} alt={animalTitle} className={m.animalPhoto} />
+                <img
+                  src={photoUrl}
+                  alt={animalTitle}
+                  className={m.animalPhoto}
+                />
                 <div className={m.animalText}>
                   <h3 className={m.animalName}>{animalTitle}</h3>
                   {firstAnimal ? (
-                    <Link className={m.moreLink} href={`/animals/${firstAnimal.id}`}>
+                    <Link
+                      className={m.moreLink}
+                      href={`/animals/${firstAnimal.id}`}
+                    >
                       Подробнее
                     </Link>
                   ) : null}
@@ -243,11 +289,21 @@ export default function TaskViewPage() {
               <div className={m.details}>
                 <div className={m.row}>
                   <span className={m.label}>Куратор:</span>{" "}
-                  {task.creator?.name?.trim() ? task.creator.name : "—"}
+                  {creatorId ? (
+                    <Link href={`/users/${creatorId}`} className={m.creatorLink}>
+                      {task.creator?.name?.trim()
+                        ? task.creator.name
+                        : "Без имени"}
+                    </Link>
+                  ) : (
+                    <span>
+                      {task.creator?.name?.trim() ? task.creator.name : "—"}
+                    </span>
+                  )}
                 </div>
 
                 <div className={m.row}>
-                  <span className={m.label}>Компетенции:</span>
+                  <span className={m.label}>Компетенции:</span>{" "}
                   {comps.length ? (
                     comps.map((c) => (
                       <span key={c} className={t.tag}>
@@ -260,7 +316,7 @@ export default function TaskViewPage() {
                 </div>
 
                 <div className={m.row}>
-                  <span className={m.label}>Район:</span>
+                  <span className={m.label}>Район:</span>{" "}
                   <span className={t.tag}>{district}</span>
                 </div>
 
@@ -269,13 +325,12 @@ export default function TaskViewPage() {
                 </div>
 
                 <div className={m.row}>
-                  <span className={m.label}>Волонтёров:</span> {task.requiredVolunteers}
+                  <span className={m.label}>Волонтёров:</span>{" "}
+                  {task.requiredVolunteers}
                 </div>
-
-                {/* ❌ УБРАНО: "Статус отклика:" */}
               </div>
 
-              {/* Кнопка отклика — стиль прежний (f.actionBtn), добавляем только класс-фон по статусу */}
+              {/* Кнопка отклика */}
               <div className={f.deleteRow}>
                 <button
                   type="button"
@@ -288,7 +343,9 @@ export default function TaskViewPage() {
               </div>
 
               {!me ? (
-                <p className={m.note}>Чтобы откликнуться, нужно войти в аккаунт волонтёра.</p>
+                <p className={m.note}>
+                  Чтобы откликнуться, нужно войти в аккаунт волонтёра.
+                </p>
               ) : isOrgRole(me.role) ? (
                 <p className={m.note}>Отклик доступен только волонтёрам.</p>
               ) : null}

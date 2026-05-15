@@ -328,3 +328,21 @@
 .muted {
   color: #6c757d;
 }
+
+.petsLoadActions {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin-top: 14px;
+}
+
+.petsLoadActions {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin-top: 4px;
+
+  /* ✅ важно для flex-wrap: занимает целую строку */
+  flex: 0 0 100%;
+  width: 100%;
+}

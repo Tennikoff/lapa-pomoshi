@@ -3,19 +3,29 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import s from "./profile.module.css";
+import tasksStyles from "@/src/app/(main)/tasks/tasks.module.css";
+
 import { clearAccessToken, getAccessToken } from "@/src/lib/tokenStorage";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import type { ProfileDto } from "@/src/types/profile";
 import { isOrgRole } from "@/src/lib/role";
+
 import {
   getVolunteerExtra,
   type VolunteerExtra,
   VOLUNTEER_EXTRA_CHANGED_EVENT,
 } from "@/src/lib/storage/volunteerExtra";
+
 import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
+
 import { animalsApi, type AnimalListItemDto } from "@/src/lib/api/animals";
-import { denormalizeAvailabilities, denormalizePreferences } from "@/src/lib/normalizeDictionaries";
+
+import {
+  denormalizeAvailabilities,
+  denormalizePreferences,
+} from "@/src/lib/normalizeDictionaries";
 
 type Review = { author: string; text: string; stars: 1 | 2 | 3 | 4 | 5 };
 
@@ -58,6 +68,10 @@ const REVIEWS_MORE: Review[] = [
 const DEFAULT_PET_BG =
   "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=300";
 
+// ✅ 1 строка по умолчанию
+const INITIAL_VISIBLE_PETS = 4;
+const LOAD_MORE_PETS_STEP = 4;
+
 function renderTags(items: string[]) {
   if (!items.length) {
     return <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>;
@@ -79,6 +93,7 @@ function starsText(n: number) {
 
 export default function ProfilePage() {
   const router = useRouter();
+
   const [token, setToken] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,6 +103,7 @@ export default function ProfilePage() {
 
   // pets
   const [pets, setPets] = useState<AnimalListItemDto[]>([]);
+  const [visiblePetsCount, setVisiblePetsCount] = useState(INITIAL_VISIBLE_PETS);
 
   // delete pet dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -105,8 +121,12 @@ export default function ProfilePage() {
     try {
       const res = await animalsApi.my(0, 50);
       setPets(res.animals);
+
+      // чтобы после удаления/изменений visible count не превышал длину
+      setVisiblePetsCount((prev) => Math.min(prev, res.animals.length));
     } catch {
       setPets([]);
+      setVisiblePetsCount(0);
     }
   };
 
@@ -129,11 +149,15 @@ export default function ProfilePage() {
           else setVolExtra(null);
 
           await loadPets();
+
+          // если у юзера есть животные, но visible count стал 0 (после min) — восстановим дефолт
+          setVisiblePetsCount((prev) => (prev === 0 ? INITIAL_VISIBLE_PETS : prev));
         }
       } finally {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // LS fallback subscription (volunteerExtra)
@@ -195,7 +219,6 @@ export default function ProfilePage() {
   }
 
   const org = isOrgRole(profile.role);
-
   const displayName = profile.name?.trim() ? profile.name.trim() : profile.email;
 
   const aboutText =
@@ -212,8 +235,6 @@ export default function ProfilePage() {
   const prefAnimalsApi =
     (profile.preferences?.length ? profile.preferences : volExtra?.prefAnimals) || [];
   const prefAnimalsView = denormalizePreferences(prefAnimalsApi);
-
-  const prefInteractionView = volExtra?.prefInteraction || [];
 
   const locationTags = profile.location?.trim() ? [profile.location.trim()] : [];
 
@@ -240,7 +261,6 @@ export default function ProfilePage() {
     }
   };
 
-  // ✅ avatar from API
   const avatarUrl = profile.photoUrl;
 
   return (
@@ -260,12 +280,10 @@ export default function ProfilePage() {
                   : undefined
               }
             />
-
             <div className={s.profileInfo}>
               <h1>{displayName}</h1>
               <p>{org ? "Куратор / Организация" : "Волонтёр"}</p>
             </div>
-
             <button className={s.btnLogout} onClick={onLogout}>
               Выйти
             </button>
@@ -289,14 +307,11 @@ export default function ProfilePage() {
               </section>
 
               <section className={s.section}>
-                <h3 className={s.sectionTitle}>Предпочтения (Животные)</h3>
+                <h3 className={s.sectionTitle}>Предпочтения ( Животные)</h3>
                 {renderTags(prefAnimalsView)}
               </section>
 
-              <section className={s.section}>
-                <h3 className={s.sectionTitle}>Предпочтения (Взаимодействие)</h3>
-                {renderTags(prefInteractionView)}
-              </section>
+              {/* ✅ УДАЛЕНО: Предпочтения (Взаимодействие) */}
             </>
           ) : (
             <>
@@ -336,7 +351,7 @@ export default function ProfilePage() {
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Мои питомцы</h3>
             <div className={s.petsGrid}>
-              {pets.map((pet) => (
+              {pets.slice(0, visiblePetsCount).map((pet) => (
                 <Link
                   key={pet.id}
                   href={`/animals/${pet.id}`}
@@ -353,7 +368,13 @@ export default function ProfilePage() {
                     onClick={onAskDeletePet(pet.id)}
                     aria-label={`Удалить карточку ${pet.name || "животного"}`}
                   >
-                    <svg className={s.petTrashIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      className={s.petTrashIcon}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M3 6h18" />
                       <path d="M8 6V4h8v2" />
                       <path d="M6 6l1 16h10l1-16" />
@@ -364,6 +385,27 @@ export default function ProfilePage() {
                   <span>{pet.name?.trim() ? pet.name : "Животное"}</span>
                 </Link>
               ))}
+
+              {pets.length > visiblePetsCount ? (
+                <div className={s.petsLoadActions}>
+                  <button
+                    type="button"
+                    className={tasksStyles.loadMoreBtn}
+                    onClick={() =>
+                      setVisiblePetsCount((v) => Math.min(pets.length, v + LOAD_MORE_PETS_STEP))
+                    }
+                  >
+                    Загрузить строку
+                  </button>
+                  <button
+                    type="button"
+                    className={tasksStyles.loadMoreBtn}
+                    onClick={() => setVisiblePetsCount(pets.length)}
+                  >
+                    Загрузить все
+                  </button>
+                </div>
+              ) : null}
 
               <Link href="/animals/new" className={s.addPet}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -377,7 +419,9 @@ export default function ProfilePage() {
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Активность</h3>
             <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-              {org ? `Созданные задачи: ${profile.countTasks ?? 0}` : `Выполненные задачи: ${profile.countTasks ?? 0}`}
+              {org
+                ? `Созданные задачи: ${profile.countTasks ?? 0}`
+                : `Выполненные задачи: ${profile.countTasks ?? 0}`}
             </p>
           </section>
 
@@ -406,7 +450,11 @@ export default function ProfilePage() {
             </div>
 
             {allReviews.length > 3 ? (
-              <button type="button" className={s.allReviews} onClick={() => setReviewsExpanded((v) => !v)}>
+              <button
+                type="button"
+                className={s.allReviews}
+                onClick={() => setReviewsExpanded((v) => !v)}
+              >
                 {reviewsExpanded ? "Свернуть отзывы" : "Все отзывы"}
               </button>
             ) : null}

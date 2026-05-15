@@ -15,13 +15,12 @@ function formatTimeRange(task: HelpTaskDto) {
   const b = task.endedAt ? new Date(task.endedAt) : null;
   if (!a || !b) return "—";
 
-  // передержка: 01.05 - 07.05 (как было)
+  // передержка: 01.05 - 07.05
   if (task.isTaskOverexposure) {
     return `${fmtShortDate(a)} - ${fmtShortDate(b)}`;
   }
 
-  // ✅ задача: только дата (без времени)
-  // если вдруг задача пересекает 2 дня — покажем диапазон дат
+  // задача: только дата (если вдруг пересекает 2 дня — покажем диапазон дат)
   const sameDay =
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
@@ -42,6 +41,7 @@ export function TaskCard({
   onOpenResponses?: () => void;
 }) {
   const router = useRouter();
+
   const firstAnimal = task.animals?.[0] ?? null;
   const img = firstAnimal?.photoUrl || PLACEHOLDER_IMG;
   const district = task.locations?.[0] ?? "—";
@@ -91,10 +91,17 @@ export function TaskCard({
   if (task.isTaskOverexposure) {
     return (
       <div className={`${s.taskCard} ${s.taskCardFoster}`} {...cardProps}>
-        <img src={img} alt="Фото" className={`${s.taskCardImage} ${s.fosterPhoto}`} />
+        <img
+          src={img}
+          alt="Фото"
+          className={`${s.taskCardImage} ${s.fosterPhoto}`}
+        />
 
         <div className={s.fosterMain}>
-          <h3 className={s.cardTitle}>{task.title}</h3>
+          {/* ✅ title чтобы видеть полный заголовок по hover */}
+          <h3 className={s.cardTitle} title={task.title}>
+            {task.title}
+          </h3>
           <p className={s.fosterDescription}>{task.description}</p>
         </div>
 
@@ -111,8 +118,17 @@ export function TaskCard({
         {responsesNode}
 
         {mode === "curator" ? (
-          <button className={s.cardEditBtn} type="button" onClick={onEditClick} aria-label="Редактировать">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+          <button
+            className={s.cardEditBtn}
+            type="button"
+            onClick={onEditClick}
+            aria-label="Редактировать"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
               <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
             </svg>
           </button>
@@ -124,10 +140,17 @@ export function TaskCard({
   // ====== TASK CARD ======
   return (
     <div className={`${s.taskCard} ${s.taskCardTask}`} {...cardProps}>
-      <img src={img} alt="Фото" className={`${s.taskCardImage} ${s.fosterPhoto}`} />
+      <img
+        src={img}
+        alt="Фото"
+        className={`${s.taskCardImage} ${s.fosterPhoto}`}
+      />
 
       <div className={s.fosterMain}>
-        <h3 className={s.cardTitle}>{task.title}</h3>
+        {/* ✅ title чтобы видеть полный заголовок по hover */}
+        <h3 className={s.cardTitle} title={task.title}>
+          {task.title}
+        </h3>
         <p className={s.fosterDescription}>{task.description}</p>
       </div>
 
@@ -159,8 +182,17 @@ export function TaskCard({
       {responsesNode}
 
       {mode === "curator" ? (
-        <button className={s.cardEditBtn} type="button" onClick={onEditClick} aria-label="Редактировать">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+        <button
+          className={s.cardEditBtn}
+          type="button"
+          onClick={onEditClick}
+          aria-label="Редактировать"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
             <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
           </svg>
         </button>

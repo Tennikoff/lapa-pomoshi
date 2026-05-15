@@ -509,21 +509,6 @@ export default function EditProfilePage() {
               </section>
 
               <section className={s.section}>
-                <h2 className={s.sectionTitle}>Предпочтения (Взаимодействие)</h2>
-                <div className={s.tags}>
-                  {PREF_INTERACTION.map((label) => (
-                    <TagCheckbox
-                      key={label}
-                      id={`pi_${label}`}
-                      label={label}
-                      checked={prefInteraction.includes(label)}
-                      onChange={() => setPrefInteraction((prev) => toggle(prev, label))}
-                    />
-                  ))}
-                </div>
-              </section>
-
-              <section className={s.section}>
                 <h2 className={s.sectionTitle}>Локация</h2>
                 <p className={s.city}>Город: {city}</p>
                 <div className={s.tags}>
