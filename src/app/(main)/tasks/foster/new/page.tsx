@@ -1,3 +1,4 @@
+// src/app/(main)/tasks/foster/new/page.tsx
 "use client";
 
 import type { CSSProperties } from "react";
@@ -10,7 +11,6 @@ import f from "./fosterNew.module.css";
 import a from "@/src/app/(main)/animals/new/animalNew.module.css";
 
 import { AnimalTypeSelect } from "@/src/components/ui/AnimalTypeSelect/AnimalTypeSelect";
-
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
@@ -21,6 +21,8 @@ import {
   type CreateAnimalDto,
 } from "@/src/lib/api/animals";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
+
+import { packAnimalSpecialNeeds } from "@/src/lib/animalHistoryBridge";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -42,9 +44,10 @@ export default function FosterNewPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // dictionaries
   const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
 
-  // animals
+  // animals list
   const [animals, setAnimals] = useState<AnimalListItemDto[]>([]);
   const [animalsOpen, setAnimalsOpen] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
@@ -52,20 +55,19 @@ export default function FosterNewPage() {
 
   // create animal screen
   const [createAnimalOpen, setCreateAnimalOpen] = useState(false);
-
   const animalFileRef = useRef<HTMLInputElement | null>(null);
   const [animalPreviewUrl, setAnimalPreviewUrl] = useState<string | null>(null);
   const [animalPhotoFile, setAnimalPhotoFile] = useState<File | null>(null);
   const [animalPhotoError, setAnimalPhotoError] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
-  const [anType, setAnType] = useState(""); // ✅ animalType (ед. число)
+  const [anType, setAnType] = useState(""); // animalType (ед. число)
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
-  const [anHistory, setAnHistory] = useState("");
+  const [anHistory, setAnHistory] = useState(""); // ✅ сохраняем через bridge
   const [anHealth, setAnHealth] = useState("");
   const [anCharacter, setAnCharacter] = useState("");
-  const [anNeeds, setAnNeeds] = useState("");
+  const [anNeeds, setAnNeeds] = useState(""); // ✅ сохраняем через bridge
   const [animalSubmitting, setAnimalSubmitting] = useState(false);
 
   // foster fields
@@ -75,6 +77,7 @@ export default function FosterNewPage() {
   const [endDate, setEndDate] = useState("");
   const [district, setDistrict] = useState<string>("");
 
+  // refs
   const startRef = useRef<HTMLInputElement | null>(null);
   const endRef = useRef<HTMLInputElement | null>(null);
 
@@ -132,12 +135,13 @@ export default function FosterNewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // load full animal
+  // load selected full animal
   useEffect(() => {
     if (!selectedAnimalId) {
       setSelectedAnimalFull(null);
       return;
     }
+
     (async () => {
       try {
         const full = await animalsApi.getById(selectedAnimalId);
@@ -159,10 +163,12 @@ export default function FosterNewPage() {
 
   const onCancel = () => router.back();
 
+  // ===== create animal flow =====
   const resetAnimalDraft = () => {
     if (animalPreviewUrl && animalPreviewUrl.startsWith("blob:")) {
       URL.revokeObjectURL(animalPreviewUrl);
     }
+
     setAnimalPreviewUrl(null);
     setAnimalPhotoFile(null);
     setAnimalPhotoError(null);
@@ -219,6 +225,12 @@ export default function FosterNewPage() {
 
     setAnimalSubmitting(true);
     try {
+      // ✅ bridge: история + особые потребности => specialNeeds
+      const packedSpecialNeeds = packAnimalSpecialNeeds({
+        history: anHistory,
+        specialNeeds: anNeeds,
+      });
+
       const dto: CreateAnimalDto = {
         animalType,
         name,
@@ -226,7 +238,7 @@ export default function FosterNewPage() {
         age: anAge.trim() || null,
         health: anHealth.trim() || null,
         character: anCharacter.trim() || null,
-        specialNeeds: anNeeds.trim() || null,
+        specialNeeds: packedSpecialNeeds,
       };
 
       const created = animalPhotoFile
@@ -242,6 +254,7 @@ export default function FosterNewPage() {
     }
   };
 
+  // ===== submit foster =====
   const onSubmitFoster: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     if (saving) return;
@@ -303,7 +316,7 @@ export default function FosterNewPage() {
     );
   }
 
-  // ===== экран создания животного =====
+  // ===== create animal screen =====
   if (createAnimalOpen) {
     return (
       <div
@@ -315,7 +328,12 @@ export default function FosterNewPage() {
         <div className={overlay.content}>
           <div className={overlay.scrollBox}>
             <div className={a.formCard} style={{ margin: 0, position: "relative" }}>
-              <button className={a.closeBtn} type="button" onClick={onCancelCreateAnimal} aria-label="Закрыть">
+              <button
+                className={a.closeBtn}
+                type="button"
+                onClick={onCancelCreateAnimal}
+                aria-label="Закрыть"
+              >
                 ×
               </button>
 
@@ -352,16 +370,22 @@ export default function FosterNewPage() {
                     onChange={onAnimalFileChange}
                   />
                 </div>
+
+                {animalPhotoError ? <p className={a.photoWarning}>{animalPhotoError}</p> : null}
               </div>
 
               <div className={a.field}>
                 <label className={a.label} htmlFor="an-name">
                   Имя*
                 </label>
-                <input id="an-name" className={a.input} value={anName} onChange={(e) => setAnName(e.target.value)} />
+                <input
+                  id="an-name"
+                  className={a.input}
+                  value={anName}
+                  onChange={(e) => setAnName(e.target.value)}
+                />
               </div>
 
-              {/* ✅ ЗАМЕНА: input -> AnimalTypeSelect (как в профиле) */}
               <div className={a.field}>
                 <label className={a.label}>Тип животного*</label>
                 <AnimalTypeSelect
@@ -388,10 +412,14 @@ export default function FosterNewPage() {
                 <label className={a.label} htmlFor="an-age">
                   Возраст
                 </label>
-                <input id="an-age" className={a.input} value={anAge} onChange={(e) => setAnAge(e.target.value)} />
+                <input
+                  id="an-age"
+                  className={a.input}
+                  value={anAge}
+                  onChange={(e) => setAnAge(e.target.value)}
+                />
               </div>
 
-              {/* поле есть в UI, но пока не уходит в API */}
               <div className={a.field}>
                 <label className={a.label} htmlFor="an-history">
                   История
@@ -441,10 +469,20 @@ export default function FosterNewPage() {
               </div>
 
               <div className={a.actions}>
-                <button type="button" className={a.btn} onClick={onCancelCreateAnimal} disabled={animalSubmitting}>
+                <button
+                  type="button"
+                  className={a.btn}
+                  onClick={onCancelCreateAnimal}
+                  disabled={animalSubmitting}
+                >
                   ОТМЕНИТЬ
                 </button>
-                <button type="button" className={a.btn} onClick={onSaveAnimal} disabled={animalSubmitting}>
+                <button
+                  type="button"
+                  className={a.btn}
+                  onClick={onSaveAnimal}
+                  disabled={animalSubmitting}
+                >
                   {animalSubmitting ? "..." : "СОХРАНИТЬ"}
                 </button>
               </div>
@@ -455,7 +493,7 @@ export default function FosterNewPage() {
     );
   }
 
-  // ===== основной экран "Запрос передержки" =====
+  // ===== main foster screen =====
   return (
     <div
       className={overlay.overlay}
@@ -508,7 +546,9 @@ export default function FosterNewPage() {
                               aria-pressed={active}
                               title={a2.name}
                             >
-                              {a2.photoUrl ? <img className={f.animalImg} src={a2.photoUrl} alt="" /> : null}
+                              {a2.photoUrl ? (
+                                <img className={f.animalImg} src={a2.photoUrl} alt="" />
+                              ) : null}
                               <span className={f.animalCardLabel}>{a2.name}</span>
                             </button>
                           );
@@ -549,14 +589,18 @@ export default function FosterNewPage() {
 
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Период передержки</h2>
-
               <div className={f.dateGrid}>
                 <div>
                   <label className={f.fieldLabel}>Дата начала</label>
                   <div className={f.dateInputWrap}>
-                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(startRef)}>
+                    <button
+                      type="button"
+                      className={f.dateIconBtn}
+                      onClick={() => openPicker(startRef)}
+                    >
                       <Calendar className={f.dateIcon} />
                     </button>
+
                     <input
                       ref={startRef}
                       className={f.dateInput}
@@ -570,9 +614,14 @@ export default function FosterNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Дата окончания</label>
                   <div className={f.dateInputWrap}>
-                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(endRef)}>
+                    <button
+                      type="button"
+                      className={f.dateIconBtn}
+                      onClick={() => openPicker(endRef)}
+                    >
                       <Calendar className={f.dateIcon} />
                     </button>
+
                     <input
                       ref={endRef}
                       className={f.dateInput}

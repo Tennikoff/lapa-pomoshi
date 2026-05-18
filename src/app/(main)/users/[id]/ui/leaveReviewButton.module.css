@@ -29,3 +29,7 @@
 .btn:active {
   background: #e2e6ea;
 }
+
+.wrapBottom {
+  margin: 14px 0 0; /* тот же 14px, что раньше был снизу */
+}

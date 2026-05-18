@@ -1,3 +1,4 @@
+// src/app/(main)/tasks/_components/TaskCard.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -6,8 +7,16 @@ import type { HelpTaskDto } from "@/src/types/helpTask";
 
 const PLACEHOLDER_IMG = "https://placehold.co/100x100/eef3f8/777?text=Фото";
 
-function fmtShortDate(d: Date) {
+function fmtShortDateLocal(d: Date) {
   return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * ✅ Для передержек показываем даты в UTC, чтобы не было сдвигов по таймзоне
+ * (и чтобы совпадало с периодом в подробной информации).
+ */
+function fmtShortDateUTC(d: Date) {
+  return `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function formatTimeRange(task: HelpTaskDto) {
@@ -15,9 +24,9 @@ function formatTimeRange(task: HelpTaskDto) {
   const b = task.endedAt ? new Date(task.endedAt) : null;
   if (!a || !b) return "—";
 
-  // передержка: 01.05 - 07.05
+  // ✅ передержка: показываем диапазон дат в UTC
   if (task.isTaskOverexposure) {
-    return `${fmtShortDate(a)} - ${fmtShortDate(b)}`;
+    return `${fmtShortDateUTC(a)} - ${fmtShortDateUTC(b)}`;
   }
 
   // задача: только дата (если вдруг пересекает 2 дня — покажем диапазон дат)
@@ -26,7 +35,7 @@ function formatTimeRange(task: HelpTaskDto) {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
 
-  return sameDay ? fmtShortDate(a) : `${fmtShortDate(a)} - ${fmtShortDate(b)}`;
+  return sameDay ? fmtShortDateLocal(a) : `${fmtShortDateLocal(a)} - ${fmtShortDateLocal(b)}`;
 }
 
 export function TaskCard({
@@ -44,6 +53,7 @@ export function TaskCard({
 
   const firstAnimal = task.animals?.[0] ?? null;
   const img = firstAnimal?.photoUrl || PLACEHOLDER_IMG;
+
   const district = task.locations?.[0] ?? "—";
   const responsesCount = task.countResponses ?? 0;
 
@@ -98,7 +108,6 @@ export function TaskCard({
         />
 
         <div className={s.fosterMain}>
-          {/* ✅ title чтобы видеть полный заголовок по hover */}
           <h3 className={s.cardTitle} title={task.title}>
             {task.title}
           </h3>
@@ -124,11 +133,7 @@ export function TaskCard({
             onClick={onEditClick}
             aria-label="Редактировать"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
               <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
             </svg>
           </button>
@@ -147,7 +152,6 @@ export function TaskCard({
       />
 
       <div className={s.fosterMain}>
-        {/* ✅ title чтобы видеть полный заголовок по hover */}
         <h3 className={s.cardTitle} title={task.title}>
           {task.title}
         </h3>
@@ -188,11 +192,7 @@ export function TaskCard({
           onClick={onEditClick}
           aria-label="Редактировать"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
             <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
           </svg>
         </button>

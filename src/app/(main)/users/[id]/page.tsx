@@ -20,8 +20,11 @@ type PublicAnimalsResponseDto = {
 
 function renderTags(items: string[]) {
   if (!items.length) {
-    return <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>;
+    return (
+      <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>
+    );
   }
+
   return (
     <div className={s.tagsWrapper}>
       {items.map((x) => (
@@ -60,7 +63,6 @@ export default async function PublicUserProfilePage({
     return (
       <main style={{ maxWidth: 900, margin: "0 auto", padding: "20px 20px 40px" }}>
         <BackHeader title="Задачи" />
-
         <div>
           <p style={{ margin: "0 0 10px", color: "#6c757d" }}>
             userId: <code>{id || "—"}</code>
@@ -68,9 +70,11 @@ export default async function PublicUserProfilePage({
           <p style={{ margin: 0, color: "#6c757d" }}>
             {errorText || "Пользователь не найден / профиль недоступен"}
           </p>
-
           <div style={{ marginTop: 14 }}>
-            <Link href="/tasks" style={{ textDecoration: "underline", color: "#1c274c" }}>
+            <Link
+              href="/tasks"
+              style={{ textDecoration: "underline", color: "#1c274c" }}
+            >
               Перейти к задачам
             </Link>
           </div>
@@ -90,14 +94,11 @@ export default async function PublicUserProfilePage({
 
   const locationTags = profile.location?.trim() ? [profile.location.trim()] : [];
 
-  const rating = (() => {
-    if (!profile.countRating) return { avg: "5.0", count: 4 };
-    const avg =
-      profile.sumRating && profile.countRating
-        ? (profile.sumRating / profile.countRating).toFixed(1)
-        : "0.0";
-    return { avg, count: profile.countRating };
-  })();
+  // ✅ честный рейтинг без фейковых значений
+  const count = Number(profile.countRating ?? 0);
+  const sum = Number(profile.sumRating ?? 0);
+  const avg = count > 0 ? (sum / count).toFixed(1) : "0.0";
+  const rating = { avg, count };
 
   // Питомцы (публично, если ручка доступна без auth)
   let pets: Array<{ id: string; name: string; photoUrl: string | null }> = [];
@@ -116,12 +117,10 @@ export default async function PublicUserProfilePage({
     <main>
       <div className={s.page}>
         <div className={s.container}>
-          {/* ✅ header по границам контента/отзывов слева */}
           <div style={{ marginTop: 20 }}>
             <BackHeader title="Задачи" />
           </div>
 
-          {/* дальше — профиль 1-в-1 по стилям profile.module.css */}
           <div className={s.profileHeader}>
             <div
               className={s.avatar}
@@ -153,19 +152,11 @@ export default async function PublicUserProfilePage({
                 <div className={s.contactDetails}>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Телефон:</span>{" "}
-                    {profile.phone?.trim() ? (
-                      profile.phone.trim()
-                    ) : (
-                      <span className={s.muted}>Не указано</span>
-                    )}
+                    {profile.phone?.trim() ? profile.phone.trim() : <span className={s.muted}>Не указано</span>}
                   </p>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Сайт:</span>{" "}
-                    {profile.website?.trim() ? (
-                      profile.website.trim()
-                    ) : (
-                      <span className={s.muted}>Не указано</span>
-                    )}
+                    {profile.website?.trim() ? profile.website.trim() : <span className={s.muted}>Не указано</span>}
                   </p>
                 </div>
               </section>
@@ -178,7 +169,9 @@ export default async function PublicUserProfilePage({
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Реквизиты для пожертвований</h3>
                 <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-                  {profile.donationDetails?.trim() ? profile.donationDetails.trim() : "Не указано"}
+                  {profile.donationDetails?.trim()
+                    ? profile.donationDetails.trim()
+                    : "Не указано"}
                 </p>
               </section>
             </>
@@ -208,22 +201,22 @@ export default async function PublicUserProfilePage({
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Мои питомцы</h3>
-
             {pets.length ? (
               <div className={s.petsGrid}>
                 {pets.map((pet) => (
-                  <Link
+                  <div
                     key={pet.id}
-                    href={`/animals/${pet.id}`}
                     className={s.petCard}
                     style={{
                       backgroundImage: `url(${pet.photoUrl || DEFAULT_PET_BG})`,
                       backgroundSize: "cover",
                       backgroundPosition: "center",
+                      cursor: "default",
                     }}
+                    aria-label={pet.name?.trim() ? pet.name.trim() : "Животное"}
                   >
                     <span>{pet.name?.trim() ? pet.name.trim() : "Животное"}</span>
-                  </Link>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -243,7 +236,19 @@ export default async function PublicUserProfilePage({
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Рейтинг</h3>
             <div className={s.ratingRow}>
-              <div className={s.starsBig}>★★★★★</div>
+              {(() => {
+                const avgNum = Number(rating.avg);
+                const safeAvg = Number.isFinite(avgNum) ? avgNum : 0;
+                const filled = Math.max(0, Math.min(5, Math.round(safeAvg)));
+                const empty = 5 - filled;
+
+                return (
+                <div className={s.starsBig} aria-label={`Рейтинг ${rating.avg} из 5`}>
+                  <span>{"★★★★★".slice(0, filled)}</span>
+                  <span className={s.starsEmpty}>{"★★★★★".slice(0, empty)}</span>
+                </div>
+                );
+              })()}
               <div className={s.ratingMeta}>
                 {rating.avg} ({rating.count} отзывов)
               </div>

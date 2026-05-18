@@ -10,10 +10,12 @@ import a from "./animalNew.module.css";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { animalsApi } from "@/src/lib/api/animals";
 import { ApiError } from "@/src/lib/api/http";
-
 import { AnimalTypeSelect } from "@/src/components/ui/AnimalTypeSelect/AnimalTypeSelect";
 
+import { packAnimalSpecialNeeds } from "@/src/lib/animalHistoryBridge";
+
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+
 function isTooLarge(file: File) {
   return file.size > MAX_PHOTO_BYTES;
 }
@@ -27,7 +29,7 @@ export default function NewAnimalPage() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // ✅ состояние для dropdown (в hidden input улетит в FormData как "species")
+  // dropdown state: value that goes to API (singular: "Кошка", "Собака"...)
   const [animalTypeValue, setAnimalTypeValue] = useState<string>("");
 
   // cleanup objectURL
@@ -43,7 +45,7 @@ export default function NewAnimalPage() {
     const file = e.target.files?.[0] ?? null;
     if (!file) return;
 
-    // мгновенная проверка размера
+    // instant size check
     if (isTooLarge(file)) {
       const objectUrl = URL.createObjectURL(file);
       setPreviewUrl((prev) => {
@@ -61,7 +63,6 @@ export default function NewAnimalPage() {
       if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return objectUrl;
     });
-
     setPhotoFile(file);
     setPhotoError(null);
   };
@@ -76,9 +77,10 @@ export default function NewAnimalPage() {
     const fd = new FormData(e.currentTarget);
 
     const name = String(fd.get("name") ?? "").trim();
-    const animalType = String(fd.get("species") ?? "").trim(); // ✅ берётся из hidden input dropdown
+    const animalType = String(fd.get("species") ?? "").trim(); // from hidden input of AnimalTypeSelect
     const breed = String(fd.get("breed") ?? "").trim();
     const ageRaw = String(fd.get("age") ?? "").trim();
+    const history = String(fd.get("history") ?? "").trim();
     const health = String(fd.get("health") ?? "").trim();
     const character = String(fd.get("character") ?? "").trim();
     const needs = String(fd.get("needs") ?? "").trim();
@@ -87,6 +89,12 @@ export default function NewAnimalPage() {
 
     const safeName = name || "Без имени";
     const age = ageRaw ? ageRaw : null;
+
+    // ✅ Упаковываем "историю" + "особые потребности" в specialNeeds (которое бэк реально хранит)
+    const packedSpecialNeeds = packAnimalSpecialNeeds({
+      history,
+      specialNeeds: needs,
+    });
 
     setSubmitting(true);
     try {
@@ -104,7 +112,7 @@ export default function NewAnimalPage() {
         age,
         health: health || null,
         character: character || null,
-        specialNeeds: needs || null,
+        specialNeeds: packedSpecialNeeds, // <-- ключевой момент
       };
 
       const created = photoFile
@@ -117,12 +125,12 @@ export default function NewAnimalPage() {
       if (e2 instanceof ApiError) msg = e2.message;
       else if (e2 instanceof Error) msg = e2.message;
 
-      if (msg.toLowerCase().includes("5 mb") || msg.toLowerCase().includes("5mb")) {
+      const low = msg.toLowerCase();
+      if (low.includes("5 mb") || low.includes("5mb")) {
         setPhotoError("Файл не должен превышать 5 MB. Выберите другое фото.");
         setPhotoFile(null);
         return;
       }
-
       alert(msg);
     } finally {
       setSubmitting(false);
@@ -139,12 +147,10 @@ export default function NewAnimalPage() {
       <div className={overlay.content}>
         <div className={overlay.scrollBox}>
           <form className={a.formCard} onSubmit={onSubmit}>
-            {/* ✅ Шапка: крестик справа на уровне заголовка */}
+            {/* Header row: close button right on the same line as title */}
             <div className={a.headerRow}>
               <div className={a.headerSpacer} />
-
               <h1 className={`${a.title} ${a.titleInHeader}`}>Создание карточки животного</h1>
-
               <button
                 type="button"
                 className={a.closeBtnTaskLike}
@@ -200,7 +206,6 @@ export default function NewAnimalPage() {
 
             <div className={a.field}>
               <label className={a.label}>Вид животного*</label>
-
               <AnimalTypeSelect
                 name="species"
                 value={animalTypeValue}

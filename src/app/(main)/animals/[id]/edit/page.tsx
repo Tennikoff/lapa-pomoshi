@@ -3,11 +3,18 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import overlay from "../../../@modal/modalOverlay.module.css";
-import a from "../../new/animalNew.module.css";
+
+import overlay from "@/src/app/(main)/@modal/modalOverlay.module.css";
+import a from "@/src/app/(main)/animals/new/animalNew.module.css";
+
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { animalsApi, type AnimalDto } from "@/src/lib/api/animals";
 import { ApiError } from "@/src/lib/api/http";
+
+import {
+  packAnimalSpecialNeeds,
+  unpackAnimalSpecialNeeds,
+} from "@/src/lib/animalHistoryBridge";
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
 
@@ -36,11 +43,17 @@ export default function EditAnimalPage() {
   const [animalType, setAnimalType] = useState("");
   const [breed, setBreed] = useState("");
   const [age, setAge] = useState("");
+
+  // UI field "История" (на бэке нет поля, храним в specialNeeds в упакованном виде)
   const [history, setHistory] = useState("");
+
   const [health, setHealth] = useState("");
   const [character, setCharacter] = useState("");
+
+  // UI field "Особые потребности" (тоже хранится в specialNeeds, но отдельно от истории внутри упаковки)
   const [needs, setNeeds] = useState("");
 
+  // cleanup objectURL
   useEffect(() => {
     return () => {
       if (photoPreview && photoPreview.startsWith("blob:")) {
@@ -49,8 +62,12 @@ export default function EditAnimalPage() {
     };
   }, [photoPreview]);
 
+  // init load + access check
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
+      setLoading(true);
       try {
         const me = await fetchCurrentProfile();
         if (!me) {
@@ -60,6 +77,7 @@ export default function EditAnimalPage() {
         }
 
         const a1 = await animalsApi.getById(id);
+        if (cancelled) return;
 
         const hasAccess = (a1.owners || []).some((o) => o.id === me.userId);
         if (!hasAccess) {
@@ -69,22 +87,31 @@ export default function EditAnimalPage() {
         }
 
         setAnimal(a1);
-        setPhotoPreview(a1.photoUrl);
+
+        setPhotoPreview(a1.photoUrl ?? null);
 
         setName(a1.name ?? "");
         setAnimalType(a1.animalType ?? "");
         setBreed(a1.breed ?? "");
         setAge(a1.age != null ? String(a1.age) : "");
-        setHistory("");
+
+        // ✅ история/особые потребности берём из specialNeeds (распаковка)
+        const meta = unpackAnimalSpecialNeeds(a1.specialNeeds);
+        setHistory(meta.history ?? "");
+        setNeeds(meta.specialNeeds ?? "");
+
         setHealth(a1.health ?? "");
         setCharacter(a1.character ?? "");
-        setNeeds(a1.specialNeeds ?? "");
       } catch {
         setAnimal(null);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id, router]);
 
   const onPickPhoto = () => fileRef.current?.click();
@@ -93,24 +120,18 @@ export default function EditAnimalPage() {
     const file = e.target.files?.[0] ?? null;
     if (!file) return;
 
-    if (isTooLarge(file)) {
-      const objectUrl = URL.createObjectURL(file);
-      setPhotoPreview((prev) => {
-        if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
-        return objectUrl;
-      });
-
-      setPhotoFile(null);
-      setPhotoError("Файл не должен превышать 5 MB. Выберите другое фото.");
-      e.target.value = "";
-      return;
-    }
-
     const objectUrl = URL.createObjectURL(file);
     setPhotoPreview((prev) => {
       if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return objectUrl;
     });
+
+    if (isTooLarge(file)) {
+      setPhotoFile(null);
+      setPhotoError("Файл не должен превышать 5 MB. Выберите другое фото.");
+      e.target.value = "";
+      return;
+    }
 
     setPhotoFile(file);
     setPhotoError(null);
@@ -121,7 +142,6 @@ export default function EditAnimalPage() {
   const onSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     if (submitting) return;
-
     if (photoError) return;
 
     const safeName = name.trim() || "Без имени";
@@ -129,8 +149,13 @@ export default function EditAnimalPage() {
     if (!safeType) return alert("Выберите вид животного");
 
     setSubmitting(true);
-
     try {
+      // ✅ упаковываем историю + особые потребности в одно поле specialNeeds
+      const packedSpecialNeeds = packAnimalSpecialNeeds({
+        history,
+        specialNeeds: needs,
+      });
+
       const dto = {
         animalType: safeType,
         name: safeName,
@@ -138,7 +163,7 @@ export default function EditAnimalPage() {
         age: age.trim() ? age.trim() : null,
         health: health.trim() || null,
         character: character.trim() || null,
-        specialNeeds: needs.trim() || null,
+        specialNeeds: packedSpecialNeeds,
       };
 
       if (photoFile) {
@@ -153,7 +178,8 @@ export default function EditAnimalPage() {
       if (e2 instanceof ApiError) msg = e2.message;
       else if (e2 instanceof Error) msg = e2.message;
 
-      if (msg.toLowerCase().includes("5 mb") || msg.toLowerCase().includes("5mb")) {
+      const low = msg.toLowerCase();
+      if (low.includes("5 mb") || low.includes("5mb")) {
         setPhotoError("Файл не должен превышать 5 MB. Выберите другое фото.");
         setPhotoFile(null);
         return;
@@ -194,7 +220,12 @@ export default function EditAnimalPage() {
       <div className={overlay.content}>
         <div className={overlay.scrollBox}>
           <form className={a.formCard} onSubmit={onSubmit}>
-            <button className={a.closeBtn} type="button" onClick={onCancel} aria-label="Закрыть">
+            <button
+              className={a.closeBtn}
+              type="button"
+              onClick={onCancel}
+              aria-label="Закрыть"
+            >
               ×
             </button>
 
@@ -202,11 +233,19 @@ export default function EditAnimalPage() {
 
             <div className={a.field}>
               <label className={a.label}>Фото</label>
-
               <div className={a.photoRow}>
-                <button type="button" className={a.photoUpload} onClick={onPickPhoto}>
+                <button
+                  type="button"
+                  className={a.photoUpload}
+                  onClick={onPickPhoto}
+                  aria-label="Загрузить фото"
+                >
                   {photoPreview ? (
-                    <img className={a.photoPreview} src={photoPreview} alt="Превью фото" />
+                    <img
+                      className={a.photoPreview}
+                      src={photoPreview}
+                      alt="Превью фото"
+                    />
                   ) : (
                     <div className={a.photoPlaceholder}>
                       <div className={a.plus}>+</div>
@@ -342,7 +381,12 @@ export default function EditAnimalPage() {
             </div>
 
             <div className={a.actions}>
-              <button type="button" className={a.btn} onClick={onCancel} disabled={submitting}>
+              <button
+                type="button"
+                className={a.btn}
+                onClick={onCancel}
+                disabled={submitting}
+              >
                 ОТМЕНИТЬ
               </button>
               <button type="submit" className={a.btn} disabled={submitting}>

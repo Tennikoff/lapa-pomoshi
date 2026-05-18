@@ -1,3 +1,4 @@
+// src/app/(main)/tasks/new/page.tsx
 "use client";
 
 import type { CSSProperties } from "react";
@@ -10,7 +11,6 @@ import f from "@/src/app/(main)/tasks/foster/new/fosterNew.module.css";
 import a from "@/src/app/(main)/animals/new/animalNew.module.css";
 
 import { AnimalTypeSelect } from "@/src/components/ui/AnimalTypeSelect/AnimalTypeSelect";
-
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
@@ -21,6 +21,8 @@ import {
   type CreateAnimalDto,
 } from "@/src/lib/api/animals";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
+
+import { packAnimalSpecialNeeds } from "@/src/lib/animalHistoryBridge";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -46,7 +48,7 @@ export default function TaskNewPage() {
   const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
   const [competenciesDict, setCompetenciesDict] = useState<DictionaryItemDto[]>([]);
 
-  // animals
+  // animals list
   const [animals, setAnimals] = useState<AnimalListItemDto[]>([]);
   const [animalsOpen, setAnimalsOpen] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
@@ -61,20 +63,19 @@ export default function TaskNewPage() {
   const [animalPhotoError, setAnimalPhotoError] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
-  const [anType, setAnType] = useState(""); // -> animalType (ЕД. число)
+  const [anType, setAnType] = useState(""); // animalType (ед. число)
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
-  const [anHistory, setAnHistory] = useState(""); // UI есть, но API сейчас не принимает
+  const [anHistory, setAnHistory] = useState(""); // ✅ теперь сохраняем через bridge в specialNeeds
   const [anHealth, setAnHealth] = useState("");
   const [anCharacter, setAnCharacter] = useState("");
-  const [anNeeds, setAnNeeds] = useState(""); // -> specialNeeds
+  const [anNeeds, setAnNeeds] = useState(""); // “особые потребности” (тоже внутрь specialNeeds, вместе с history)
   const [animalSubmitting, setAnimalSubmitting] = useState(false);
 
   // task fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-
-  // ✅ только 1 компетенция (как у вас в UI)
+  // только 1 компетенция (как в UI)
   const [competency, setCompetency] = useState<string>("");
 
   const [startDate, setStartDate] = useState("");
@@ -85,6 +86,7 @@ export default function TaskNewPage() {
   const [district, setDistrict] = useState<string>("");
   const [volunteersNeeded, setVolunteersNeeded] = useState<number>(1);
 
+  // refs for pickers
   const startDateRef = useRef<HTMLInputElement | null>(null);
   const startTimeRef = useRef<HTMLInputElement | null>(null);
   const endDateRef = useRef<HTMLInputElement | null>(null);
@@ -114,6 +116,7 @@ export default function TaskNewPage() {
           router.replace("/login");
           return;
         }
+
         if (!isOrgRole(me.role)) {
           alert("Создание задач доступно только куратору/организации");
           router.replace("/tasks");
@@ -152,12 +155,13 @@ export default function TaskNewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // при выборе животного — подтягиваем полную карточку (для меты)
+  // load full animal for selected (meta line)
   useEffect(() => {
     if (!selectedAnimalId) {
       setSelectedAnimalFull(null);
       return;
     }
+
     (async () => {
       try {
         const full = await animalsApi.getById(selectedAnimalId);
@@ -179,10 +183,12 @@ export default function TaskNewPage() {
 
   const onCancel = () => router.back();
 
+  // ===== create animal inside task =====
   const resetAnimalDraft = () => {
     if (animalPreviewUrl && animalPreviewUrl.startsWith("blob:")) {
       URL.revokeObjectURL(animalPreviewUrl);
     }
+
     setAnimalPreviewUrl(null);
     setAnimalPhotoFile(null);
     setAnimalPhotoError(null);
@@ -240,6 +246,12 @@ export default function TaskNewPage() {
 
     setAnimalSubmitting(true);
     try {
+      // ✅ bridge: история + особые потребности сохраняются в specialNeeds
+      const packedSpecialNeeds = packAnimalSpecialNeeds({
+        history: anHistory,
+        specialNeeds: anNeeds,
+      });
+
       const dto: CreateAnimalDto = {
         animalType,
         name,
@@ -247,7 +259,7 @@ export default function TaskNewPage() {
         age: anAge.trim() || null,
         health: anHealth.trim() || null,
         character: anCharacter.trim() || null,
-        specialNeeds: anNeeds.trim() || null,
+        specialNeeds: packedSpecialNeeds,
       };
 
       const created = animalPhotoFile
@@ -263,6 +275,7 @@ export default function TaskNewPage() {
     }
   };
 
+  // ===== submit create task =====
   const onSubmitTask: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     if (savingTask) return;
@@ -272,6 +285,7 @@ export default function TaskNewPage() {
       router.replace("/login");
       return;
     }
+
     if (!isOrgRole(me.role)) {
       alert("Создание задач доступно только куратору/организации");
       return;
@@ -280,10 +294,13 @@ export default function TaskNewPage() {
     if (!selectedAnimalId) return alert("Выберите животное");
     if (!title.trim()) return alert("Заполните заголовок задачи");
     if (!description.trim()) return alert("Заполните описание");
+
     if (!startDate || !startTime || !endDate || !endTime) {
       return alert("Укажите дату и время начала/окончания");
     }
+
     if (!district) return alert("Выберите район");
+
     if (!volunteersNeeded || volunteersNeeded < 1) {
       return alert("Количество волонтёров должно быть ≥ 1");
     }
@@ -328,7 +345,7 @@ export default function TaskNewPage() {
     );
   }
 
-  // ===== экран создания животного =====
+  // ===== create animal screen =====
   if (createAnimalOpen) {
     return (
       <div
@@ -340,7 +357,12 @@ export default function TaskNewPage() {
         <div className={overlay.content}>
           <div className={overlay.scrollBox}>
             <div className={a.formCard} style={{ margin: 0, position: "relative" }}>
-              <button className={a.closeBtn} type="button" onClick={onCancelCreateAnimal} aria-label="Закрыть">
+              <button
+                className={a.closeBtn}
+                type="button"
+                onClick={onCancelCreateAnimal}
+                aria-label="Закрыть"
+              >
                 ×
               </button>
 
@@ -377,6 +399,8 @@ export default function TaskNewPage() {
                     onChange={onAnimalFileChange}
                   />
                 </div>
+
+                {animalPhotoError ? <p className={a.photoWarning}>{animalPhotoError}</p> : null}
               </div>
 
               <div className={a.field}>
@@ -391,7 +415,6 @@ export default function TaskNewPage() {
                 />
               </div>
 
-              {/* ✅ ЗАМЕНА: input -> AnimalTypeSelect (как в профиле) */}
               <div className={a.field}>
                 <label className={a.label}>Тип животного*</label>
                 <AnimalTypeSelect
@@ -418,10 +441,14 @@ export default function TaskNewPage() {
                 <label className={a.label} htmlFor="an-age">
                   Возраст
                 </label>
-                <input id="an-age" className={a.input} value={anAge} onChange={(e) => setAnAge(e.target.value)} />
+                <input
+                  id="an-age"
+                  className={a.input}
+                  value={anAge}
+                  onChange={(e) => setAnAge(e.target.value)}
+                />
               </div>
 
-              {/* поле есть в UI, но пока не уходит в API */}
               <div className={a.field}>
                 <label className={a.label} htmlFor="an-history">
                   История
@@ -471,10 +498,20 @@ export default function TaskNewPage() {
               </div>
 
               <div className={a.actions}>
-                <button type="button" className={a.btn} onClick={onCancelCreateAnimal} disabled={animalSubmitting}>
+                <button
+                  type="button"
+                  className={a.btn}
+                  onClick={onCancelCreateAnimal}
+                  disabled={animalSubmitting}
+                >
                   ОТМЕНИТЬ
                 </button>
-                <button type="button" className={a.btn} onClick={onSaveAnimal} disabled={animalSubmitting}>
+                <button
+                  type="button"
+                  className={a.btn}
+                  onClick={onSaveAnimal}
+                  disabled={animalSubmitting}
+                >
                   {animalSubmitting ? "..." : "СОХРАНИТЬ"}
                 </button>
               </div>
@@ -485,7 +522,7 @@ export default function TaskNewPage() {
     );
   }
 
-  // ===== основной экран "Создание задачи" =====
+  // ===== main create task screen =====
   return (
     <div
       className={overlay.overlay}
@@ -502,7 +539,7 @@ export default function TaskNewPage() {
 
             <h1 className={f.title}>Создание задачи</h1>
 
-            {/* Животное */}
+            {/* Animal */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Животное</h2>
 
@@ -523,7 +560,9 @@ export default function TaskNewPage() {
 
               {animalsOpen ? (
                 animals.length === 0 ? (
-                  <div className={f.emptyNote}>У вас нет животных в базе. Создайте карточку.</div>
+                  <div className={f.emptyNote}>
+                    У вас нет животных в базе. Создайте карточку.
+                  </div>
                 ) : (
                   <>
                     <div className={f.animalsScroller}>
@@ -539,7 +578,9 @@ export default function TaskNewPage() {
                               aria-pressed={active}
                               title={a2.name}
                             >
-                              {a2.photoUrl ? <img className={f.animalImg} src={a2.photoUrl} alt="" /> : null}
+                              {a2.photoUrl ? (
+                                <img className={f.animalImg} src={a2.photoUrl} alt="" />
+                              ) : null}
                               <span className={f.animalCardLabel}>{a2.name}</span>
                             </button>
                           );
@@ -558,7 +599,7 @@ export default function TaskNewPage() {
               ) : null}
             </section>
 
-            {/* Заголовок */}
+            {/* Title */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Заголовок задачи</h2>
               <input
@@ -569,7 +610,7 @@ export default function TaskNewPage() {
               />
             </section>
 
-            {/* Описание */}
+            {/* Description */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Описание</h2>
               <textarea
@@ -580,7 +621,7 @@ export default function TaskNewPage() {
               />
             </section>
 
-            {/* Компетенции (только 1) */}
+            {/* Competencies (single) */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Необходимые компетенции</h2>
               <div className={f.tags}>
@@ -600,7 +641,7 @@ export default function TaskNewPage() {
               </div>
             </section>
 
-            {/* Время выполнения */}
+            {/* Time */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Время выполнения</h2>
 
@@ -608,7 +649,11 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Дата начала</label>
                   <div className={f.dateInputWrap}>
-                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(startDateRef)}>
+                    <button
+                      type="button"
+                      className={f.dateIconBtn}
+                      onClick={() => openPicker(startDateRef)}
+                    >
                       <Calendar className={f.dateIcon} />
                     </button>
                     <input
@@ -624,7 +669,11 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Время начала</label>
                   <div className={f.timeInputWrap}>
-                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(startTimeRef)}>
+                    <button
+                      type="button"
+                      className={f.dateIconBtn}
+                      onClick={() => openPicker(startTimeRef)}
+                    >
                       <Clock className={f.dateIcon} />
                     </button>
                     <input
@@ -640,7 +689,11 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Дата окончания</label>
                   <div className={f.dateInputWrap}>
-                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(endDateRef)}>
+                    <button
+                      type="button"
+                      className={f.dateIconBtn}
+                      onClick={() => openPicker(endDateRef)}
+                    >
                       <Calendar className={f.dateIcon} />
                     </button>
                     <input
@@ -656,7 +709,11 @@ export default function TaskNewPage() {
                 <div>
                   <label className={f.fieldLabel}>Время окончания</label>
                   <div className={f.timeInputWrap}>
-                    <button type="button" className={f.dateIconBtn} onClick={() => openPicker(endTimeRef)}>
+                    <button
+                      type="button"
+                      className={f.dateIconBtn}
+                      onClick={() => openPicker(endTimeRef)}
+                    >
                       <Clock className={f.dateIcon} />
                     </button>
                     <input
@@ -671,7 +728,7 @@ export default function TaskNewPage() {
               </div>
             </section>
 
-            {/* Локация */}
+            {/* Location */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Локация</h2>
               <div className={f.tags}>
@@ -688,7 +745,7 @@ export default function TaskNewPage() {
               </div>
             </section>
 
-            {/* Количество волонтёров */}
+            {/* Volunteers count */}
             <section className={f.section}>
               <h2 className={f.sectionTitle}>Количество волонтёров</h2>
               <input
@@ -701,7 +758,12 @@ export default function TaskNewPage() {
             </section>
 
             <div className={f.actions}>
-              <button type="button" className={f.actionBtn} onClick={onCancel} disabled={savingTask}>
+              <button
+                type="button"
+                className={f.actionBtn}
+                onClick={onCancel}
+                disabled={savingTask}
+              >
                 ОТМЕНИТЬ
               </button>
               <button type="submit" className={f.actionBtn} disabled={savingTask}>

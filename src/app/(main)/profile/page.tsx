@@ -21,7 +21,6 @@ import {
 import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
 
 import { animalsApi, type AnimalListItemDto } from "@/src/lib/api/animals";
-
 import {
   denormalizeAvailabilities,
   denormalizePreferences,
@@ -29,53 +28,19 @@ import {
 
 type Review = { author: string; text: string; stars: 1 | 2 | 3 | 4 | 5 };
 
-const REVIEWS_BASE: Review[] = [
-  {
-    author: "Приют «Добрый дом»",
-    stars: 5,
-    text: "Отличный волонтёр! Помог с лечением собаки. Очень ответственный и внимательный. Рекомендую!",
-  },
-  {
-    author: "Попов Сергей",
-    stars: 5,
-    text: "Оперативно откликнулся и помог. Всё сделал аккуратно и вовремя. Спасибо!",
-  },
-  {
-    author: "Суханова Виктория",
-    stars: 5,
-    text: "Очень приятное общение и реальная помощь. Буду обращаться ещё!",
-  },
-];
-
-const REVIEWS_MORE: Review[] = [
-  {
-    author: "Приют «Лапки и хвостики»",
-    stars: 5,
-    text: "Замечательная помощь по уходу и перевозке. Надёжно и спокойно.",
-  },
-  {
-    author: "Иванова Марина",
-    stars: 5,
-    text: "Спасибо за поддержку и внимание к деталям. Всё прошло идеально.",
-  },
-  {
-    author: "Фонд «Тёплый дом»",
-    stars: 5,
-    text: "Ответственный исполнитель, всё по договорённости. Рекомендуем!",
-  },
-];
-
 const DEFAULT_PET_BG =
   "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=300";
 
-// ✅ 1 строка по умолчанию
 const INITIAL_VISIBLE_PETS = 4;
 const LOAD_MORE_PETS_STEP = 4;
 
 function renderTags(items: string[]) {
   if (!items.length) {
-    return <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>;
+    return (
+      <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>
+    );
   }
+
   return (
     <div className={s.tagsWrapper}>
       {items.map((x) => (
@@ -109,9 +74,9 @@ export default function ProfilePage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePetId, setDeletePetId] = useState<string | null>(null);
 
-  // reviews UI
+  // reviews UI (пока без API — пусто)
   const [reviewsExpanded, setReviewsExpanded] = useState(false);
-  const allReviews = useMemo(() => [...REVIEWS_BASE, ...REVIEWS_MORE], []);
+  const allReviews = useMemo<Review[]>(() => [], []);
   const visibleReviews = useMemo(
     () => (reviewsExpanded ? allReviews : allReviews.slice(0, 3)),
     [allReviews, reviewsExpanded]
@@ -151,7 +116,9 @@ export default function ProfilePage() {
           await loadPets();
 
           // если у юзера есть животные, но visible count стал 0 (после min) — восстановим дефолт
-          setVisiblePetsCount((prev) => (prev === 0 ? INITIAL_VISIBLE_PETS : prev));
+          setVisiblePetsCount((prev) =>
+            prev === 0 ? INITIAL_VISIBLE_PETS : prev
+          );
         }
       } finally {
         setLoading(false);
@@ -171,7 +138,11 @@ export default function ProfilePage() {
     };
 
     window.addEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
-    return () => window.removeEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
+    return () =>
+      window.removeEventListener(
+        VOLUNTEER_EXTRA_CHANGED_EVENT,
+        onVolExtraChanged
+      );
   }, [profile]);
 
   const onLogout = () => {
@@ -182,14 +153,13 @@ export default function ProfilePage() {
   };
 
   const rating = useMemo(() => {
-    if (!profile || !profile.countRating) return { avg: "5.0", count: 4 };
+    if (!profile) return { avg: "0.0", count: 0 };
 
-    const avg =
-      profile.sumRating && profile.countRating
-        ? (profile.sumRating / profile.countRating).toFixed(1)
-        : "0.0";
+    const count = Number(profile.countRating ?? 0);
+    const sum = Number(profile.sumRating ?? 0);
+    const avg = count > 0 ? (sum / count).toFixed(1) : "0.0";
 
-    return { avg, count: profile.countRating };
+    return { avg, count };
   }, [profile]);
 
   if (!loading && !token) {
@@ -223,17 +193,22 @@ export default function ProfilePage() {
 
   const aboutText =
     profile.description?.trim() ||
-    (org ? "Расскажите об организации..." : volExtra?.about?.trim() || "Расскажите о себе...");
+    (org
+      ? "Расскажите об организации..."
+      : volExtra?.about?.trim() || "Расскажите о себе...");
 
   const competenciesView =
-    (profile.competencies?.length ? profile.competencies : volExtra?.competencies) || [];
+    (profile.competencies?.length ? profile.competencies : volExtra?.competencies) ||
+    [];
 
   const availabilityApi =
-    (profile.availabilities?.length ? profile.availabilities : volExtra?.availability) || [];
+    (profile.availabilities?.length ? profile.availabilities : volExtra?.availability) ||
+    [];
   const availabilityView = denormalizeAvailabilities(availabilityApi);
 
   const prefAnimalsApi =
-    (profile.preferences?.length ? profile.preferences : volExtra?.prefAnimals) || [];
+    (profile.preferences?.length ? profile.preferences : volExtra?.prefAnimals) ||
+    [];
   const prefAnimalsView = denormalizePreferences(prefAnimalsApi);
 
   const locationTags = profile.location?.trim() ? [profile.location.trim()] : [];
@@ -252,6 +227,7 @@ export default function ProfilePage() {
 
   const onConfirmDelete = async () => {
     if (!deletePetId) return;
+
     try {
       await animalsApi.delete(deletePetId);
       await loadPets();
@@ -291,7 +267,9 @@ export default function ProfilePage() {
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>О себе</h3>
-            <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>{aboutText}</p>
+            <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
+              {aboutText}
+            </p>
           </section>
 
           {!org ? (
@@ -307,11 +285,9 @@ export default function ProfilePage() {
               </section>
 
               <section className={s.section}>
-                <h3 className={s.sectionTitle}>Предпочтения ( Животные)</h3>
+                <h3 className={s.sectionTitle}>Предпочтения (Животные)</h3>
                 {renderTags(prefAnimalsView)}
               </section>
-
-              {/* ✅ УДАЛЕНО: Предпочтения (Взаимодействие) */}
             </>
           ) : (
             <>
@@ -320,11 +296,19 @@ export default function ProfilePage() {
                 <div className={s.contactDetails}>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Телефон:</span>{" "}
-                    {profile.phone?.trim() ? profile.phone.trim() : <span className={s.muted}>Не указано</span>}
+                    {profile.phone?.trim() ? (
+                      profile.phone.trim()
+                    ) : (
+                      <span className={s.muted}>Не указано</span>
+                    )}
                   </p>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Сайт:</span>{" "}
-                    {profile.website?.trim() ? profile.website.trim() : <span className={s.muted}>Не указано</span>}
+                    {profile.website?.trim() ? (
+                      profile.website.trim()
+                    ) : (
+                      <span className={s.muted}>Не указано</span>
+                    )}
                   </p>
                 </div>
               </section>
@@ -337,7 +321,9 @@ export default function ProfilePage() {
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Реквизиты для пожертвований</h3>
                 <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-                  {profile.donationDetails?.trim() ? profile.donationDetails.trim() : "Не указано"}
+                  {profile.donationDetails?.trim()
+                    ? profile.donationDetails.trim()
+                    : "Не указано"}
                 </p>
               </section>
             </>
@@ -392,7 +378,9 @@ export default function ProfilePage() {
                     type="button"
                     className={tasksStyles.loadMoreBtn}
                     onClick={() =>
-                      setVisiblePetsCount((v) => Math.min(pets.length, v + LOAD_MORE_PETS_STEP))
+                      setVisiblePetsCount((v) =>
+                        Math.min(pets.length, v + LOAD_MORE_PETS_STEP)
+                      )
                     }
                   >
                     Загрузить строку
@@ -428,7 +416,19 @@ export default function ProfilePage() {
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Рейтинг</h3>
             <div className={s.ratingRow}>
-              <div className={s.starsBig}>★★★★★</div>
+              {(() => {
+                const avgNum = Number(rating.avg);
+                const safeAvg = Number.isFinite(avgNum) ? avgNum : 0;
+                const filled = Math.max(0, Math.min(5, Math.round(safeAvg)));
+                const empty = 5 - filled;
+
+                return (
+                  <div className={s.starsBig} aria-label={`Рейтинг ${rating.avg} из 5`}>
+                    <span>{"★★★★★".slice(0, filled)}</span>
+                    <span className={s.starsEmpty}>{"★★★★★".slice(0, empty)}</span>
+                  </div>
+                );
+              })()}
               <div className={s.ratingMeta}>
                 {rating.avg} ({rating.count} отзывов)
               </div>
@@ -437,27 +437,38 @@ export default function ProfilePage() {
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Отзывы</h3>
-            <div className={s.reviewsList}>
-              {visibleReviews.map((r, idx) => (
-                <div key={`${r.author}_${idx}`} className={s.reviewItem}>
-                  <div className={s.reviewHeader}>
-                    <span className={s.reviewStars}>{starsText(r.stars)}</span>
-                    <span className={s.reviewAuthor}>{r.author}</span>
-                  </div>
-                  <div className={s.reviewText}>{r.text}</div>
-                </div>
-              ))}
-            </div>
 
-            {allReviews.length > 3 ? (
-              <button
-                type="button"
-                className={s.allReviews}
-                onClick={() => setReviewsExpanded((v) => !v)}
-              >
-                {reviewsExpanded ? "Свернуть отзывы" : "Все отзывы"}
-              </button>
-            ) : null}
+            {visibleReviews.length ? (
+              <>
+                <div className={s.reviewsList}>
+                  {visibleReviews.map((r, idx) => (
+                    <div key={`${r.author}_${idx}`} className={s.reviewItem}>
+                      <div className={s.reviewHeader}>
+                        <span className={s.reviewStars}>
+                          {starsText(r.stars)}
+                        </span>
+                        <span className={s.reviewAuthor}>{r.author}</span>
+                      </div>
+                      <div className={s.reviewText}>{r.text}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {allReviews.length > 3 ? (
+                  <button
+                    type="button"
+                    className={s.allReviews}
+                    onClick={() => setReviewsExpanded((v) => !v)}
+                  >
+                    {reviewsExpanded ? "Свернуть отзывы" : "Все отзывы"}
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <p className={s.muted} style={{ margin: 0 }}>
+                Отзывов пока нет.
+              </p>
+            )}
           </section>
 
           <Link href="/profile/edit" className={s.btnLarge}>
@@ -466,7 +477,11 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <ConfirmDeleteDialog open={deleteOpen} onCancel={onCancelDelete} onConfirm={onConfirmDelete} />
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        onCancel={onCancelDelete}
+        onConfirm={onConfirmDelete}
+      />
     </>
   );
 }
