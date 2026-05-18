@@ -1,5 +1,7 @@
+/* src/app/(main)/calendar/calendar.module.css */
+
 .page {
-  padding: 30px 0 60px;
+  padding: 30px 0 0 60px;
   background: #fafafc;
 }
 
@@ -13,7 +15,7 @@
 }
 
 .calendarWidget {
-  background: #fef7f0;              /* ✅ фон календаря */
+  background: #fef7f0; /* фон календаря */
   border: 1px solid #dee2e6;
   border-radius: 20px;
   padding: 22px;
@@ -41,30 +43,26 @@
 }
 
 .navBtn {
-  width: 40px;                      /* ⬅️ размер кружка вокруг стрелки */
-  height: 40px;                     /* ⬅️ размер кружка вокруг стрелки */
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
-
-  background: #fef7f0;              /* ✅ фон как у календаря */
-  border: 2px solid rgba(6, 53, 94, 1); /* чтобы кружок был виден на таком же фоне */
-
+  background: #fef7f0;
+  border: 2px solid rgba(6, 53, 94, 1);
   color: #06355e;
   cursor: pointer;
-
-  font-size: 24px;                  /* ⬅️ размер стрелки */
-  font-weight: 400;                 /* ⬅️ “толщина” стрелки (для символов ← →) */
+  font-size: 24px;
+  font-weight: 400;
   line-height: 1;
-
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .navBtn:hover {
-  background: #f9efe7;              /* чуть темнее, чем FEF7F0 */
+  background: #f9efe7;
 }
 
-/* сетка календаря — без изменений */
+/* сетка календаря */
 .grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -83,31 +81,25 @@
   user-select: none;
 }
 
-/* ✅ день теперь НЕ овальный, а круглый */
 .dayBtn {
   height: 44px;
-  width: 44px;                      /* ✅ фиксируем ширину = высоте */
+  width: 44px;
   padding: 0;
-  justify-self: center;             /* ✅ центрируем круг в ячейке сетки */
-
+  justify-self: center;
   border: none;
   border-radius: 999px;
   background: transparent;
-
   cursor: pointer;
   color: #212529;
   font-size: 18px;
   font-weight: 600;
-
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* ✅ hover: чуть темнее, чем FEF7F0, но намного светлее EAAC99 */
 .dayBtn:hover {
-  background: #f7e5d8;              /* можно подбирать тут */
+  background: #f7e5d8;
 }
 
-/* пустые ячейки — чтобы сетка была ровной */
 .dayEmpty {
   height: 44px;
   width: 44px;
@@ -116,15 +108,24 @@
   background: transparent;
 }
 
-/* ✅ дни с задачами */
+/* дни с задачами */
 .dayHasEvent {
-  background: #eaac99;              /* ✅ нужный цвет */
+  background: #eaac99;
 }
 
-/* ✅ выбранный день (оставил прежний принцип обводки) */
+/* ✅ выбранный день: обводка + цвет внутри как у дня с задачей */
 .daySelected {
   box-shadow: 0 0 0 1.5px #06355e inset;
-  background: transparent;
+}
+
+/* если выбранный день без задач — красим так же, как день с задачей */
+.daySelected:not(.dayHasEvent) {
+  background: #eaac99;
+}
+
+/* чтобы hover не перебивал выбранный */
+.daySelected:hover {
+  background: #eaac99;
 }
 
 .sectionTitle {
@@ -147,7 +148,6 @@
 }
 
 @media (min-width: 920px) {
-  /* если хочешь 2 колонки как в ленте — включи */
   .cardsWrap {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
