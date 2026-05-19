@@ -99,7 +99,7 @@ export function LandingPage() {
               <div className={s.galleryGrid}>
                 <div className={`${s.galleryImageWrap} ${s.rabbit}`}>
                   <Image
-                    src="/images/Кроля1.png"
+                    src="/images/потрепыш (Пользовательское).png"
                     alt="Кролик ищет дом"
                     fill
                     className={s.galleryImageContain}
@@ -110,7 +110,7 @@ export function LandingPage() {
                   <div className={s.galleryRow}>
                     <div className={`${s.galleryImageWrap} ${s.puppy}`}>
                       <Image
-                        src="/images/Щенок.jpg"
+                        src="/images/беспризорный дог.png"
                         alt="Щенок ищет дом"
                         fill
                         className={s.galleryImage}
@@ -119,7 +119,7 @@ export function LandingPage() {
 
                     <div className={`${s.galleryImageWrap} ${s.parrot}`}>
                       <Image
-                        src="/images/Попугай.jpg"
+                        src="/images/Хомя.png"
                         alt="Попугай ищет дом"
                         fill
                         className={s.galleryImage}
@@ -139,7 +139,7 @@ export function LandingPage() {
 
                     <div className={`${s.galleryImageWrap} ${s.cat}`}>
                       <Image
-                        src="/images/Котёнок.png"
+                        src="/images/кот в мазуте.png"
                         alt="Кошка ищет дом"
                         fill
                         className={s.galleryImage}
