@@ -248,6 +248,8 @@
 .gallery {
   background-color: #ffffff;
   padding: 80px 0;
+  --gallery-header-mb: 40px;   /* расстояние до фоток */
+  --gallery-btn-offset-y: 0px; /* поднять/опустить сами кнопки: -10px / +10px */
 }
 
 .galleryInner {
@@ -259,7 +261,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 40px;
+  margin-bottom: var(--gallery-header-mb);
 }
 
 .galleryTitle h2 {
@@ -267,6 +269,23 @@
   color: var(--color-dark-blue);
   margin-bottom: 8px;
   font-weight: 600;
+}
+
+.galleryHeaderBtn {
+  font-size: 40px;
+  color: var(--color-dark-blue);
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.1;
+  transform: translateY(var(--gallery-btn-offset-y));
+}
+
+.galleryHeaderBtn:hover {
+  opacity: 0.85;
 }
 
 .galleryTitle p {
@@ -677,4 +696,9 @@
     align-items: center;
     text-align: center;
   }
+}
+
+.btnFixedWidth {
+  min-width: 260px;  /* при необходимости подгони: 260/280/300 */
+  text-align: center;
 }

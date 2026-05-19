@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useSyncExternalStore } from "react";
+
 import s from "../../app/landing.module.css";
 
 import { LandingHeader } from "@/src/components/layout/LandingHeader";
@@ -7,7 +11,30 @@ import { LandingFooter } from "@/src/components/layout/LandingFooter";
 import { LeaderCard } from "@/src/components/features/LeaderCard";
 import { NewsItem } from "@/src/components/features/NewsItem";
 
+import { getAccessToken } from "@/src/lib/tokenStorage";
+
+function subscribeAuth(cb: () => void) {
+  // storage — обновление, если токен изменился в другом табе
+  // focus — чтобы подхватывать актуальный токен при возврате на вкладку
+  window.addEventListener("storage", cb);
+  window.addEventListener("focus", cb);
+  return () => {
+    window.removeEventListener("storage", cb);
+    window.removeEventListener("focus", cb);
+  };
+}
+
+function getAuthSnapshot() {
+  return Boolean(getAccessToken());
+}
+
+function getServerSnapshot() {
+  return false;
+}
+
 export function LandingPage() {
+  const authed = useSyncExternalStore(subscribeAuth, getAuthSnapshot, getServerSnapshot);
+
   return (
     <div className={s.page}>
       <LandingHeader />
@@ -72,28 +99,59 @@ export function LandingPage() {
                 <div className={s.heroCat}>
                   <img src="/images/кися.svg" alt="Иллюстрация кошки" />
                 </div>
-                <Link href="/animals" className={s.btn}>
-                  Сообщить о животном
-                </Link>
+
+                {/* ✅ Как ты просил:
+                    - гость: "Войти" (кликабельная)
+                    - авторизован: "Так держать!" (некликабельная)
+                    - визуал тот же, ширина фиксированная */}
+                {!authed ? (
+                  <Link href="/login" className={`${s.btn} ${s.btnFixedWidth}`}>
+                    Войти
+                  </Link>
+                ) : (
+                  <span
+                    className={`${s.btn} ${s.btnFixedWidth}`}
+                    style={{ pointerEvents: "none", userSelect: "none" }}
+                  >
+                    Так держать!
+                  </span>
+                )}
               </div>
             </div>
           </div>
         </section>
 
-        {/* ИЩУТ ДОМ */}
+        {/* Блок с фото */}
         <section className={s.gallery}>
           <div className={s.container}>
             <div className={s.galleryInner}>
               <div className={s.galleryHeader}>
-                <div className={s.galleryTitle}>
-                  <h2>Ищут дом</h2>
-                  <p>Помоги найти семью тем, кто ждёт</p>
-                </div>
+                {/* ✅ Как ты просил:
+                    - гость: 2 кнопки
+                    - авторизован: вместо кнопок текст */}
+                {!authed ? (
+                  <>
+                    <Link href="/register" className={s.galleryHeaderBtn}>
+                      Оказать помощь
+                    </Link>
 
-                <div className={s.galleryArrows}>
-                  <button className={s.arrowBtn}>←</button>
-                  <button className={s.arrowBtn}>→</button>
-                </div>
+                    <Link href="/register" className={s.galleryHeaderBtn}>
+                      Нужна помощь
+                    </Link>
+                  </>
+                ) : (
+                  <div
+                    className={s.galleryHeaderBtn}
+                    style={{
+                      width: "100%",
+                      textAlign: "center",
+                      cursor: "default",
+                      userSelect: "none",
+                    }}
+                  >
+                    Маленькие души, ради которых мы стараемся
+                  </div>
+                )}
               </div>
 
               <div className={s.galleryGrid}>
@@ -163,16 +221,8 @@ export function LandingPage() {
                   name="Кузнецова Анна"
                   tasks={14}
                 />
-                <LeaderCard
-                  image="/images/Саитова Ольга.png"
-                  name="Саитова Ольга"
-                  tasks={11}
-                />
-                <LeaderCard
-                  image="/images/Князев Олег.png"
-                  name="Князев Олег"
-                  tasks={7}
-                />
+                <LeaderCard image="/images/Саитова Ольга.png" name="Саитова Ольга" tasks={11} />
+                <LeaderCard image="/images/Князев Олег.png" name="Князев Олег" tasks={7} />
                 <LeaderCard
                   image="/images/Кузнецова Анна1.png"
                   name="Кузнецова Анна"
