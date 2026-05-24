@@ -2,11 +2,10 @@ export type Animal = {
   id: string;
   ownerUserId: string;
 
-  // MVP: dataURL/base64 или null
   photoUrl: string | null;
 
   name: string;
-  species: string; // required в локальной модели
+  species: string;
   breed: string;
   age: string;
 

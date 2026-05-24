@@ -20,17 +20,14 @@ import { RespondersModal } from "./_components/RespondersModal";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 
-// “Загрузить ещё” после 2 строк (3 в ряд) => 6 карточек
 const INITIAL_VISIBLE = 6;
 const LOAD_MORE_STEP = 6;
 
-// защита от бесконечного списка
 const PAGE_SIZE = 50;
 const MAX_TOTAL = 500;
 
-// localStorage cache (чтобы при возврате на страницу не дергать бэк лишний раз)
 const ALL_CACHE_PREFIX = "lp_helpTasks_all_v1:";
-const ALL_CACHE_TTL_MS = 2 * 60 * 1000; // 2 минуты
+const ALL_CACHE_TTL_MS = 2 * 60 * 1000;
 
 type OpenDrop = null | "animal" | "competencies" | "location" | "sort";
 type SortMode = "alpha" | "created" | "due";
@@ -88,11 +85,9 @@ function writeAllCache(key: string, tasks: HelpTaskDto[], animalTypeById: Record
   try {
     localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), tasks, animalTypeById }));
   } catch {
-    // quota / private mode — игнорируем
   }
 }
 
-// сопоставление фильтра Preferences (мн. число) с animalType (часто ед. число)
 const PREF_TO_TYPES: Record<string, string[]> = {
   Грызуны: ["Грызун", "Грызуны"],
   Кошки: ["Кошка", "Кошки"],
@@ -127,10 +122,6 @@ async function loadAllMyCreated(): Promise<HelpTaskDto[]> {
   return all.slice(0, MAX_TOTAL);
 }
 
-/**
- * ВАЖНО: на вашем бэке feed без Locations может вернуть пусто.
- * Поэтому “загрузить всё” для волонтёра делаем через Locations=все районы.
- */
 async function loadAllFeed(allLocations: string[]): Promise<HelpTaskDto[]> {
   const all: HelpTaskDto[] = [];
   let offset = 0;
@@ -154,7 +145,6 @@ async function loadAllFeed(allLocations: string[]): Promise<HelpTaskDto[]> {
 }
 
 async function buildAnimalTypeMap(tasks: HelpTaskDto[]): Promise<Record<string, string>> {
-  // собираем уникальные animalId из задач
   const ids = new Set<string>();
   for (const t of tasks) {
     for (const an of t.animals ?? []) {
@@ -165,7 +155,6 @@ async function buildAnimalTypeMap(tasks: HelpTaskDto[]): Promise<Record<string, 
   const unique = Array.from(ids);
   if (!unique.length) return {};
 
-  // один раз дергаем детали животных, чтобы знать animalType
   const out: Record<string, string> = {};
   await Promise.all(
     unique.map(async (id) => {
@@ -173,7 +162,6 @@ async function buildAnimalTypeMap(tasks: HelpTaskDto[]): Promise<Record<string, 
         const full = await animalsApi.getById(id);
         if (full?.animalType) out[id] = full.animalType;
       } catch {
-        // не критично
       }
     })
   );
@@ -188,27 +176,22 @@ export default function TasksPage() {
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [open, setOpen] = useState<OpenDrop>(null);
 
-  // dictionaries
   const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
   const [competenciesDict, setCompetenciesDict] = useState<DictionaryItemDto[]>([]);
   const [preferencesDict, setPreferencesDict] = useState<DictionaryItemDto[]>([]);
 
-  // filters (локальные)
   const [animalTypes, setAnimalTypes] = useState<string[]>([]);
   const [competencies, setCompetencies] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("due");
 
-  // data (полный список, фильтруем локально)
   const [allItems, setAllItems] = useState<HelpTaskDto[]>([]);
   const [animalTypeById, setAnimalTypeById] = useState<Record<string, string>>({});
 
-  // visible (load more)
   const [visibleTasks, setVisibleTasks] = useState(INITIAL_VISIBLE);
   const [visibleFosters, setVisibleFosters] = useState(INITIAL_VISIBLE);
 
-  // responses modal (curator)
   const [responsesOpen, setResponsesOpen] = useState(false);
   const [responsesTaskId, setResponsesTaskId] = useState<string | null>(null);
   const [responsesTaskTitle, setResponsesTaskTitle] = useState<string>("");
@@ -246,11 +229,9 @@ export default function TasksPage() {
         return;
       }
 
-      // 1) грузим “всё” один раз
       const tasks = isOrgRole(me.role) ? await loadAllMyCreated() : await loadAllFeed(allLocations);
       setAllItems(tasks);
 
-      // 2) обогащаем animalType (для фильтра “Вид животного”)
       const map = await buildAnimalTypeMap(tasks);
       setAnimalTypeById(map);
 
@@ -260,7 +241,6 @@ export default function TasksPage() {
     }
   };
 
-  // init
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -287,7 +267,6 @@ export default function TasksPage() {
     })();
   }, []);
 
-  // close dropdowns on outside click / esc
   useEffect(() => {
     if (!open) return;
 
@@ -311,7 +290,6 @@ export default function TasksPage() {
     };
   }, [open]);
 
-  // автообновление после create/update/delete
   useEffect(() => {
     if (!profile) return;
 
@@ -319,7 +297,6 @@ export default function TasksPage() {
       const key = cacheKeyFor(profile.userId, isOrgRole(profile.role) ? "curator" : "volunteer");
       if (canUseLS()) localStorage.removeItem(key);
 
-      // если словари уже есть — используем их
       const allLoc = allLocationNames.length ? allLocationNames : [];
       await loadOnce(profile, allLoc, { silent: true });
     };
@@ -329,28 +306,23 @@ export default function TasksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, allLocationNames.length]);
 
-  // при изменении фильтров сбрасываем “Загрузить ещё” обратно на 2 строки
   useEffect(() => {
     setVisibleTasks(INITIAL_VISIBLE);
     setVisibleFosters(INITIAL_VISIBLE);
   }, [query, sort, animalTypes.join("|"), competencies.join("|"), districts.join("|")]);
 
-  // локальная фильтрация
   const filteredSorted = useMemo(() => {
     const out = allItems.filter((t0) => {
-      // компетенции
       if (competencies.length) {
         const ok = competencies.some((c) => (t0.competencies || []).includes(c));
         if (!ok) return false;
       }
 
-      // локация
       if (districts.length) {
         const loc0 = loc0OrEmpty(t0);
         if (!districts.includes(loc0)) return false;
       }
 
-      // вид животного (preferences)
       if (animalTypes.length) {
         const ids = (t0.animals ?? []).map((x) => x?.id).filter(Boolean) as string[];
         if (!ids.length) return false;
@@ -364,7 +336,6 @@ export default function TasksPage() {
         if (!has) return false;
       }
 
-      // поиск
       if (query.trim()) {
         const animalName = t0.animals?.[0]?.name ?? "";
         const hay = [t0.title, t0.description, loc0OrEmpty(t0), animalName].join(" ");

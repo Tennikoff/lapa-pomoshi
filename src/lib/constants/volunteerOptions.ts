@@ -7,7 +7,6 @@ export const COMPETENCIES = [
   "Фото/видео",
 ] as const;
 
-// UI-лейблы (красивые). На API уйдут нормализованные значения (Утро/День/Вечер).
 export const AVAILABILITY = [
   "Понедельник",
   "Вторник",
@@ -21,7 +20,6 @@ export const AVAILABILITY = [
   "Вечером",
 ] as const;
 
-// Должно совпадать со словарём /api/Dictionaries/preferences
 export const PREF_ANIMALS = [
   "Грызуны",
   "Кошки",

@@ -1,4 +1,3 @@
-// src/app/(main)/tasks/[id]/page.tsx
 "use client";
 
 import type { CSSProperties } from "react";
@@ -74,23 +73,18 @@ export default function TaskEditPage() {
   const [loading, setLoading] = useState(true);
   const [task, setTask] = useState<HelpTaskDto | null>(null);
 
-  // delete
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // ✅ complete
   const [completing, setCompleting] = useState(false);
 
-  // dictionaries
   const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
   const [competenciesDict, setCompetenciesDict] = useState<DictionaryItemDto[]>([]);
 
-  // animals
   const [animals, setAnimals] = useState<AnimalListItemDto[]>([]);
   const [animalsOpen, setAnimalsOpen] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [selectedAnimalFull, setSelectedAnimalFull] = useState<AnimalDto | null>(null);
 
-  // create animal inside edit
   const [createAnimalOpen, setCreateAnimalOpen] = useState(false);
   const animalFileRef = useRef<HTMLInputElement | null>(null);
   const [animalPreviewUrl, setAnimalPreviewUrl] = useState<string | null>(null);
@@ -98,7 +92,7 @@ export default function TaskEditPage() {
   const [animalPhotoError, setAnimalPhotoError] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
-  const [anType, setAnType] = useState(""); // animalType (ед. число)
+  const [anType, setAnType] = useState("");
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
   const [anHistory, setAnHistory] = useState("");
@@ -107,22 +101,18 @@ export default function TaskEditPage() {
   const [anNeeds, setAnNeeds] = useState("");
   const [animalSubmitting, setAnimalSubmitting] = useState(false);
 
-  // common fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [district, setDistrict] = useState<string>("");
 
-  // task-only fields
   const [requiredVolunteers, setRequiredVolunteers] = useState<number>(1);
   const [competency, setCompetency] = useState<string>(""); // single
 
-  // dates
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endDate, setEndDate] = useState("");
   const [endTime, setEndTime] = useState("");
 
-  // refs for pickers
   const startDateRef = useRef<HTMLInputElement | null>(null);
   const startTimeRef = useRef<HTMLInputElement | null>(null);
   const endDateRef = useRef<HTMLInputElement | null>(null);
@@ -145,7 +135,6 @@ export default function TaskEditPage() {
     setAnimals(res.animals);
   };
 
-  // init
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -167,7 +156,6 @@ export default function TaskEditPage() {
 
         const t = await helpTasksApi.getById(id);
 
-        // доступ: только создателю
         if (t.creator?.id !== me.userId) {
           alert("Нет доступа к редактированию этой задачи");
           router.replace("/tasks");
@@ -176,28 +164,23 @@ export default function TaskEditPage() {
 
         setTask(t);
 
-        // fill form state
         setTitle(t.title ?? "");
         setDescription(t.description ?? "");
         setDistrict(t.locations?.[0] ?? "");
 
-        // animal
         const firstAnimalId = t.animals?.[0]?.id ?? null;
         setSelectedAnimalId(firstAnimalId);
         setAnimalsOpen(true);
 
-        // dates
         setStartDate(isoToInputDate(t.startedAt));
         setEndDate(isoToInputDate(t.endedAt));
 
         if (!t.isTaskOverexposure) {
-          // task
           setStartTime(isoToInputTime(t.startedAt));
           setEndTime(isoToInputTime(t.endedAt));
           setRequiredVolunteers(typeof t.requiredVolunteers === "number" ? t.requiredVolunteers : 1);
           setCompetency(t.competencies?.[0] ?? "");
         } else {
-          // foster
           setStartTime("");
           setEndTime("");
           setRequiredVolunteers(1);
@@ -209,7 +192,6 @@ export default function TaskEditPage() {
     })();
   }, [id, router]);
 
-  // load selected animal full
   useEffect(() => {
     if (!selectedAnimalId) {
       setSelectedAnimalFull(null);
@@ -225,7 +207,6 @@ export default function TaskEditPage() {
     })();
   }, [selectedAnimalId]);
 
-  // cleanup preview objectURL
   useEffect(() => {
     return () => {
       if (animalPreviewUrl && animalPreviewUrl.startsWith("blob:")) {
@@ -236,7 +217,6 @@ export default function TaskEditPage() {
 
   const onCancel = () => router.back();
 
-  // ===== create animal inside edit =====
   const resetAnimalDraft = () => {
     if (animalPreviewUrl && animalPreviewUrl.startsWith("blob:")) {
       URL.revokeObjectURL(animalPreviewUrl);
@@ -324,7 +304,6 @@ export default function TaskEditPage() {
     }
   };
 
-  // ===== delete flow =====
   const onAskDelete = () => setDeleteOpen(true);
   const onCancelDelete = () => setDeleteOpen(false);
 
@@ -332,7 +311,6 @@ export default function TaskEditPage() {
     setDeleteOpen(false);
     router.back();
 
-    // delete after modal close
     window.setTimeout(async () => {
       try {
         await helpTasksApi.delete(id);
@@ -342,7 +320,6 @@ export default function TaskEditPage() {
     }, 0);
   };
 
-  // ===== ✅ complete flow =====
   const onComplete = async () => {
     if (!task) return;
 
@@ -368,7 +345,6 @@ export default function TaskEditPage() {
     try {
       await helpTasksApi.complete(task.id);
 
-      // ✅ сохраняем snapshot в локальный архив
       addCompletedHelpTask(me.userId, task);
 
       window.dispatchEvent(new Event(HELP_TASKS_CHANGED_EVENT));
@@ -382,7 +358,6 @@ export default function TaskEditPage() {
     }
   };
 
-  // ===== submit update =====
   const onSubmitEdit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     if (!task) return;
@@ -404,7 +379,6 @@ export default function TaskEditPage() {
     if (!district) return alert("Выберите район");
 
     if (task.isTaskOverexposure) {
-      // foster: date-only
       if (!startDate || !endDate) return alert("Укажите дату начала и дату окончания");
 
       const startedAt = toIsoDateStart(startDate);
@@ -427,7 +401,6 @@ export default function TaskEditPage() {
       return;
     }
 
-    // task: date-time + required volunteers + single competency
     if (!startDate || !startTime || !endDate || !endTime) {
       return alert("Укажите дату и время начала/окончания");
     }
@@ -472,7 +445,6 @@ export default function TaskEditPage() {
 
   if (!task) return null;
 
-  // ===== create animal screen =====
   if (createAnimalOpen) {
     return (
       <div
@@ -864,7 +836,6 @@ export default function TaskEditPage() {
                   </section>
                 </>
               ) : (
-                // Foster only
                 <section className={f.section}>
                   <h2 className={f.sectionTitle}>Период передержки</h2>
 
@@ -938,7 +909,7 @@ export default function TaskEditPage() {
                 </button>
               </div>
 
-              {/* ✅ COMPLETE */}
+              {/* COMPLETE */}
               <div className={f.deleteRow}>
                 <button
                   type="button"

@@ -1,4 +1,3 @@
-// src/app/(main)/tasks/_components/TaskCard.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -22,7 +21,6 @@ function formatTimeRange(task: HelpTaskDto) {
   const b = task.endedAt ? new Date(task.endedAt) : null;
   if (!a || !b) return "—";
 
-  // foster: UTC date range
   if (task.isTaskOverexposure) {
     return `${fmtShortDateUTC(a)} - ${fmtShortDateUTC(b)}`;
   }
@@ -41,7 +39,7 @@ export function TaskCard({
 }: {
   task: HelpTaskDto;
   mode: "curator" | "volunteer";
-  onEdit?: () => void; // ✅ теперь опционально
+  onEdit?: () => void;
   onOpenResponses?: () => void;
 }) {
   const router = useRouter();
@@ -93,7 +91,6 @@ export function TaskCard({
 
   const showEdit = mode === "curator" && Boolean(onEdit);
 
-  // ===== FOSTER CARD =====
   if (task.isTaskOverexposure) {
     return (
       <div className={`${s.taskCard} ${s.taskCardFoster}`} {...cardProps}>
@@ -129,7 +126,6 @@ export function TaskCard({
     );
   }
 
-  // ===== TASK CARD =====
   return (
     <div className={`${s.taskCard} ${s.taskCardTask}`} {...cardProps}>
       <img src={img} alt="Фото" className={`${s.taskCardImage} ${s.fosterPhoto}`} />

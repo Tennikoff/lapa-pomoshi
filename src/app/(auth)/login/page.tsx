@@ -38,7 +38,6 @@ export default function LoginPage() {
       if (e instanceof ApiError) message = e.message;
       else if (e instanceof Error) message = e.message;
 
-      // маппим под твой текст
       if (message.toLowerCase().includes("неверный email или пароль")) {
         message = "Неверный Email или пароль";
       }

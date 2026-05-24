@@ -1,4 +1,3 @@
-// src/lib/storage/completedHelpTasks.ts
 import type { HelpTaskDto } from "@/src/types/helpTask";
 
 export const COMPLETED_HELP_TASKS_CHANGED_EVENT = "lp_completed_help_tasks_changed";
@@ -7,7 +6,7 @@ const KEY = "lp_completed_help_tasks_v1";
 const MAX_ITEMS_PER_USER = 200;
 
 export type CompletedHelpTaskItem = HelpTaskDto & {
-  archivedAt: string; // когда мы поместили в архив (локально)
+  archivedAt: string;
 };
 
 function canUseLS() {
@@ -44,7 +43,6 @@ function writeStore(next: StoreShape) {
 }
 
 function safeClone<T>(x: T): T {
-  // для HelpTaskDto достаточно JSON-клона
   return JSON.parse(JSON.stringify(x)) as T;
 }
 
@@ -67,7 +65,6 @@ export function addCompletedHelpTask(userId: string, task: HelpTaskDto) {
     archivedAt: new Date().toISOString(),
   };
 
-  // dedupe by task.id
   const next = [item, ...prev.filter((x) => x.id !== item.id)].slice(0, MAX_ITEMS_PER_USER);
 
   st.byUserId[id] = next;

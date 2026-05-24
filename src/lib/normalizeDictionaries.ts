@@ -1,8 +1,4 @@
-// ===== AVAILABILITIES =====
-// Бэк принимает только словарные значения:
-// "Понедельник"..."Воскресенье", "Утро", "День", "Вечер"
 export const AVAILABILITY_TO_API: Record<string, string> = {
-  // дни недели (на всякий случай поддержим и короткие, и длинные)
   Пн: "Понедельник",
   Вт: "Вторник",
   Ср: "Среда",
@@ -19,7 +15,6 @@ export const AVAILABILITY_TO_API: Record<string, string> = {
   Суббота: "Суббота",
   Воскресенье: "Воскресенье",
 
-  // части дня (UI -> API)
   "Утром": "Утро",
   Утро: "Утро",
 
@@ -30,8 +25,6 @@ export const AVAILABILITY_TO_API: Record<string, string> = {
   Вечер: "Вечер",
 };
 
-// Что показывать в UI, когда пришло из API
-// (оставляем дни недели как есть, меняем только части дня)
 export const AVAILABILITY_TO_UI: Record<string, string> = {
   Утро: "Утром",
   День: "Днём",
@@ -60,10 +53,7 @@ export function denormalizeAvailabilities(values: string[]): string[] {
     .map((v) => AVAILABILITY_TO_UI[v] ?? v);
 }
 
-// ===== PREFERENCES (животные) =====
-// Бэк валидирует preferences по /api/Dictionaries/preferences (мн. число)
 export const PREFERENCES_TO_API: Record<string, string> = {
-  // на случай старых/кривых лейблов
   "Кролик и": "Кролики",
   Кролик: "Кролики",
 
@@ -82,6 +72,5 @@ export function normalizePreferences(values: string[]): string[] {
 }
 
 export function denormalizePreferences(values: string[]): string[] {
-  // UI сейчас показывает те же строки, что словарь (мн. число)
   return values.map((v) => v.trim()).filter(Boolean);
 }

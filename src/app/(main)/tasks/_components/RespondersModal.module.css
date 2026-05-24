@@ -89,7 +89,6 @@
   flex-shrink: 0;
 }
 
-/* --- Стили кнопок --- */
 .btn {
   padding: 8px 18px;
   border: none;
@@ -121,7 +120,6 @@
   opacity: 0.6;
 }
 
-/* --- Плашки статуса (после решения) --- */
 .badge {
   padding: 8px 18px;
   border-radius: 9999px;
@@ -134,12 +132,12 @@
 }
 
 .badgeAccepted {
-  background: var(--btn-accept-bg-hover); /* ✅ как hover у "Принять" */
+  background: var(--btn-accept-bg-hover);
   color: var(--btn-accept-text);
 }
 
 .badgeDeclined {
-  background: var(--btn-decline-bg-hover); /* ✅ как hover у "Отклонить" */
+  background: var(--btn-decline-bg-hover);
   color: var(--btn-decline-text);
 }
 

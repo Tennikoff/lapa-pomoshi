@@ -1,4 +1,3 @@
-// src/app/(main)/tasks/new/page.tsx
 "use client";
 
 import type { CSSProperties } from "react";
@@ -44,17 +43,14 @@ export default function TaskNewPage() {
   const [loading, setLoading] = useState(true);
   const [savingTask, setSavingTask] = useState(false);
 
-  // dictionaries
   const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
   const [competenciesDict, setCompetenciesDict] = useState<DictionaryItemDto[]>([]);
 
-  // animals list
   const [animals, setAnimals] = useState<AnimalListItemDto[]>([]);
   const [animalsOpen, setAnimalsOpen] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [selectedAnimalFull, setSelectedAnimalFull] = useState<AnimalDto | null>(null);
 
-  // create animal screen
   const [createAnimalOpen, setCreateAnimalOpen] = useState(false);
 
   const animalFileRef = useRef<HTMLInputElement | null>(null);
@@ -63,19 +59,17 @@ export default function TaskNewPage() {
   const [animalPhotoError, setAnimalPhotoError] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
-  const [anType, setAnType] = useState(""); // animalType (ед. число)
+  const [anType, setAnType] = useState("");
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
-  const [anHistory, setAnHistory] = useState(""); // ✅ теперь сохраняем через bridge в specialNeeds
+  const [anHistory, setAnHistory] = useState("");
   const [anHealth, setAnHealth] = useState("");
   const [anCharacter, setAnCharacter] = useState("");
-  const [anNeeds, setAnNeeds] = useState(""); // “особые потребности” (тоже внутрь specialNeeds, вместе с history)
+  const [anNeeds, setAnNeeds] = useState("");
   const [animalSubmitting, setAnimalSubmitting] = useState(false);
 
-  // task fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  // только 1 компетенция (как в UI)
   const [competency, setCompetency] = useState<string>("");
 
   const [startDate, setStartDate] = useState("");
@@ -86,7 +80,6 @@ export default function TaskNewPage() {
   const [district, setDistrict] = useState<string>("");
   const [volunteersNeeded, setVolunteersNeeded] = useState<number>(1);
 
-  // refs for pickers
   const startDateRef = useRef<HTMLInputElement | null>(null);
   const startTimeRef = useRef<HTMLInputElement | null>(null);
   const endDateRef = useRef<HTMLInputElement | null>(null);
@@ -106,7 +99,6 @@ export default function TaskNewPage() {
     setAnimals(res.animals);
   };
 
-  // init
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -133,7 +125,6 @@ export default function TaskNewPage() {
 
         await loadAnimals();
 
-        // defaults
         setAnimalsOpen(false);
         setSelectedAnimalId(null);
         setSelectedAnimalFull(null);
@@ -155,7 +146,6 @@ export default function TaskNewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // load full animal for selected (meta line)
   useEffect(() => {
     if (!selectedAnimalId) {
       setSelectedAnimalFull(null);
@@ -172,7 +162,6 @@ export default function TaskNewPage() {
     })();
   }, [selectedAnimalId]);
 
-  // cleanup preview objectURL
   useEffect(() => {
     return () => {
       if (animalPreviewUrl && animalPreviewUrl.startsWith("blob:")) {
@@ -183,7 +172,6 @@ export default function TaskNewPage() {
 
   const onCancel = () => router.back();
 
-  // ===== create animal inside task =====
   const resetAnimalDraft = () => {
     if (animalPreviewUrl && animalPreviewUrl.startsWith("blob:")) {
       URL.revokeObjectURL(animalPreviewUrl);
@@ -223,7 +211,6 @@ export default function TaskNewPage() {
     if (isTooLarge(file)) {
       setAnimalPhotoFile(null);
       setAnimalPhotoError("Файл не должен превышать 5 MB. Выберите другое фото.");
-      // сброс, чтобы можно было выбрать тот же файл после сжатия
       e.target.value = "";
       return;
     }
@@ -246,7 +233,6 @@ export default function TaskNewPage() {
 
     setAnimalSubmitting(true);
     try {
-      // ✅ bridge: история + особые потребности сохраняются в specialNeeds
       const packedSpecialNeeds = packAnimalSpecialNeeds({
         history: anHistory,
         specialNeeds: anNeeds,
@@ -275,7 +261,6 @@ export default function TaskNewPage() {
     }
   };
 
-  // ===== submit create task =====
   const onSubmitTask: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     if (savingTask) return;
@@ -345,7 +330,6 @@ export default function TaskNewPage() {
     );
   }
 
-  // ===== create animal screen =====
   if (createAnimalOpen) {
     return (
       <div
@@ -522,7 +506,6 @@ export default function TaskNewPage() {
     );
   }
 
-  // ===== main create task screen =====
   return (
     <div
       className={overlay.overlay}

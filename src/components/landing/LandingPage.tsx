@@ -14,8 +14,6 @@ import { NewsItem } from "@/src/components/features/NewsItem";
 import { getAccessToken } from "@/src/lib/tokenStorage";
 
 function subscribeAuth(cb: () => void) {
-  // storage — обновление, если токен изменился в другом табе
-  // focus — чтобы подхватывать актуальный токен при возврате на вкладку
   window.addEventListener("storage", cb);
   window.addEventListener("focus", cb);
   return () => {
@@ -100,8 +98,7 @@ export function LandingPage() {
                   <img src="/images/кися.svg" alt="Иллюстрация кошки" />
                 </div>
 
-                {/* ✅ Как ты просил:
-                    - гость: "Войти" (кликабельная)
+                {/* - гость: "Войти" (кликабельная)
                     - авторизован: "Так держать!" (некликабельная)
                     - визуал тот же, ширина фиксированная */}
                 {!authed ? (
@@ -126,8 +123,7 @@ export function LandingPage() {
           <div className={s.container}>
             <div className={s.galleryInner}>
               <div className={s.galleryHeader}>
-                {/* ✅ Как ты просил:
-                    - гость: 2 кнопки
+                {/* - гость: 2 кнопки
                     - авторизован: вместо кнопок текст */}
                 {!authed ? (
                   <>

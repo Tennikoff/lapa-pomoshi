@@ -54,7 +54,6 @@ export default function RegisterPage() {
         role: ROLE_TO_API[values.role],
       });
 
-      // ✅ Передаём ФИО дальше через query (без localStorage)
       const email = encodeURIComponent(values.email.trim());
       const fio = encodeURIComponent(values.fio.trim());
 

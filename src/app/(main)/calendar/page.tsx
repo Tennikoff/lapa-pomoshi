@@ -1,4 +1,3 @@
-// src/app/(main)/calendar/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -17,7 +16,6 @@ import tasksFeedStyles from "@/src/app/(main)/tasks/tasks.module.css";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 
-// limits
 const PAGE_SIZE = 50;
 const MAX_TOTAL = 500;
 
@@ -101,15 +99,14 @@ function getMonthEnd(current: Date) {
   return new Date(current.getFullYear(), current.getMonth() + 1, 0);
 }
 
-// Пн=0 ... Вс=6
 function mondayIndex(jsDay: number) {
   return (jsDay + 6) % 7;
 }
 
 type TaskRange = {
   task: HelpTaskDto;
-  startKey: string; // YYYY-MM-DD
-  endKey: string; // YYYY-MM-DD
+  startKey: string;
+  endKey: string;
 };
 
 async function loadAllMyTasks(isOrg: boolean): Promise<HelpTaskDto[]> {
@@ -133,7 +130,6 @@ async function loadAllMyTasks(isOrg: boolean): Promise<HelpTaskDto[]> {
   return all.slice(0, MAX_TOTAL);
 }
 
-// CSS vars from tasks.module.css to make TaskCard look identical
 type TaskVars = CSSProperties & {
   ["--color-bg-page"]?: string;
   ["--color-bg-card"]?: string;
@@ -194,21 +190,16 @@ export default function CalendarPage() {
     }
   };
 
-  // init
   useEffect(() => {
     reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // auto reload on tasks change
   useEffect(() => {
     const onChanged = () => reload({ silent: true });
     window.addEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // keep selectedDay inside currentMonth
   useEffect(() => {
     const ms = startOfDayLocal(getMonthStart(currentMonth));
     const me = startOfDayLocal(getMonthEnd(currentMonth));
@@ -217,7 +208,6 @@ export default function CalendarPage() {
     if (sel < ms || sel > me) {
       setSelectedDay(ms);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth]);
 
   const monthStart = useMemo(
@@ -230,9 +220,6 @@ export default function CalendarPage() {
     [currentMonth]
   );
 
-  // normalize tasks into key-ranges:
-  // - fosters: keys from ISO in UTC (чтобы не сдвигалось)
-  // - tasks with time: keys from ISO in local
   const ranges: TaskRange[] = useMemo(() => {
     const out: TaskRange[] = [];
 
@@ -254,7 +241,6 @@ export default function CalendarPage() {
     return out;
   }, [items]);
 
-  // set of days in current month to highlight
   const monthEventDays = useMemo(() => {
     const set = new Set<string>();
 
@@ -274,7 +260,6 @@ export default function CalendarPage() {
     return set;
   }, [ranges, monthStart, monthEnd]);
 
-  // tasks for selected day
   const tasksForSelectedDay = useMemo(() => {
     const selKey = dayKeyLocal(selectedDay);
 
@@ -286,7 +271,6 @@ export default function CalendarPage() {
     return list;
   }, [ranges, selectedDay]);
 
-  // calendar cells (6 weeks)
   const calendarCells = useMemo(() => {
     const y = currentMonth.getFullYear();
     const m = currentMonth.getMonth();

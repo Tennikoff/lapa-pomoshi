@@ -11,7 +11,6 @@
   text-align: center;
 }
 
-/* Header блока профиля (аватар + имя + роль + выйти) */
 .profileHeader {
   display: flex;
   align-items: center;
@@ -62,7 +61,6 @@
   background-color: #dda693;
 }
 
-/* Sections */
 .section {
   margin-bottom: 40px;
 }
@@ -80,7 +78,6 @@
   margin-bottom: 10px;
 }
 
-/* Tags */
 .tagsWrapper {
   display: flex;
   flex-wrap: wrap;
@@ -97,7 +94,6 @@
   font-weight: 500;
 }
 
-/* Pets */
 .petsGrid {
   display: flex;
   justify-content: center;
@@ -177,10 +173,9 @@
 }
 
 .starsEmpty {
-  color: rgba(255, 184, 0, 0.37); /* как невыделенные звезды в "оставить отзыв" */
+  color: rgba(255, 184, 0, 0.37);
 }
 
-/* Строка рейтинга (звёзды + текст справа) */
 .ratingRow {
   display: flex;
   justify-content: center;
@@ -214,7 +209,7 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
-  justify-content: space-between; /* ✅ дата уйдёт вправо */
+  justify-content: space-between;
 }
 
 .reviewHeaderLeft {
@@ -234,8 +229,8 @@
 
 .reviewStars {
   color: #ffb800;
-  font-size: 18px;   /* было 14px */
-  letter-spacing: 1px; /* опционально, чтобы выглядело аккуратно */
+  font-size: 18px;
+  letter-spacing: 1px;
   line-height: 1;
 }
 
@@ -267,7 +262,6 @@
   text-decoration: underline;
 }
 
-/* Big button */
 .btnLarge {
   display: block;
   width: 100%;
@@ -323,19 +317,19 @@
 .petTrashIcon {
   width: 18px;
   height: 18px;
-  color: #ffffff; /* белая мусорка */
+  color: #ffffff;
 }
 
 .contactDetails {
   display: flex;
   flex-direction: column;
-  align-items: center;   /* центр по горизонтали */
+  align-items: center;
   gap: 6px;
-  text-align: center;    /* центр текста */
+  text-align: center;
 }
 
 .contactRow {
-  margin: 0;             /* чтобы строки не разъезжались */
+  margin: 0;
   font-size: 14px;
   line-height: 1.6;
 }
@@ -362,14 +356,12 @@
   gap: 28px;
   margin-top: 4px;
 
-  /* ✅ важно для flex-wrap: занимает целую строку */
   flex: 0 0 100%;
   width: 100%;
 }
 
-/* Экран "не авторизован" по центру */
 .centerScreen {
-  min-height: calc(100vh - 220px); /* можно подстроить под высоту header/footer */
+  min-height: calc(100vh - 220px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -382,17 +374,14 @@
   max-width: 420px;
   text-align: center;
 
-  /* ✅регулируй отступ кнопки от текста здесь */
   --login-btn-gap: 24px;
 }
 
-/* Кнопка ниже текста + свой отступ (перебивает margin у btnLarge) */
 .btnLogin {
   max-width: 260px;
   margin: var(--login-btn-gap) auto 0;
 }
 
-/* ===== Reviews: trash button (как у питомцев, но адаптировано под отзывы) ===== */
 .reviewHeaderRight {
   display: flex;
   align-items: center;

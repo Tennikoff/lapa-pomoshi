@@ -10,7 +10,6 @@ export const organizationsApi = {
     return res as OrganizationProfileDto;
   },
 
-  // JSON PATCH (как раньше)
   patchProfile: async (
     dto: Partial<OrganizationProfileDto>
   ): Promise<OrganizationProfileDto> => {
@@ -22,7 +21,6 @@ export const organizationsApi = {
     return res as OrganizationProfileDto;
   },
 
-  // ✅ multipart PATCH: загрузка фото профиля организации
   patchProfilePhoto: async (photoFile: File): Promise<OrganizationProfileDto> => {
     const fd = new FormData();
     fd.append("photo", photoFile);

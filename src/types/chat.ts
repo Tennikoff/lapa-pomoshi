@@ -20,7 +20,7 @@ export type ChatMessageDto = {
   id: string;
   sender: ChatSenderDto;
   message: string;
-  createdAt: string; // ISO
+  createdAt: string;
   isNew: boolean;
 };
 

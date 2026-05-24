@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import styles from "./knowledge.module.css";
 
-// ✅ фильтры 1-в-1 как у волонтёра в /tasks
 import taskStyles from "@/src/app/(main)/tasks/tasks.module.css";
 
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
@@ -14,8 +13,8 @@ type OpenDrop = null | "type" | "theme";
 
 type NormalizedArticle = {
   key: string;
-  typeId: number; // id из Dictionaries/animal-types (ед. число)
-  themeId: number; // id из Dictionaries/themes
+  typeId: number;
+  themeId: number;
   title: string;
   description: string;
   videoUrl?: string | null;
@@ -23,9 +22,8 @@ type NormalizedArticle = {
 
 const UI_LS_KEY = "lp_knowledge_ui_v3";
 
-// кеш всей медиатеки (1 загрузка на вход)
 const RB_ALL_CACHE_KEY = "lp_referenceBook_all_cache_v1";
-const RB_ALL_CACHE_TTL_MS = 30 * 60 * 1000; // 30 минут
+const RB_ALL_CACHE_TTL_MS = 30 * 60 * 1000;
 
 function canUseLS() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -46,7 +44,6 @@ function dedupeByKey(items: NormalizedArticle[]) {
   return Array.from(map.values());
 }
 
-// ✅ если кеш пустой — считаем его битым и игнорируем
 function readAllCache(): NormalizedArticle[] | null {
   if (!canUseLS()) return null;
 
@@ -55,11 +52,9 @@ function readAllCache(): NormalizedArticle[] | null {
   if (Date.now() - cached.savedAt > RB_ALL_CACHE_TTL_MS) return null;
 
   if (!cached.items.length) {
-    // защищаемся от "закешировали пустоту и всё пропало"
     try {
       localStorage.removeItem(RB_ALL_CACHE_KEY);
     } catch {
-      // ignore
     }
     return null;
   }
@@ -69,16 +64,14 @@ function readAllCache(): NormalizedArticle[] | null {
 
 function writeAllCache(items: NormalizedArticle[]) {
   if (!canUseLS()) return;
-  if (!items.length) return; // ✅ не кешируем пустоту
+  if (!items.length) return;
 
   try {
     localStorage.setItem(RB_ALL_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), items }));
   } catch {
-    // ignore
   }
 }
 
-// CSS vars из tasks.module.css (.page) — чтобы lavender-стили совпали
 type TaskVars = CSSProperties & {
   ["--color-bg-page"]?: string;
   ["--color-bg-card"]?: string;
@@ -103,7 +96,6 @@ const TASK_VARS: TaskVars = {
   ["--color-border"]: "#dee2e6",
 };
 
-// ✅ простой лимитер параллелизма (без библиотек)
 async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T, idx: number) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let nextIndex = 0;
@@ -128,29 +120,23 @@ export default function KnowledgePage() {
 
   const [open, setOpen] = useState<OpenDrop>(null);
 
-  // dictionaries
   const [themes, setThemes] = useState<DictionaryItemDto[]>([]);
-  const [prefs, setPrefs] = useState<DictionaryItemDto[]>([]); // preferences: мн. число (UI)
-  const [animalTypes, setAnimalTypes] = useState<DictionaryItemDto[]>([]); // animal-types: ед. число (ReferenceBook)
+  const [prefs, setPrefs] = useState<DictionaryItemDto[]>([]);
+  const [animalTypes, setAnimalTypes] = useState<DictionaryItemDto[]>([]);
 
-  // filters (по ID); пусто => показываем ВСЮ медиатеку
   const [selectedPrefIds, setSelectedPrefIds] = useState<number[]>([]);
   const [selectedThemeIds, setSelectedThemeIds] = useState<number[]>([]);
 
   const hasFilters = selectedPrefIds.length > 0 || selectedThemeIds.length > 0;
 
-  // sidebar navigation + flash highlight
   const [activeThemeId, setActiveThemeId] = useState<number | null>(null);
   const [flashThemeId, setFlashThemeId] = useState<number | null>(null);
   const flashTimerRef = useRef<number | null>(null);
 
-  // ALL articles (после 1 загрузки)
   const [allArticles, setAllArticles] = useState<NormalizedArticle[]>([]);
 
-  // opened article
   const [activeArticleKey, setActiveArticleKey] = useState<string | null>(null);
 
-  // restore UI from localStorage
   useEffect(() => {
     if (!canUseLS()) return;
 
@@ -169,7 +155,6 @@ export default function KnowledgePage() {
     if (typeof ui.activeArticleKey === "string" || ui.activeArticleKey === null) setActiveArticleKey(ui.activeArticleKey);
   }, []);
 
-  // persist UI to localStorage
   useEffect(() => {
     if (!canUseLS()) return;
 
@@ -184,7 +169,6 @@ export default function KnowledgePage() {
     );
   }, [activeArticleKey, activeThemeId, selectedPrefIds, selectedThemeIds]);
 
-  // close dropdowns on outside click / esc
   useEffect(() => {
     if (!open) return;
 
@@ -207,7 +191,6 @@ export default function KnowledgePage() {
     };
   }, [open]);
 
-  // load dictionaries
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -236,7 +219,6 @@ export default function KnowledgePage() {
     })();
   }, []);
 
-  // load ALL articles once
   useEffect(() => {
     (async () => {
       if (!themes.length || !animalTypes.length) return;
@@ -259,8 +241,8 @@ export default function KnowledgePage() {
         const results = await mapWithConcurrency(combos, CONCURRENCY, async ({ type, theme }) => {
           try {
             const res = await referenceBookApi.listByNames({
-              animalType: type.name, // "Кошка"
-              theme: theme.name, // "Кормление"
+              animalType: type.name,
+              theme: theme.name,
             });
 
             return res
@@ -282,7 +264,6 @@ export default function KnowledgePage() {
               })
               .filter(Boolean) as NormalizedArticle[];
           } catch (e) {
-            // 400 для конкретной комбинации — норма (нет статьи)
             if (e instanceof ApiError && e.status === 400) return [];
             throw e;
           }
@@ -292,7 +273,6 @@ export default function KnowledgePage() {
         const normalized = dedupeByKey(merged);
 
         if (!normalized.length) {
-          // здесь уже реально "ничего не загрузили" — это ошибка окружения/доступа
           setErrorText("Не удалось загрузить статьи медиатеки (получили 0 статей). Проверь доступность /api/ReferenceBook.");
           setAllArticles([]);
           return;
@@ -312,14 +292,12 @@ export default function KnowledgePage() {
     })();
   }, [themes.length, animalTypes.length]);
 
-  // sidebar themes: если фильтр тем выбран — показываем только их, иначе все
   const sidebarThemes = useMemo(() => {
     if (!selectedThemeIds.length) return themes;
     const set = new Set(selectedThemeIds);
     return themes.filter((x) => set.has(x.id));
   }, [selectedThemeIds, themes]);
 
-  // local filtering
   const filteredArticles = useMemo(() => {
     let out = allArticles;
 
@@ -546,7 +524,6 @@ export default function KnowledgePage() {
                         ))}
                       </div>
                     ) : (
-                      // ✅ как ты просил: под каждой темой, если статей реально нет
                       <p className={styles.muted} style={{ marginTop: 10 }}>
                         По выбранным фильтрам статей нет.
                       </p>

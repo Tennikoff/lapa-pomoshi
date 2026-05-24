@@ -1,14 +1,14 @@
 export type ResponseSenderDto = {
-  id: string; // uuid
+  id: string;
   name: string;
 };
 
 export type ResponseDto = {
-  id: string; // uuid
+  id: string;
   sender: ResponseSenderDto;
-  taskId: string; // uuid
+  taskId: string;
   taskTitle: string;
-  status: string; // "На рассмотрении" и т.п.
+  status: string;
 };
 
 export type ResponsesListDto = {

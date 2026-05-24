@@ -34,7 +34,6 @@
   margin-bottom: 26px;
 }
 
-/* Заголовки секций */
 .sectionTitle {
   font-size: 18px;
   font-weight: 500;
@@ -42,7 +41,6 @@
   color: #333;
 }
 
-/* базовые поля */
 .input {
   width: 100%;
   height: 48px;
@@ -82,17 +80,16 @@
   margin-bottom: 8px;
 }
 
-/* ===== ЖИВОТНОЕ: 2 кнопки в одну строку, одинаковой ширины, до краёв как input ===== */
 .animalActions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;              /* ✅ тот же gap */
-  width: 100%;            /* ✅ до границ как поля */
-  margin-bottom: 14px;    /* как было */
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 14px;
 }
 
 .animalActionBtn {
-  width: 100%;            /* ✅ одинаковая ширина */
+  width: 100%;
   background: #d9c4ec;
   color: #333;
   border: none;
@@ -108,14 +105,12 @@
   background: #cfb8e8;
 }
 
-/* на узких экранах — кнопки в столбик */
 @media (max-width: 720px) {
   .animalActions {
     grid-template-columns: 1fr;
   }
 }
 
-/* ЖИВОТНЫЕ */
 .emptyNote {
   background: #f0f2f5;
   border-radius: 16px;
@@ -124,7 +119,6 @@
   font-size: 14px;
 }
 
-/* scroll контейнер */
 .animalsScroller {
   padding: 10px 16px 14px;
   overflow-x: auto;
@@ -180,7 +174,6 @@
   padding-bottom: 12px;
 }
 
-/* активная карточка */
 .animalCardActive::before {
   content: "";
   position: absolute;
@@ -202,7 +195,6 @@
   font-size: 13px;
 }
 
-/* Период передержки */
 .dateGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -250,12 +242,11 @@
   box-shadow: 0 0 0 2px rgba(0, 77, 122, 0.18);
 }
 
-/* Районы/Компетенции */
 .tags {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  justify-content: flex-start; /* ✅ центр для компетенций и локаций */
+  justify-content: flex-start;
 }
 
 .tag {
@@ -333,7 +324,6 @@
   }
 }
 
-/* ===== TASK NEW: time grid (дата+время) ===== */
 .timeGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;

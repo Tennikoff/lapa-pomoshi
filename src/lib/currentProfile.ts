@@ -10,7 +10,6 @@ export async function fetchCurrentProfile(): Promise<ProfileDto | null> {
 
   let p: ProfileDto;
 
-  // 1) Базовый профиль (критично)
   try {
     const res = await apiFetch("/api/Users/profile", {
       headers: { Authorization: `Bearer ${token}` },
@@ -21,7 +20,6 @@ export async function fetchCurrentProfile(): Promise<ProfileDto | null> {
     return null;
   }
 
-  // 2) Расширение для организации (НЕ критично)
   if (isOrgRole(p.role)) {
     try {
       const org = await organizationsApi.getProfile();

@@ -1,30 +1,30 @@
 export type HelpTaskCreatorDto = {
-  id: string; // uuid
+  id: string;
   name: string;
 };
 
 export type HelpTaskAnimalDto = {
-  id: string; // uuid
+  id: string;
   name: string;
   photoUrl: string | null;
 };
 
 export type HelpTaskWorkerDto = {
-  id: string; // uuid
+  id: string;
   name: string;
 };
 
 export type HelpTaskDto = {
-  id: string; // uuid
+  id: string;
   title: string;
   description: string;
   requiredVolunteers: number;
   countResponses: number;
   isTaskOverexposure: boolean;
 
-  startedAt: string; // ISO
-  endedAt: string;   // ISO
-  createdAt: string; // ISO
+  startedAt: string;
+  endedAt: string;
+  createdAt: string;
 
   creator: HelpTaskCreatorDto;
 
@@ -32,7 +32,7 @@ export type HelpTaskDto = {
   competencies: string[];
   locations: string[];
 
-  workers: HelpTaskWorkerDto[]; // в твоём ответе [], значит массив
+  workers: HelpTaskWorkerDto[];
 };
 
 export type HelpTasksListDto = {
@@ -48,8 +48,8 @@ export type CreateHelpTaskDto = {
   description: string;
   requiredVolunteers: number;
   isTaskOverexposure: boolean;
-  startedAt: string; // ISO date-time
-  endedAt: string;   // ISO date-time
+  startedAt: string;
+  endedAt: string;
   animalIds?: string[] | null;
   competencies?: string[] | null;
   locations?: string[] | null;

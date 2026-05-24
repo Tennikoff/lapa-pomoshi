@@ -2,12 +2,12 @@ import { apiFetch } from "@/src/lib/api/http";
 import { authHeaders } from "@/src/lib/api/authHeaders";
 
 export type AnimalOwnerDto = {
-  id: string; // uuid
+  id: string;
   name: string;
 };
 
 export type AnimalDto = {
-  id: string; // uuid
+  id: string;
   animalType: string;
   breed: string | null;
   name: string;
@@ -20,7 +20,7 @@ export type AnimalDto = {
 };
 
 export type AnimalListItemDto = {
-  id: string; // uuid
+  id: string;
   name: string;
   photoUrl: string | null;
 };
@@ -32,10 +32,6 @@ export type AnimalsMyResponseDto = {
   hasMore: boolean;
 };
 
-/**
- * DTO для создания/обновления (JSON).
- * ВАЖНО: age на бэке number (Int16?), но формы часто дают string.
- */
 export type CreateAnimalDto = {
   animalType: string;
   name: string;
@@ -45,8 +41,6 @@ export type CreateAnimalDto = {
   character?: string | null;
   specialNeeds?: string | null;
 
-  // ⚠️ photoUrl JSON бэк сейчас не сохраняет (по тестам).
-  // Оставляем в типе только для совместимости/будущего, но в UI больше не используем.
   photoUrl?: string | null;
 };
 
@@ -91,17 +85,12 @@ function normalizeUpdateDto(dto: UpdateAnimalDto): UpdateAnimalDto {
   };
 }
 
-/**
- * ВАЖНО: бэк сохраняет фото, если файл отправить через multipart/form-data с ключом "photo"
- * (это подтверждено тестом в swagger-консоли).
- */
 function buildAnimalFormData(dto: CreateAnimalDto | UpdateAnimalDto, photoFile: File) {
   const fd = new FormData();
 
-  // кладём только заданные поля (undefined не отправляем)
   const put = (key: string, value: unknown) => {
     if (value === undefined) return;
-    if (value === null) return; // null не кладём в form-data
+    if (value === null) return;
     if (typeof value === "string") {
       const t = value.trim();
       if (!t) return;
@@ -111,7 +100,6 @@ function buildAnimalFormData(dto: CreateAnimalDto | UpdateAnimalDto, photoFile: 
     fd.append(key, String(value));
   };
 
-  // в form-data ключи должны совпасть с DTO на бэке
   put("animalType", (dto as CreateAnimalDto).animalType);
   put("name", (dto as CreateAnimalDto).name);
   put("breed", (dto as CreateAnimalDto).breed);
@@ -120,7 +108,6 @@ function buildAnimalFormData(dto: CreateAnimalDto | UpdateAnimalDto, photoFile: 
   put("character", (dto as CreateAnimalDto).character);
   put("specialNeeds", (dto as CreateAnimalDto).specialNeeds);
 
-  // ✅ ключ файла: "photo"
   fd.append("photo", photoFile);
 
   return fd;
@@ -139,7 +126,6 @@ export const animalsApi = {
     return res as AnimalDto;
   },
 
-  // JSON create (без фото)
   create: async (dto: CreateAnimalDto): Promise<AnimalDto> => {
     const bodyDto = normalizeCreateDto(dto);
     const res = await apiFetch("/api/Animals", {
@@ -150,21 +136,20 @@ export const animalsApi = {
     return res as AnimalDto;
   },
 
-  // multipart create (с фото)
   createWithPhoto: async (dto: CreateAnimalDto, photoFile: File): Promise<AnimalDto> => {
     const bodyDto = normalizeCreateDto(dto);
     const fd = buildAnimalFormData(bodyDto, photoFile);
 
     const res = await apiFetch("/api/Animals", {
       method: "POST",
-      headers: authHeaders(), // НЕ ставим Content-Type вручную
+      headers: authHeaders(),
       body: fd,
     });
 
     return res as AnimalDto;
   },
 
-  // JSON patch (без фото)
+
   patch: async (animalId: string, dto: UpdateAnimalDto): Promise<AnimalDto> => {
     const bodyDto = normalizeUpdateDto(dto);
     const res = await apiFetch(`/api/Animals/${animalId}`, {
@@ -175,14 +160,13 @@ export const animalsApi = {
     return res as AnimalDto;
   },
 
-  // multipart patch (с фото)
   patchWithPhoto: async (animalId: string, dto: UpdateAnimalDto, photoFile: File): Promise<AnimalDto> => {
     const bodyDto = normalizeUpdateDto(dto);
     const fd = buildAnimalFormData(bodyDto, photoFile);
 
     const res = await apiFetch(`/api/Animals/${animalId}`, {
       method: "PATCH",
-      headers: authHeaders(), // НЕ ставим Content-Type вручную
+      headers: authHeaders(),
       body: fd,
     });
 

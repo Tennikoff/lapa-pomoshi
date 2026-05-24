@@ -36,7 +36,6 @@ function toggle(list: string[], value: string) {
   return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
 }
 
-// single location (волонтёр и организация)
 function toggleSingle(list: string[], value: string) {
   return list[0] === value ? [] : [value];
 }
@@ -73,13 +72,11 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
 
-  // avatar
   const [avatarUrl, setAvatarUrlState] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
-  // volunteer state
   const [about, setAbout] = useState("");
   const [competencies, setCompetencies] = useState<string[]>([]);
   const [availability, setAvailability] = useState<string[]>([]);
@@ -87,7 +84,6 @@ export default function EditProfilePage() {
   const [prefInteraction, setPrefInteraction] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]); // 0..1
 
-  // org state
   const [orgAbout, setOrgAbout] = useState("");
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
@@ -104,7 +100,6 @@ export default function EditProfilePage() {
         setProfile(p);
         if (!p) return;
 
-        // ✅ берём аватар из API
         setAvatarUrlState(p.photoUrl ?? null);
 
         const org = isOrgRole(p.role);
@@ -144,7 +139,6 @@ export default function EditProfilePage() {
     })();
   }, []);
 
-  // close action sheet
   useEffect(() => {
     if (!sheetOpen) return;
 
@@ -192,7 +186,6 @@ export default function EditProfilePage() {
     setSheetOpen(false);
 
     try {
-      // попробуем удалить на сервере (если бэк поддерживает)
       if (isOrgRole(profile.role)) {
         const res = await organizationsApi.patchProfile({ photoUrl: null });
         setAvatarUrlState(res.photoUrl ?? null);
@@ -201,7 +194,6 @@ export default function EditProfilePage() {
         setAvatarUrlState(res.photoUrl ?? null);
       }
     } catch {
-      // если бэк не поддержит — не падаем
       setAvatarUrlState(null);
       alert("Не удалось удалить фото на сервере (возможно, бэк не поддерживает удаление).");
     }
@@ -210,18 +202,15 @@ export default function EditProfilePage() {
   const onFileSelected = async (file: File | undefined) => {
     if (!profile || !file) return;
 
-    // ✅ клиентская проверка размера
     if (file.size > MAX_PHOTO_BYTES) {
       alert("Файл не должен превышать 5 MB");
       return;
     }
 
-    // локальное превью сразу
     const objectUrl = URL.createObjectURL(file);
     setAvatarUrlState(objectUrl);
 
     try {
-      // ✅ загрузка на сервер (multipart, ключ photo)
       if (isOrgRole(profile.role)) {
         const res = await organizationsApi.patchProfilePhoto(file);
         setAvatarUrlState(res.photoUrl ?? null);
@@ -230,7 +219,6 @@ export default function EditProfilePage() {
         setAvatarUrlState(res.photoUrl ?? null);
       }
     } catch (e) {
-      // откат превью, если загрузка не удалась
       setAvatarUrlState(profile.photoUrl ?? null);
 
       let msg = "Не удалось загрузить фото профиля";
@@ -278,7 +266,6 @@ export default function EditProfilePage() {
         availabilities: safeAvailApi,
       });
 
-      // localStorage только для prefInteraction (и fallback)
       const payload: VolunteerExtra = {
         about,
         competencies,

@@ -19,7 +19,6 @@
   gap: 40px;
 }
 
-/* верхний блок */
 .profileInfo {
   display: flex;
   flex-direction: column;
@@ -27,14 +26,12 @@
   gap: 15px;
 }
 
-/* ===== AVATAR EDITOR ===== */
-/* контейнер под аватар + выпадающее окно */
 .avatarEditor {
-  position: relative; /* важно: actionSheet будет абсолютным */
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0; /* чтобы окно не "раздвигало" вертикально */
+  gap: 0;
 }
 
 .avatar {
@@ -58,9 +55,8 @@
   object-fit: cover;
 }
 
-/* "Сменить фото" — вот это и есть место, где двигать кнопку/лейбл */
 .avatarEditButton {
-  position: relative; /* можно поменять на absolute, см. ниже */
+  position: relative;
   z-index: 2;
 
   position: absolute;
@@ -68,7 +64,7 @@
   left: 48%;
   transform: translateX(-50%);
 
-  color: #ffffff;         /* один цвет */
+  color: #ffffff;
   font-size: 14px;
 
   display: inline-flex;
@@ -88,38 +84,32 @@
   fill: #ffffff;
 }
 
-/* Окно действий: маленькое, поверх, тень */
 .actionSheet {
   position: absolute;
-  top: calc(100% + 12px);  /* появляется под кружком */
+  top: calc(100% + 12px);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 50;             /* накладывается поверх остальных полей */
+  z-index: 50;
 
-  width: 250px;            /* примерно "полтора кружка" */
-  /* высота получится из кнопок; можно ограничить при желании: */
-  /* max-height: 220px; overflow: hidden; */
+  width: 250px;
 
-  background-color: #eef1f4; /* <-- ЦВЕТ ФОНА ОКНА МЕНЯЕТСЯ ЗДЕСЬ */
+  background-color: #eef1f4;
   border-radius: 20px;
 
-  /* маленькая, но заметная тень */
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
 
   overflow: hidden;
 }
 
-/* список кнопок — без разделителей */
 .actionsList {
   list-style: none;
   margin: 0;
-  padding: 8px; /* небольшой внутренний отступ */
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;     /* вместо "полос" — мягкие промежутки */
+  gap: 6px;
 }
 
-/* все кнопки одного цвета и без полос */
 .actionBtn {
   width: 100%;
   padding: 12px 12px;
@@ -128,8 +118,8 @@
   border: none;
 
   font-size: 16px;
-  font-weight: 600; /* один стиль, читаемо */
-  color: #0d283c;   /* <-- ОДИН ЦВЕТ ТЕКСТА */
+  font-weight: 600;
+  color: #0d283c;
 
   cursor: pointer;
   border-radius: 14px;
@@ -146,12 +136,10 @@
   background-color: rgba(13, 40, 60, 0.06);
 }
 
-/* delete тоже НЕ красный (один цвет текста) */
 .actionDelete {
   color: #0d283c;
 }
 
-/* "Отмена" — в том же окне, без отделения полосами */
 .cancelAction {
   margin-top: 0;
   padding: 0 8px 8px;
@@ -192,7 +180,6 @@
   font-weight: 500;
 }
 
-/* секции */
 .section {
   width: 100%;
   text-align: center;
@@ -205,7 +192,6 @@
   color: #06355e;
 }
 
-/* textarea */
 .textarea {
   width: 100%;
   min-height: 80px;
@@ -234,7 +220,6 @@
   font-weight: 400;
 }
 
-/* tags */
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -282,7 +267,6 @@
   border-color: #006aa2;
 }
 
-/* inputs (для контактов организации) */
 .field {
   width: 100%;
   text-align: left;
@@ -312,7 +296,6 @@
   box-shadow: 0 0 0 2px rgba(0, 77, 122, 0.18);
 }
 
-/* save */
 .saveButton {
   display: block;
   width: 100%;

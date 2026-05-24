@@ -19,7 +19,6 @@ async function getDictionary(path: string): Promise<DictionaryItemDto[]> {
     return res as DictionaryItemDto[];
   }
 
-  // на случай если бэк когда-то вернет { items: [...] }
   if (res && typeof res === "object") {
     const o = res as Record<string, unknown>;
     const items = o.items;

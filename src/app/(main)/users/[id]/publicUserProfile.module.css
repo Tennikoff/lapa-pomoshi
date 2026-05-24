@@ -1,4 +1,3 @@
-/* --- CSS Переменные для стилей --- */
 :root {
   --text-primary: #1A202C;
   --text-secondary: #4A5568;
@@ -10,7 +9,6 @@
   --star-color: #FBBF24;
 }
 
-/* --- Основной контейнер профиля --- */
 .profilePage {
   max-width: 700px;
   margin: 48px auto;
@@ -21,7 +19,6 @@
   color: var(--text-primary);
 }
 
-/* --- Верхний блок с аватаром и именем --- */
 .profileHeader {
   text-align: center;
 }
@@ -46,7 +43,6 @@
   margin: 0;
 }
 
-/* --- Секции профиля --- */
 .profileSection {
   text-align: center;
 }
@@ -87,7 +83,6 @@
   font-weight: 500;
 }
 
-/* --- Блок "Мои питомцы" --- */
 .petsGrid {
   display: flex;
   justify-content: center;
@@ -111,7 +106,6 @@
   font-weight: 600;
 }
 
-/* --- Рейтинг --- */
 .ratingDisplay {
   display: flex;
   align-items: center;
@@ -134,7 +128,6 @@
   color: var(--text-secondary);
 }
 
-/* --- Отзывы --- */
 .reviewsList {
   display: flex;
   flex-direction: column;

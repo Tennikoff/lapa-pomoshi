@@ -10,13 +10,11 @@
   padding: 0;
 }
 
-/* ===== Root / background ===== */
 .modalRoot {
   position: relative;
   min-height: 100vh;
 }
 
-/* Фон: главная страница */
 .modalBg {
   position: fixed;
   inset: 0;
@@ -24,7 +22,6 @@
   pointer-events: none;
 }
 
-/* Затемнение + блюр */
 .modalOverlay {
   position: fixed;
   inset: 0;
@@ -34,7 +31,6 @@
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* Подсветка элемента меню */
 .highlight {
   position: fixed;
   z-index: 2;
@@ -44,7 +40,6 @@
   pointer-events: none;
 }
 
-/* ===== Tooltip ===== */
 .tooltipWrapper {
   position: fixed;
   z-index: 3;
@@ -66,7 +61,6 @@
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-/* стрелка сверху */
 .tooltipBox::before {
   content: "";
   position: absolute;
@@ -89,14 +83,11 @@
   white-space: pre-line;
 }
 
-/* Шаг 1: заголовок строго в одну строку */
 .tooltipTitleNoWrap {
   white-space: nowrap;
-  /* чуть уменьшаем, чтобы влезало стабильнее */
   font-size: 24px;
 }
 
-/* На очень узких экранах уменьшаем ещё */
 @media (max-width: 420px) {
   .tooltipTitleNoWrap {
     font-size: 20px;
@@ -141,7 +132,6 @@
   color: #92a0ac;
 }
 
-/* "Назад" жирный как "Далее" */
 .tooltipButtonBack {
   color: #0d283c;
   font-weight: 700;

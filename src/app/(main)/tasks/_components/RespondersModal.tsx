@@ -9,7 +9,6 @@ import type { ResponseDto } from "@/src/types/response";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 
-// значения из справочника statuses
 const STATUS_PENDING = "На рассмотрении";
 const STATUS_ACCEPTED = "Принят";
 const STATUS_DECLINED = "Отклонен";
@@ -57,7 +56,6 @@ export function RespondersModal({
     return `Отклики: ${taskTitle.trim()}`;
   }, [taskTitle]);
 
-  // загрузка списка откликов
   useEffect(() => {
     if (!open) return;
     if (!taskId) return;
@@ -80,7 +78,6 @@ export function RespondersModal({
     })();
   }, [open, taskId]);
 
-  // закрытие по Escape
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -104,7 +101,6 @@ export function RespondersModal({
       const updated = await responsesApi.updateStatus(responseId, status);
       setItems((prev) => prev.map((x) => (x.id === responseId ? updated : x)));
 
-      // чтобы лента куратора обновила "Отклики: N"
       window.dispatchEvent(new Event(HELP_TASKS_CHANGED_EVENT));
     } catch (e) {
       let msg = "Не удалось обновить статус отклика";
@@ -162,7 +158,7 @@ export function RespondersModal({
                       href={`/users/${senderId}`}
                       className={styles.nameLink}
                       title={senderName}
-                      onClick={() => onClose()} // чтобы модалка точно закрылась при переходе
+                      onClick={() => onClose()}
                     >
                       {senderName}
                     </Link>

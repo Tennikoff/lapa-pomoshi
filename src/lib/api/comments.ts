@@ -12,7 +12,6 @@ async function fetchWithOptionalAuth(path: string): Promise<unknown> {
   try {
     return await apiFetch(path, { headers: authHeaders() });
   } catch (e) {
-    // иногда ручка может быть публичной; ретраим без auth
     if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
       return await apiFetch(path);
     }

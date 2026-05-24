@@ -1,15 +1,14 @@
-// src/types/comment.ts
 export type CommentSenderDto = {
-  id: string; // uuid
+  id: string;
   name: string;
 };
 
 export type CommentDto = {
-  id: string; // uuid
-  rating: number; // 1..5
+  id: string;
+  rating: number;
   description: string | null;
   sender: CommentSenderDto;
-  createdAt: string; // ISO
+  createdAt: string;
 };
 
 export type CommentsListDto = {
@@ -22,7 +21,7 @@ export type CommentsListDto = {
 export type CreateCommentDto = {
   rating: number;
   description?: string | null;
-  recipientId: string; // uuid
+  recipientId: string;
 };
 
 export type UpdateCommentDto = {

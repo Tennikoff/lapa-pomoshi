@@ -12,7 +12,6 @@
   flex-direction: column;
   gap: 18px;
 
-  /* чтобы t.tag (из tasks.module.css) имел такое же выделение */
   --color-tag-blue: #c3eaff;
 }
 
@@ -115,8 +114,6 @@
   text-align: center;
 }
 
-/* ====== FIX: статусы кнопки отклика должны ВСЕГДА побеждать "персиковый" фон actionBtn ======
-   + FIX: disabled не должен "тускнить" цвет, иначе жёлтый выглядит другим */
 .ctaPending {
   background-color: #fef08a !important;
 }

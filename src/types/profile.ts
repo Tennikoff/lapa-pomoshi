@@ -9,8 +9,6 @@ export type ProfileDto = {
   constantNeeds?: string[];
   latestPost?: unknown | null;
 
-  // по факту приходит строкой: "Организация" | "Волонтёр"
-  // но на всякий случай оставим number/string, т.к. в JWT встречается "2"
   role: string | number;
 
   age: number | null;
@@ -24,8 +22,8 @@ export type ProfileDto = {
   preferences: string[];
   availabilities: string[];
 
-  latestComments: unknown[]; // пока не типизируем, позже по try it out
-  latestAnimals: unknown[];  // пока не типизируем, позже по try it out
+  latestComments: unknown[];
+  latestAnimals: unknown[];
 
   sumRating: number;
   countRating: number;

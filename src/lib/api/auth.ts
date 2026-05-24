@@ -1,20 +1,17 @@
 import { apiFetch } from "./http";
 
 export type AuthLoginResponseDto = {
-  // org extras
   phone: string | null;
   website: string | null;
   donationDetails: string | null;
   latestPost: unknown | null;
   constantNeeds: string[];
 
-  // auth
   accessToken: string;
   tokenType: string;
   userId: string;
 
-  // common user
-  email?: string | null; // иногда может не приходить, но в профиле есть
+  email?: string | null;
   name: string;
   role: string | number;
 
@@ -23,7 +20,6 @@ export type AuthLoginResponseDto = {
   photoUrl: string | null;
   location: string | null;
 
-  // dashboard fields
   countTasks: number;
   latestComments: unknown[];
   latestAnimals: unknown[];

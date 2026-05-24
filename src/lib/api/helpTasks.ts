@@ -9,8 +9,8 @@ export type HelpTaskFeedParams = {
   preferences?: string[];
   availabilities?: string[];
   isTaskOverexposure?: boolean;
-  startedAfter?: string;  // ISO
-  startedBefore?: string; // ISO
+  startedAfter?: string;
+  startedBefore?: string;
   offset?: number;
   limit?: number;
 };
@@ -45,7 +45,7 @@ export const helpTasksApi = {
     const q = buildFeedQuery(params);
     const path = q ? `/api/HelpTasks/feed?${q}` : "/api/HelpTasks/feed";
     const res = await apiFetch(path, { headers: authHeaders() });
-    return res as HelpTasksListDto; // мы уже видели форму {tasks,offset,limit,hasMore}
+    return res as HelpTasksListDto;
   },
 
   /** GET /api/HelpTasks/my-created */

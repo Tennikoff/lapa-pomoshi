@@ -22,10 +22,8 @@ export default function RichiAnimalCardPage() {
   const onConfirmDelete = () => {
     setDeleteOpen(false);
 
-    // TODO: позже подключим реальное удаление через API
     alert("Карточка удалена (пока без API)");
 
-    // после удаления возвращаемся в профиль
     router.push("/profile");
   };
 

@@ -43,21 +43,21 @@ export default function ResetPasswordPage() {
 
   const canResend = timeLeft <= 0;
 
-  // --- Шаг 1: email ---
+  // Шаг 1: email
   const emailForm = useForm<ResetEmailFormValues>({
     resolver: zodResolver(resetEmailSchema),
     defaultValues: { email: "" },
     mode: "onBlur",
   });
 
-  // --- Шаг 2: code ---
+  // Шаг 2: code
   const codeForm = useForm<ResetCodeFormValues>({
     resolver: zodResolver(resetCodeSchema),
     defaultValues: { code: "" },
     mode: "onSubmit",
   });
 
-  // --- Шаг 3: new password ---
+  // Шаг 3: new password
   const passForm = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: "", password2: "" },
@@ -148,7 +148,7 @@ export default function ResetPasswordPage() {
     codeForm.clearErrors();
   };
 
-  // ===== submit шаг 2 =====
+  // submit шаг 2
   const onSubmitCode = async (values: ResetCodeFormValues) => {
     codeForm.clearErrors();
 
@@ -170,7 +170,7 @@ export default function ResetPasswordPage() {
     }
   };
 
-  // ===== resend на шаге 2 =====
+  // resend на шаге 2
   const onResend = async () => {
     if (!canResend) return;
 
@@ -179,7 +179,7 @@ export default function ResetPasswordPage() {
     setTimeLeft(59);
   };
 
-  // ===== submit шаг 3 =====
+  // submit шаг 3
   const onSubmitNewPassword = async (values: ResetPasswordFormValues) => {
     passForm.clearErrors();
 

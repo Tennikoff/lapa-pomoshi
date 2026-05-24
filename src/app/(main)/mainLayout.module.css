@@ -3,7 +3,6 @@
   display: flex;
   flex-direction: column;
 
-  /* ТЕ ЖЕ значения, что у блюра в auth */
   --modal-blur: 8px;
   --modal-dim: 0.06;
 }

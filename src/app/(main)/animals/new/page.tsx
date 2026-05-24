@@ -29,7 +29,6 @@ export default function NewAnimalPage() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // dropdown state: value that goes to API (singular: "Кошка", "Собака"...)
   const [animalTypeValue, setAnimalTypeValue] = useState<string>("");
 
   // cleanup objectURL
@@ -90,7 +89,6 @@ export default function NewAnimalPage() {
     const safeName = name || "Без имени";
     const age = ageRaw ? ageRaw : null;
 
-    // ✅ Упаковываем "историю" + "особые потребности" в specialNeeds (которое бэк реально хранит)
     const packedSpecialNeeds = packAnimalSpecialNeeds({
       history,
       specialNeeds: needs,
@@ -112,7 +110,7 @@ export default function NewAnimalPage() {
         age,
         health: health || null,
         character: character || null,
-        specialNeeds: packedSpecialNeeds, // <-- ключевой момент
+        specialNeeds: packedSpecialNeeds,
       };
 
       const created = photoFile

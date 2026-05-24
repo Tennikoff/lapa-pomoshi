@@ -9,7 +9,6 @@
   max-width: 760px;
   height: 44px;
 
-  /* близко к стилю отзывов (reviewItem) */
   background: #f0f2f5;
   border: 2px solid #d7dadd;
   border-radius: 12px;
@@ -31,5 +30,5 @@
 }
 
 .wrapBottom {
-  margin: 14px 0 0; /* тот же 14px, что раньше был снизу */
+  margin: 14px 0 0;
 }

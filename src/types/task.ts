@@ -20,14 +20,13 @@ export type Task = {
   title: string;
   description: string;
 
-  competencies: string[]; // COMPETENCIES
+  competencies: string[];
   city: string;
-  district: string; // DISTRICTS
+  district: string;
 
-  startAt: string | null; // ISO
-  endAt: string | null;   // ISO
+  startAt: string | null;
+  endAt: string | null;
 
-  // ВАЖНО: только id существующей карточки животного (или null)
   animalId: string | null;
 
   status: TaskStatus;

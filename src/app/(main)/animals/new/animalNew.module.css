@@ -90,7 +90,6 @@
   overflow: hidden;
   transition: background-color 0.2s;
 
-  /* ✅ нужно для крестика поверх */
   position: relative;
 }
 
@@ -126,7 +125,6 @@
   display: none;
 }
 
-/* ✅ Красный крестик поверх фото (когда файл не подходит) */
 .photoErrorBadge {
   position: absolute;
   top: 8px;
@@ -146,14 +144,12 @@
   pointer-events: none;
 }
 
-/* ✅ Предупреждение под фото — в стиле “выбрано: ...” */
 .photoWarning {
   margin: 10px 0 0;
   color: #6c757d;
   font-size: 13px;
 }
 
-/* Кнопки */
 .actions {
   display: flex;
   justify-content: center;
@@ -190,17 +186,16 @@
   line-height: 1;
 }
 
-/* ===== Header row for animals/new (крестик слева на уровне заголовка) ===== */
 .headerRow {
   display: grid;
-  grid-template-columns: 44px 1fr 44px; /* левая кнопка / заголовок / spacer */
-  align-items: start;                  /* ✅ верхние границы совпадают */
+  grid-template-columns: 44px 1fr 44px;
+  align-items: start;
   column-gap: 10px;
-  margin-bottom: 40px;                 /* вместо margin-bottom у title */
+  margin-bottom: 40px;
 }
 
 .titleInHeader {
-  margin: 0;                           /* перебиваем .title { margin: 0 0 40px } */
+  margin: 0;
 }
 
 .headerSpacer {
@@ -208,7 +203,6 @@
   height: 1px;
 }
 
-/* стиль крестика как у окна создания задач, но без absolute */
 .closeBtnTaskLike {
   background: none;
   border: none;
@@ -220,6 +214,6 @@
   cursor: pointer;
   line-height: 1;
 
-  justify-self: end; /* ✅ теперь по правому краю */
+  justify-self: end;
   transform: translateY(-4px);
 }

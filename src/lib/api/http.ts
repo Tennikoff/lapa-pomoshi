@@ -34,14 +34,6 @@ async function parseBody(res: Response) {
   }
 }
 
-/**
- * ВАЖНО:
- * Теперь apiFetch по умолчанию ходит на BACKEND (NEXT_PUBLIC_API_URL),
- * даже если path начинается с "/api/...".
- * Это нужно для режима "без прокси".
- *
- * Если нужно дернуть локальный Next route handler — используй обычный fetch("/api/...") напрямую.
- */
 export async function apiFetch(path: string, init?: RequestInit) {
   const isAbsolute = /^https?:\/\//i.test(path);
   const base = getBaseUrlOrNull();

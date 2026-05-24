@@ -1,4 +1,3 @@
-// src/app/(main)/tasks/foster/new/page.tsx
 "use client";
 
 import type { CSSProperties } from "react";
@@ -44,16 +43,13 @@ export default function FosterNewPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // dictionaries
   const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
 
-  // animals list
   const [animals, setAnimals] = useState<AnimalListItemDto[]>([]);
   const [animalsOpen, setAnimalsOpen] = useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
   const [selectedAnimalFull, setSelectedAnimalFull] = useState<AnimalDto | null>(null);
 
-  // create animal screen
   const [createAnimalOpen, setCreateAnimalOpen] = useState(false);
   const animalFileRef = useRef<HTMLInputElement | null>(null);
   const [animalPreviewUrl, setAnimalPreviewUrl] = useState<string | null>(null);
@@ -61,23 +57,21 @@ export default function FosterNewPage() {
   const [animalPhotoError, setAnimalPhotoError] = useState<string | null>(null);
 
   const [anName, setAnName] = useState("");
-  const [anType, setAnType] = useState(""); // animalType (ед. число)
+  const [anType, setAnType] = useState("");
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
-  const [anHistory, setAnHistory] = useState(""); // ✅ сохраняем через bridge
+  const [anHistory, setAnHistory] = useState("");
   const [anHealth, setAnHealth] = useState("");
   const [anCharacter, setAnCharacter] = useState("");
-  const [anNeeds, setAnNeeds] = useState(""); // ✅ сохраняем через bridge
+  const [anNeeds, setAnNeeds] = useState("");
   const [animalSubmitting, setAnimalSubmitting] = useState(false);
 
-  // foster fields
   const [title, setTitle] = useState("Запрос передержки");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [district, setDistrict] = useState<string>("");
 
-  // refs
   const startRef = useRef<HTMLInputElement | null>(null);
   const endRef = useRef<HTMLInputElement | null>(null);
 
@@ -95,7 +89,6 @@ export default function FosterNewPage() {
     setAnimals(res.animals);
   };
 
-  // init
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -106,7 +99,6 @@ export default function FosterNewPage() {
           return;
         }
 
-        // доступ только куратору/организации
         if (!isOrgRole(me.role)) {
           alert("Запрос передержки доступен только куратору/организации");
           router.replace("/tasks");
@@ -118,7 +110,6 @@ export default function FosterNewPage() {
 
         await loadAnimals();
 
-        // defaults
         setAnimalsOpen(false);
         setSelectedAnimalId(null);
         setSelectedAnimalFull(null);
@@ -135,7 +126,6 @@ export default function FosterNewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // load selected full animal
   useEffect(() => {
     if (!selectedAnimalId) {
       setSelectedAnimalFull(null);
@@ -152,7 +142,6 @@ export default function FosterNewPage() {
     })();
   }, [selectedAnimalId]);
 
-  // cleanup preview
   useEffect(() => {
     return () => {
       if (animalPreviewUrl && animalPreviewUrl.startsWith("blob:")) {
@@ -163,7 +152,6 @@ export default function FosterNewPage() {
 
   const onCancel = () => router.back();
 
-  // ===== create animal flow =====
   const resetAnimalDraft = () => {
     if (animalPreviewUrl && animalPreviewUrl.startsWith("blob:")) {
       URL.revokeObjectURL(animalPreviewUrl);
@@ -225,7 +213,6 @@ export default function FosterNewPage() {
 
     setAnimalSubmitting(true);
     try {
-      // ✅ bridge: история + особые потребности => specialNeeds
       const packedSpecialNeeds = packAnimalSpecialNeeds({
         history: anHistory,
         specialNeeds: anNeeds,
@@ -254,7 +241,6 @@ export default function FosterNewPage() {
     }
   };
 
-  // ===== submit foster =====
   const onSubmitFoster: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     if (saving) return;
@@ -316,7 +302,6 @@ export default function FosterNewPage() {
     );
   }
 
-  // ===== create animal screen =====
   if (createAnimalOpen) {
     return (
       <div
@@ -493,7 +478,6 @@ export default function FosterNewPage() {
     );
   }
 
-  // ===== main foster screen =====
   return (
     <div
       className={overlay.overlay}

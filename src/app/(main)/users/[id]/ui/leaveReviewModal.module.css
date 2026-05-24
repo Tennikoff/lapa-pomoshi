@@ -64,8 +64,8 @@
 .starsRow {
   display: flex;
   gap: 8px;
-  justify-content: center; /* <-- по центру */
-  width: 100%;            /* <-- чтобы центрирование работало относительно всей ширины */
+  justify-content: center;
+  width: 100%;
 }
 
 .starBtn {
@@ -85,7 +85,7 @@
 .starIcon {
   width: 32px;
   height: 32px;
-  color: #ffb800; /* как звёзды в profile.module.css */
+  color: #ffb800;
   transition: transform 0.08s ease;
 }
 
@@ -101,7 +101,7 @@
   width: 100%;
   min-height: 120px;
 
-  background: #e5eef7; /* как инпуты/текста в проекте */
+  background: #e5eef7;
   border: none;
   border-radius: 16px;
 

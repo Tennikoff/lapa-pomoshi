@@ -19,7 +19,6 @@ export function AuthAwareLink({
 
   useEffect(() => {
     const sync = () => setIsAuthed(Boolean(getAccessToken()));
-    // обновится после логина/логаута при возврате на вкладку
     window.addEventListener("focus", sync);
     window.addEventListener("storage", sync);
     return () => {

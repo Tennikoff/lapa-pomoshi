@@ -1,7 +1,3 @@
-/* =======================
-   MODAL over Landing
-   ======================= */
-
 .modalRoot {
   position: relative;
   min-height: 100vh;
@@ -43,10 +39,6 @@
   padding: 24px;
 }
 
-/* =======================
-   Auth Card styles
-   ======================= */
-
 .authWrap {
   position: relative;
   width: 480px;
@@ -54,7 +46,6 @@
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Arial, sans-serif;
 }
 
-/* оставляю класс, даже если вы его больше не используете в страницах */
 .authLabel {
   position: absolute;
   top: -24px;
@@ -67,7 +58,6 @@
   width: 480px;
   max-width: 100%;
 
-  /* ТВОЙ ГРАДИЕНТ */
   background: linear-gradient(135deg, #d5a9ff 0%, #e4c8ff 55%, #dec8ff 100%);
 
   border-radius: 26px;
@@ -84,11 +74,10 @@
   transition: padding 200ms ease;
 }
 
-/* Базовые размеры (карточка растягивается выше этих значений) */
 .authCardRegister { min-height: 645px; }
 .authCardLogin { min-height: 390px; }
 
-/* ---- VERIFY EMAIL (OTP) ---- */
+/* VERIFY EMAIL (OTP) */
 .authCardVerify {
   min-height: 320px;
 }
@@ -229,10 +218,6 @@
 }
 .forgotLink:hover { text-decoration: underline; }
 
-/* =======================
-   Errors (общие)
-   ======================= */
-
 .inputError {
   box-shadow: 0 0 0 2px rgba(180, 35, 24, 0.35) inset;
 }
@@ -260,15 +245,10 @@
   border: 1px solid rgba(180, 35, 24, 0.25);
 }
 
-/* Слот под ошибку соглашения (в register) */
 .termsErrorSlot {
-  min-height: 22px; /* настраиваешь высоту/резерв */
+  min-height: 22px;
   margin-top: -10px;
 }
-
-/* =======================
-   VERIFY EMAIL (OTP)
-   ======================= */
 
 .verifyTitle {
   text-align: center;
@@ -328,7 +308,6 @@
   display: flex;
   justify-content: flex-start;
 
-  /* настраиваемые отступы (если понадобятся) */
   padding-top: var(--otp-error-pt, 0px);
   padding-bottom: var(--otp-error-pb, 0px);
 
@@ -340,7 +319,6 @@
   margin-top: 0;
 }
 
-/* Если хочешь разные отступы под разные сообщения — настраивай тут */
 .otpErrorExpired {
   --otp-error-pt: 6px;   /* отступ сверху */
   --otp-error-pb: 10px;  /* отступ снизу */
@@ -389,7 +367,6 @@
   margin-left: 0;
 }
 
-/* Твои подстройки положения на verify */
 .authCardVerify .resendInfo {
   margin-top: -4px;
   margin-bottom: 10px;
@@ -401,13 +378,11 @@
 
 /* Меньшая карточка ТОЛЬКО для успеха */
 .authCardVerifySuccess {
-  min-height: 190px; /* <-- уменьшаешь/увеличиваешь тут */
-  padding-top: 22px; /* опционально */
-  padding-bottom: 22px; /* опционально */
+  min-height: 190px;
+  padding-top: 22px;
+  padding-bottom: 22px;
 }
 
-/* На низких экранах — карточки будут auto по высоте благодаря height:auto;
-   но max-height уже ограничивает */
 @media (max-height: 760px) {
   .authCardRegister,
   .authCardLogin,
@@ -416,37 +391,33 @@
   }
 }
 
-/* ---- RESET PASSWORD ---- */
 .authCardReset {
-  min-height: 360px; /* базовый размер окна восстановления */
+  min-height: 360px;
 }
 
 .authCardResetSuccess {
-  min-height: 190px; /* компактный success, как у verify-success */
+  min-height: 190px;
   padding-top: 22px;
   padding-bottom: 22px;
 }
 
-/* RESET PASSWORD: отдельные размеры под шаги (чтобы настраивать) */
 .authCardResetStep1 {
-  min-height: 300px; /* <-- РЕГУЛИРУЕШЬ высоту окна шага 1 */
+  min-height: 300px;
 }
 
 .authCardResetStep2 {
-  min-height: 320px; /* <-- РЕГУЛИРУЕШЬ высоту окна шага 2 */
+  min-height: 320px;
 }
 
-/* Положение "Не пришло письмо?..." на шаге 2 */
 .authCardResetStep2 .resendInfo {
-  margin-top: -4px;   /* <-- РЕГУЛИРУЕШЬ: выше/ниже (например -10px / 0px / 6px) */
-  margin-bottom: 10px;/* <-- РЕГУЛИРУЕШЬ */
+  margin-top: -4px;
+  margin-bottom: 10px;
 }
 
-/* Положение кнопки "ПОДТВЕРДИТЬ" на шаге 2 */
 .authCardResetStep2 .btn {
-  margin-top: 6px;    /* <-- РЕГУЛИРУЕШЬ */
+  margin-top: 6px;
 }
 
 .authCardResetStep3 {
-  min-height: 360px; /* <-- РЕГУЛИРУЕШЬ высоту окна шага 3 (новый пароль) */
+  min-height: 360px;
 }

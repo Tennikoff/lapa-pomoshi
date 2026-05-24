@@ -1,4 +1,3 @@
-// src/app/(main)/users/[id]/ui/PublicReviewsSection.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -64,17 +63,14 @@ export function PublicReviewsSection({
   const [hasMore, setHasMore] = useState(false);
   const [reviewsExpanded, setReviewsExpanded] = useState(false);
 
-  // modal state (leave review)
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState<number>(0);
   const [hover, setHover] = useState<number>(0);
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // who am I? (needed for: hide "leave review on myself" + show trash on my reviews)
   const [myUserId, setMyUserId] = useState<string | null>(null);
 
-  // delete review dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -101,12 +97,10 @@ export function PublicReviewsSection({
     }
   }, [userId]);
 
-  // initial load (and when userId changes)
   useEffect(() => {
     load();
   }, [load]);
 
-  // ✅ back/forward cache
   useEffect(() => {
     if (!userId) return;
     const onPopState = () => load();
@@ -114,7 +108,6 @@ export function PublicReviewsSection({
     return () => window.removeEventListener("popstate", onPopState);
   }, [userId, load]);
 
-  // ✅ focus/visibility reload
   useEffect(() => {
     if (!userId) return;
 
@@ -131,7 +124,6 @@ export function PublicReviewsSection({
     };
   }, [userId, load]);
 
-  // ✅ determine myUserId whenever token exists (for trash visibility too)
   useEffect(() => {
     const token = getAccessToken();
     if (!token) {
@@ -152,7 +144,6 @@ export function PublicReviewsSection({
     setSubmitting(false);
   };
 
-  // ESC close (leave review modal)
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -206,10 +197,8 @@ export function PublicReviewsSection({
 
       close();
 
-      // 1) обновим список
       await load();
 
-      // 2) обновим SSR-часть страницы (/users/[id]) чтобы подтянулся рейтинг
       router.refresh();
     } catch (e2) {
       let msg = "Не удалось отправить отзыв";
@@ -221,7 +210,6 @@ export function PublicReviewsSection({
     }
   };
 
-  // ===== delete flow =====
   const onAskDelete = (commentId: string) => {
     setDeleteCommentId(commentId);
     setDeleteOpen(true);

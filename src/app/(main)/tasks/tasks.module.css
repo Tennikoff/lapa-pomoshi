@@ -17,7 +17,6 @@
   padding: 0 20px;
 }
 
-/* панель управления (как в твоём HTML) */
 .controlsPanel {
   display: flex;
   flex-wrap: wrap;
@@ -26,26 +25,21 @@
   margin-bottom: 25px;
 }
 
-/* ====== VOLUNTEER OVERRIDES ====== */
-/* Волонтёр: всё в одну строку (поиск + фильтры + сортировка) */
 .pageVolunteer .controlsPanel {
   flex-wrap: nowrap;
 }
 
-/* На узких экранах всё же разрешаем перенос */
 @media (max-width: 1200px) {
   .pageVolunteer .controlsPanel {
     flex-wrap: wrap;
   }
 }
 
-/* Волонтёр: поиск НЕ должен быть width:100% (ломает строку) */
 .pageVolunteer .searchInput {
   width: 260px;
   flex: 0 0 auto;
 }
 
-/* кнопки */
 .btn {
   padding: 14px 28px;
   border: none;
@@ -70,7 +64,6 @@
   color: #333;
 }
 
-/* ====== SEARCH + SORT ROW (для куратора второй строкой) ====== */
 .searchRow {
   display: flex;
   align-items: center;
@@ -78,7 +71,6 @@
   margin: 0 0 25px;
 }
 
-/* ✅ ДОБАВЛЕНО: отдельная строка для куратора (вторая строка как ты просил) */
 .searchRowCurator {
   display: flex;
   align-items: center;
@@ -86,7 +78,6 @@
   margin: 0 0 25px;
 }
 
-/* ЭТАЛОН: поиск (общий) */
 .searchInput {
   width: 100%;
   max-width: 260px;
@@ -98,13 +89,11 @@
   outline: none;
 }
 
-/* dropdown wrapper */
 .dropWrap {
   position: relative;
   display: inline-flex;
 }
 
-/* ЭТАЛОН: кнопка фильтра */
 .dropBtn {
   width: 292px;
   display: inline-flex;
@@ -112,7 +101,6 @@
   justify-content: center;
 }
 
-/* ЭТАЛОН: меню фильтра */
 .dropMenuLavender {
   position: absolute;
   top: calc(100% + 12px);
@@ -176,10 +164,9 @@
   transform: rotate(45deg);
 }
 
-/* sort (в строке поиска у куратора , в панели у волонтёра) */
 .sortWrap {
   position: relative;
-  margin-left: auto; /* упор вправо */
+  margin-left: auto;
 }
 
 .sortControl {
@@ -232,7 +219,6 @@
   background: rgba(13, 40, 60, 0.08);
 }
 
-/* sections */
 .tasksSection {
   margin-bottom: 40px;
 }
@@ -245,12 +231,10 @@
 
 .cardsGrid {
   display: grid;
-  /* ✅ как у передержек: влезает 3 карточки в ряд */
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 20px;
 }
 
-/* card base */
 .taskCard {
   background-color: var(--color-bg-card);
   border-radius: 20px;
@@ -304,14 +288,13 @@
 }
 
 .pageVolunteer .dropBtn {
-  width: 255px; /* ширина кнопок фильтров у волонтёра */
+  width: 255px;
 }
 
 .pageVolunteer .dropMenuLavender {
-  width: 255px; /* ширина выпадающего меню у волонтёра */
+  width: 255px;
 }
 
-/* ===== FOSTER CARD (новая сетка) ===== */
 .taskCardFoster {
   position: relative;
   display: grid;
@@ -346,15 +329,12 @@
   font-weight: 600;
   margin-bottom: 6px;
 
-  /* ✅ обрезка длинного заголовка */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 
-  /* ✅ чтобы текст не заходил под иконку редактирования (справа сверху) */
   padding-right: 44px;
 
-  /* ✅ важно для ellipsis в flex/grid-контейнерах */
   min-width: 0;
 }
 
@@ -413,12 +393,10 @@
   right: 14px;
 }
 
-/* Для "Мои передержки": хотим 3 карточки в ряд */
 .cardsGridFoster {
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
 }
 
-/* ===== TASK CARD (как foster, но с компетенциями) ===== */
 .taskCardTask {
   position: relative;
   display: grid;

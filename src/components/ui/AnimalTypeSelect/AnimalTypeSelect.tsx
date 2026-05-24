@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./AnimalTypeSelect.module.css";
 
 export type AnimalTypeOption = {
-  label: string; // то, что показываем в списке
-  value: string; // то, что отправляем в API/форму
+  label: string;
+  value: string;
 };
 
 export const ANIMAL_TYPE_OPTIONS: AnimalTypeOption[] = [
@@ -27,7 +27,7 @@ export function AnimalTypeSelect({
   options = ANIMAL_TYPE_OPTIONS,
 }: {
   name: string;
-  value: string; // API value
+  value: string;
   onChange: (nextValue: string) => void;
   placeholder?: string;
   options?: AnimalTypeOption[];

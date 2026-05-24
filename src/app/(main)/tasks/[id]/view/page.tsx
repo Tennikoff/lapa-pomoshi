@@ -1,4 +1,3 @@
-// src/app/(main)/tasks/[id]/view/page.tsx
 "use client";
 
 import type { CSSProperties } from "react";
@@ -22,7 +21,6 @@ import type { ResponseDto } from "@/src/types/response";
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 const FALLBACK_PHOTO = "https://placehold.co/100x100/eef3f8/777?text=Фото";
 
-// ===== formatting =====
 
 function formatDateTimeRange(task: HelpTaskDto) {
   const a = task.startedAt ? new Date(task.startedAt) : null;
@@ -41,11 +39,6 @@ function formatDateTimeRange(task: HelpTaskDto) {
   return `${date}, ${ta} – ${tb}`;
 }
 
-/**
- * Для передержек бэк хранит ISO, а мы создаём "дату" через local -> toISOString,
- * из-за чего при отображении в локальной таймзоне возможен сдвиг дня.
- * Поэтому показываем даты в UTC (как "чистую дату").
- */
 function formatFosterDateRangeUTC(task: HelpTaskDto) {
   const a = task.startedAt ? new Date(task.startedAt) : null;
   const b = task.endedAt ? new Date(task.endedAt) : null;
@@ -72,7 +65,6 @@ function formatWhen(task: HelpTaskDto) {
   return task.isTaskOverexposure ? formatFosterDateRangeUTC(task) : formatDateTimeRange(task);
 }
 
-// ===== response status =====
 
 type RespKind = "none" | "pending" | "accepted" | "declined" | "other";
 
@@ -147,7 +139,6 @@ export default function TaskViewPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId, shouldShowModal]);
 
   useEffect(() => {
@@ -214,10 +205,8 @@ export default function TaskViewPage() {
       setAlreadyResponded(true);
       setMyResponse(res);
 
-      // обновить счетчик "Отклики: N" в ленте/календаре
       window.dispatchEvent(new Event(HELP_TASKS_CHANGED_EVENT));
     } catch {
-      // ничего не показываем (как у тебя принято)
     } finally {
       setResponding(false);
     }
@@ -295,7 +284,7 @@ export default function TaskViewPage() {
                   )}
                 </div>
 
-                {/* ✅ Для передержек компетенций нет — строку скрываем полностью */}
+                {/* для передержек компетенций нет - строку скрываем полностью */}
                 {!task.isTaskOverexposure ? (
                   <div className={m.row}>
                     <span className={m.label}>Компетенции:</span>{" "}

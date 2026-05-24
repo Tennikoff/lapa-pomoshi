@@ -127,12 +127,11 @@ export default function VerifyEmailPage() {
       // сохраняем токен
       setAccessToken(res.accessToken);
 
-      // ✅ вместо userMeta: сохраняем ФИО в API как name (если оно пришло из query)
+      // вместо userMeta: сохраняем ФИО в API как name (если оно пришло из query)
       if (fioFromQuery.trim()) {
         try {
           await usersApi.patchProfile({ name: fioFromQuery.trim() });
         } catch {
-          // не критично: email подтверждён, просто имя не записали
         }
       }
 
@@ -160,7 +159,6 @@ export default function VerifyEmailPage() {
   const onResend = async () => {
     if (!canResend) return;
     setTimeLeft(59);
-    // В swagger нет resend endpoint — пока только таймер
   };
 
   const timerText =

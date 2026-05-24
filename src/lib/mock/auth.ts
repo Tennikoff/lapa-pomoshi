@@ -109,10 +109,6 @@ export async function mockVerifyEmailCode(params: {
 
   if (!user) return { ok: false, errorCode: "NO_USER" };
 
-  // Тестовые коды:
-  // 111111 -> успех
-  // 222222 -> срок истёк
-  // другое -> неверный
   if (params.code === "111111") {
     const users = loadUsers();
     const next = users.map((u) =>
@@ -132,8 +128,6 @@ export async function mockVerifyEmailCode(params: {
 export async function mockResendVerifyEmailCode(params: { email: string }) {
   await new Promise((r) => setTimeout(r, 400));
 
-  // в mock ничего реально не делаем — только имитируем успех
-  // можно было бы проверять, что юзер существует, но не обязательно
   return { ok: true as const };
 }
 
@@ -162,10 +156,6 @@ export async function mockVerifyPasswordResetCode(params: {
 }): Promise<ResetVerifyResult> {
   await new Promise((r) => setTimeout(r, 450));
 
-  // Тестовые коды (6 цифр):
-  // 111111 -> успех
-  // 222222 -> срок истёк
-  // другое -> неверный
   if (params.code === "111111") return { ok: true };
   if (params.code === "222222") return { ok: false, errorCode: "EXPIRED_CODE" };
   return { ok: false, errorCode: "INVALID_CODE" };

@@ -106,6 +106,5 @@ export function respondToTask(taskId: string, userId: string) {
 }
 
 export function countResponses(t: Task) {
-  // в ленте “Отклики: N” обычно считают pending (можешь сказать — поменяем)
   return t.responses.filter((r) => r.status === "pending").length;
 }

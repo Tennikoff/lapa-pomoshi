@@ -41,22 +41,18 @@ export default function EditAnimalPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
-  // fields
   const [name, setName] = useState("");
   const [animalType, setAnimalType] = useState("");
   const [breed, setBreed] = useState("");
   const [age, setAge] = useState("");
 
-  // UI field "История" (на бэке нет поля, храним в specialNeeds в упакованном виде)
   const [history, setHistory] = useState("");
 
   const [health, setHealth] = useState("");
   const [character, setCharacter] = useState("");
 
-  // UI field "Особые потребности" (тоже хранится в specialNeeds, но отдельно от истории внутри упаковки)
   const [needs, setNeeds] = useState("");
 
-  // cleanup objectURL
   useEffect(() => {
     return () => {
       if (photoPreview && photoPreview.startsWith("blob:")) {
@@ -65,7 +61,6 @@ export default function EditAnimalPage() {
     };
   }, [photoPreview]);
 
-  // init load + access check
   useEffect(() => {
     let cancelled = false;
 
@@ -98,7 +93,6 @@ export default function EditAnimalPage() {
         setBreed(a1.breed ?? "");
         setAge(a1.age != null ? String(a1.age) : "");
 
-        // ✅ история/особые потребности берём из specialNeeds (распаковка)
         const meta = unpackAnimalSpecialNeeds(a1.specialNeeds);
         setHistory(meta.history ?? "");
         setNeeds(meta.specialNeeds ?? "");
@@ -153,7 +147,6 @@ export default function EditAnimalPage() {
 
     setSubmitting(true);
     try {
-      // ✅ упаковываем историю + особые потребности в одно поле specialNeeds
       const packedSpecialNeeds = packAnimalSpecialNeeds({
         history,
         specialNeeds: needs,
@@ -175,11 +168,9 @@ export default function EditAnimalPage() {
         await animalsApi.patch(id, dto);
       }
 
-          // ✅ если пришли из карточки — возвращаемся назад (не создаём дубль /animals/:id в history)
     if (from === "card") {
       router.back();
     } else {
-      // ✅ если edit открыт напрямую — показываем карточку
       router.replace(`/animals/${id}`);
     }
     } catch (e2) {

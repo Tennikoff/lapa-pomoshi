@@ -21,15 +21,12 @@ function buildQs(p: Record<string, string | number | undefined | null>) {
 }
 
 function normalizeToArray(res: unknown): ReferenceBookItemDto[] {
-  // 1) array
   if (Array.isArray(res)) return res as ReferenceBookItemDto[];
 
-  // 2) { items: [...] }
   if (res && typeof res === "object") {
     const o = res as Record<string, unknown>;
     if (Array.isArray(o.items)) return o.items as ReferenceBookItemDto[];
 
-    // 3) single article object
     const hasTitle = typeof o.title === "string";
     const hasDesc = typeof o.description === "string";
     if (hasTitle || hasDesc) return [res as ReferenceBookItemDto];
@@ -39,11 +36,9 @@ function normalizeToArray(res: unknown): ReferenceBookItemDto[] {
 }
 
 async function fetchWithOptionalAuth(path: string): Promise<unknown> {
-  // пробуем с auth (как и остальные запросы в проекте)
   try {
     return await apiFetch(path, { headers: authHeaders() });
   } catch (e) {
-    // если токен битый/просроченный, а ручка публичная — ретраим без Authorization
     if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
       return await apiFetch(path);
     }
@@ -52,15 +47,6 @@ async function fetchWithOptionalAuth(path: string): Promise<unknown> {
 }
 
 export const referenceBookApi = {
-  /**
-   * Реальный бэк (по твоим тестам) принимает:
-   * GET /api/ReferenceBook?AnimalType=Кошка&Theme=Кормление
-   *
-   * ВАЖНО:
-   * - AnimalType: ЕД. число (из Dictionaries/animal-types)
-   * - Theme: обязателен
-   * - Ответ может быть объектом (не массив) => нормализуем в массив из 1 элемента
-   */
   listByNames: async (params: ParamsByNames): Promise<ReferenceBookItemDto[]> => {
     const animalType = String(params.animalType ?? "").trim();
     const theme = String(params.theme ?? "").trim();

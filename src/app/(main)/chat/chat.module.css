@@ -11,7 +11,7 @@
 
 .shell {
   width: 100%;
-  min-height: calc(100vh - 220px); /* запас под header/footer */
+  min-height: calc(100vh - 220px);
   background: #f0f4f8;
   border: 1px solid #dee2e6;
   border-radius: 22px;
@@ -20,7 +20,6 @@
   display: flex;
 }
 
-/* ===== Sidebar ===== */
 .sidebar {
   width: 360px;
   background: #e5eef7;
@@ -137,7 +136,6 @@
   opacity: 0.95;
 }
 
-/* ===== Main chat window ===== */
 .window {
   flex: 1;
   display: flex;
@@ -215,7 +213,6 @@
   white-space: pre-wrap;
 }
 
-/* ===== Input ===== */
 .inputArea {
   padding: 14px 18px 18px;
   background: #f0f4f8;
@@ -266,7 +263,6 @@
   fill: #06355e;
 }
 
-/* Empty states */
 .emptyBox {
   margin: 14px 18px;
   background: #fff;
