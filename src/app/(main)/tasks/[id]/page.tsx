@@ -14,7 +14,6 @@ import { AnimalTypeSelect } from "@/src/components/ui/AnimalTypeSelect/AnimalTyp
 import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
 
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
-import { isOrgRole } from "@/src/lib/role";
 import { dictionariesApi, type DictionaryItemDto } from "@/src/lib/api/dictionaries";
 import {
   animalsApi,
@@ -24,8 +23,8 @@ import {
 } from "@/src/lib/api/animals";
 import { helpTasksApi } from "@/src/lib/api/helpTasks";
 import type { HelpTaskDto } from "@/src/types/helpTask";
-
 import { packAnimalSpecialNeeds } from "@/src/lib/animalHistoryBridge";
+import { addCompletedHelpTask } from "@/src/lib/storage/completedHelpTasks";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -74,7 +73,12 @@ export default function TaskEditPage() {
 
   const [loading, setLoading] = useState(true);
   const [task, setTask] = useState<HelpTaskDto | null>(null);
+
+  // delete
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // ✅ complete
+  const [completing, setCompleting] = useState(false);
 
   // dictionaries
   const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
@@ -97,10 +101,10 @@ export default function TaskEditPage() {
   const [anType, setAnType] = useState(""); // animalType (ед. число)
   const [anBreed, setAnBreed] = useState("");
   const [anAge, setAnAge] = useState("");
-  const [anHistory, setAnHistory] = useState(""); // ✅ сохраняем через bridge
+  const [anHistory, setAnHistory] = useState("");
   const [anHealth, setAnHealth] = useState("");
   const [anCharacter, setAnCharacter] = useState("");
-  const [anNeeds, setAnNeeds] = useState(""); // ✅ сохраняем через bridge (как "особые потребности")
+  const [anNeeds, setAnNeeds] = useState("");
   const [animalSubmitting, setAnimalSubmitting] = useState(false);
 
   // common fields
@@ -110,7 +114,7 @@ export default function TaskEditPage() {
 
   // task-only fields
   const [requiredVolunteers, setRequiredVolunteers] = useState<number>(1);
-  const [competency, setCompetency] = useState<string>("");
+  const [competency, setCompetency] = useState<string>(""); // single
 
   // dates
   const [startDate, setStartDate] = useState("");
@@ -240,7 +244,6 @@ export default function TaskEditPage() {
     setAnimalPreviewUrl(null);
     setAnimalPhotoFile(null);
     setAnimalPhotoError(null);
-
     setAnName("");
     setAnType("");
     setAnBreed("");
@@ -293,7 +296,6 @@ export default function TaskEditPage() {
 
     setAnimalSubmitting(true);
     try {
-      // ✅ bridge: history + needs => specialNeeds
       const packedSpecialNeeds = packAnimalSpecialNeeds({
         history: anHistory,
         specialNeeds: anNeeds,
@@ -330,7 +332,7 @@ export default function TaskEditPage() {
     setDeleteOpen(false);
     router.back();
 
-    // делаем delete после закрытия модалки
+    // delete after modal close
     window.setTimeout(async () => {
       try {
         await helpTasksApi.delete(id);
@@ -338,6 +340,46 @@ export default function TaskEditPage() {
         window.dispatchEvent(new Event(HELP_TASKS_CHANGED_EVENT));
       }
     }, 0);
+  };
+
+  // ===== ✅ complete flow =====
+  const onComplete = async () => {
+    if (!task) return;
+
+    const me = await fetchCurrentProfile();
+    if (!me) {
+      router.replace("/login");
+      return;
+    }
+
+    if (task.creator?.id !== me.userId) {
+      alert("Нет доступа к завершению этой задачи");
+      return;
+    }
+
+    const ok = window.confirm(
+      "Завершить задачу?\n\nВАЖНО: на сервере она будет удалена, но мы сохраним её в вашем локальном архиве выполненных."
+    );
+    if (!ok) return;
+
+    if (completing) return;
+    setCompleting(true);
+
+    try {
+      await helpTasksApi.complete(task.id);
+
+      // ✅ сохраняем snapshot в локальный архив
+      addCompletedHelpTask(me.userId, task);
+
+      window.dispatchEvent(new Event(HELP_TASKS_CHANGED_EVENT));
+      router.back();
+    } catch (e) {
+      let msg = "Не удалось завершить задачу";
+      if (e instanceof Error) msg = e.message;
+      alert(msg);
+    } finally {
+      setCompleting(false);
+    }
   };
 
   // ===== submit update =====
@@ -385,7 +427,7 @@ export default function TaskEditPage() {
       return;
     }
 
-    // task: date-time + required volunteers + (single) competency
+    // task: date-time + required volunteers + single competency
     if (!startDate || !startTime || !endDate || !endTime) {
       return alert("Укажите дату и время начала/окончания");
     }
@@ -640,7 +682,11 @@ export default function TaskEditPage() {
                     {animalsOpen ? "Скрыть список животных" : "Выбрать из моих животных"}
                   </button>
 
-                  <button type="button" className={f.animalActionBtn} onClick={onOpenCreateAnimal}>
+                  <button
+                    type="button"
+                    className={f.animalActionBtn}
+                    onClick={onOpenCreateAnimal}
+                  >
                     Создать новую карточку
                   </button>
                 </div>
@@ -663,9 +709,7 @@ export default function TaskEditPage() {
                                 aria-pressed={active}
                                 title={a2.name}
                               >
-                                {a2.photoUrl ? (
-                                  <img className={f.animalImg} src={a2.photoUrl} alt="" />
-                                ) : null}
+                                {a2.photoUrl ? <img className={f.animalImg} src={a2.photoUrl} alt="" /> : null}
                                 <span className={f.animalCardLabel}>{a2.name}</span>
                               </button>
                             );
@@ -894,6 +938,19 @@ export default function TaskEditPage() {
                 </button>
               </div>
 
+              {/* ✅ COMPLETE */}
+              <div className={f.deleteRow}>
+                <button
+                  type="button"
+                  className={f.actionBtn}
+                  onClick={onComplete}
+                  disabled={completing}
+                >
+                  {completing ? "..." : "ЗАВЕРШИТЬ"}
+                </button>
+              </div>
+
+              {/* DELETE */}
               <div className={f.deleteRow}>
                 <button type="button" className={f.actionBtn} onClick={onAskDelete}>
                   УДАЛИТЬ

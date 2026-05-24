@@ -1,7 +1,8 @@
+// src/app/(main)/profile/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import s from "./profile.module.css";
@@ -19,14 +20,22 @@ import {
 } from "@/src/lib/storage/volunteerExtra";
 
 import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
-
 import { animalsApi, type AnimalListItemDto } from "@/src/lib/api/animals";
+
 import {
   denormalizeAvailabilities,
   denormalizePreferences,
 } from "@/src/lib/normalizeDictionaries";
 
-type Review = { author: string; text: string; stars: 1 | 2 | 3 | 4 | 5 };
+import { PublicReviewsSection } from "@/src/app/(main)/users/[id]/ui/PublicReviewsSection";
+
+// ✅ completed tasks archive (org)
+import { TaskCard } from "@/src/app/(main)/tasks/_components/TaskCard";
+import {
+  listCompletedHelpTasks,
+  clearCompletedHelpTasks,
+  COMPLETED_HELP_TASKS_CHANGED_EVENT,
+} from "@/src/lib/storage/completedHelpTasks";
 
 const DEFAULT_PET_BG =
   "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=300";
@@ -36,11 +45,8 @@ const LOAD_MORE_PETS_STEP = 4;
 
 function renderTags(items: string[]) {
   if (!items.length) {
-    return (
-      <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>
-    );
+    return <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>Не указано</p>;
   }
-
   return (
     <div className={s.tagsWrapper}>
       {items.map((x) => (
@@ -50,10 +56,6 @@ function renderTags(items: string[]) {
       ))}
     </div>
   );
-}
-
-function starsText(n: number) {
-  return "★★★★★".slice(0, n).padEnd(5, "☆");
 }
 
 export default function ProfilePage() {
@@ -70,24 +72,19 @@ export default function ProfilePage() {
   const [pets, setPets] = useState<AnimalListItemDto[]>([]);
   const [visiblePetsCount, setVisiblePetsCount] = useState(INITIAL_VISIBLE_PETS);
 
+  // ✅ completed archive (only used for org UI)
+  const [completed, setCompleted] = useState(() => listCompletedHelpTasks(""));
+
   // delete pet dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePetId, setDeletePetId] = useState<string | null>(null);
-
-  // reviews UI (пока без API — пусто)
-  const [reviewsExpanded, setReviewsExpanded] = useState(false);
-  const allReviews = useMemo<Review[]>(() => [], []);
-  const visibleReviews = useMemo(
-    () => (reviewsExpanded ? allReviews : allReviews.slice(0, 3)),
-    [allReviews, reviewsExpanded]
-  );
 
   const loadPets = async () => {
     try {
       const res = await animalsApi.my(0, 50);
       setPets(res.animals);
 
-      // чтобы после удаления/изменений visible count не превышал длину
+      // чтобы после удаления / изменения visible count не превышал длину
       setVisiblePetsCount((prev) => Math.min(prev, res.animals.length));
     } catch {
       setPets([]);
@@ -115,10 +112,8 @@ export default function ProfilePage() {
 
           await loadPets();
 
-          // если у юзера есть животные, но visible count стал 0 (после min) — восстановим дефолт
-          setVisiblePetsCount((prev) =>
-            prev === 0 ? INITIAL_VISIBLE_PETS : prev
-          );
+          // если у юзера есть животные, но visible count стал 0 — восстановим дефолт
+          setVisiblePetsCount((prev) => (prev === 0 ? INITIAL_VISIBLE_PETS : prev));
         }
       } finally {
         setLoading(false);
@@ -138,27 +133,38 @@ export default function ProfilePage() {
     };
 
     window.addEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
-    return () =>
-      window.removeEventListener(
-        VOLUNTEER_EXTRA_CHANGED_EVENT,
-        onVolExtraChanged
-      );
+    return () => window.removeEventListener(VOLUNTEER_EXTRA_CHANGED_EVENT, onVolExtraChanged);
+  }, [profile]);
+
+  // ✅ LS subscription (completed help tasks archive) — only for org
+  useEffect(() => {
+    if (!profile) return;
+
+    if (!isOrgRole(profile.role)) {
+      setCompleted([]);
+      return;
+    }
+
+    const loadCompleted = () => setCompleted(listCompletedHelpTasks(profile.userId));
+    loadCompleted();
+
+    window.addEventListener(COMPLETED_HELP_TASKS_CHANGED_EVENT, loadCompleted);
+    return () => window.removeEventListener(COMPLETED_HELP_TASKS_CHANGED_EVENT, loadCompleted);
   }, [profile]);
 
   const onLogout = () => {
     clearAccessToken();
     setToken(null);
     setProfile(null);
+    setCompleted([]);
     router.push("/");
   };
 
   const rating = useMemo(() => {
     if (!profile) return { avg: "0.0", count: 0 };
-
     const count = Number(profile.countRating ?? 0);
     const sum = Number(profile.sumRating ?? 0);
     const avg = count > 0 ? (sum / count).toFixed(1) : "0.0";
-
     return { avg, count };
   }, [profile]);
 
@@ -189,26 +195,22 @@ export default function ProfilePage() {
   }
 
   const org = isOrgRole(profile.role);
+
   const displayName = profile.name?.trim() ? profile.name.trim() : profile.email;
 
   const aboutText =
     profile.description?.trim() ||
-    (org
-      ? "Расскажите об организации..."
-      : volExtra?.about?.trim() || "Расскажите о себе...");
+    (org ? "Расскажите об организации..." : volExtra?.about?.trim() || "Расскажите о себе...");
 
   const competenciesView =
-    (profile.competencies?.length ? profile.competencies : volExtra?.competencies) ||
-    [];
+    (profile.competencies?.length ? profile.competencies : volExtra?.competencies) || [];
 
   const availabilityApi =
-    (profile.availabilities?.length ? profile.availabilities : volExtra?.availability) ||
-    [];
+    (profile.availabilities?.length ? profile.availabilities : volExtra?.availability) || [];
   const availabilityView = denormalizeAvailabilities(availabilityApi);
 
   const prefAnimalsApi =
-    (profile.preferences?.length ? profile.preferences : volExtra?.prefAnimals) ||
-    [];
+    (profile.preferences?.length ? profile.preferences : volExtra?.prefAnimals) || [];
   const prefAnimalsView = denormalizePreferences(prefAnimalsApi);
 
   const locationTags = profile.location?.trim() ? [profile.location.trim()] : [];
@@ -227,7 +229,6 @@ export default function ProfilePage() {
 
   const onConfirmDelete = async () => {
     if (!deletePetId) return;
-
     try {
       await animalsApi.delete(deletePetId);
       await loadPets();
@@ -260,6 +261,7 @@ export default function ProfilePage() {
               <h1>{displayName}</h1>
               <p>{org ? "Куратор / Организация" : "Волонтёр"}</p>
             </div>
+
             <button className={s.btnLogout} onClick={onLogout}>
               Выйти
             </button>
@@ -267,9 +269,7 @@ export default function ProfilePage() {
 
           <section className={s.section}>
             <h3 className={s.sectionTitle}>О себе</h3>
-            <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-              {aboutText}
-            </p>
+            <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>{aboutText}</p>
           </section>
 
           {!org ? (
@@ -321,9 +321,7 @@ export default function ProfilePage() {
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Реквизиты для пожертвований</h3>
                 <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-                  {profile.donationDetails?.trim()
-                    ? profile.donationDetails.trim()
-                    : "Не указано"}
+                  {profile.donationDetails?.trim() ? profile.donationDetails.trim() : "Не указано"}
                 </p>
               </section>
             </>
@@ -368,6 +366,7 @@ export default function ProfilePage() {
                       <path d="M14 11v6" />
                     </svg>
                   </button>
+
                   <span>{pet.name?.trim() ? pet.name : "Животное"}</span>
                 </Link>
               ))}
@@ -378,9 +377,7 @@ export default function ProfilePage() {
                     type="button"
                     className={tasksStyles.loadMoreBtn}
                     onClick={() =>
-                      setVisiblePetsCount((v) =>
-                        Math.min(pets.length, v + LOAD_MORE_PETS_STEP)
-                      )
+                      setVisiblePetsCount((v) => Math.min(pets.length, v + LOAD_MORE_PETS_STEP))
                     }
                   >
                     Загрузить строку
@@ -413,6 +410,33 @@ export default function ProfilePage() {
             </p>
           </section>
 
+          {/* ✅ Архив выполненных задач — НЕ показываем блок, если архив пуст */}
+          {org && completed.length > 0 ? (
+            <section className={s.section}>
+              <h3 className={s.sectionTitle}>
+                Выполненные задачи (архив) — {completed.length}
+              </h3>
+
+              <div className={tasksStyles.cardsGrid}>
+                {completed.slice(0, 12).map((t) => (
+                  <TaskCard key={t.id} task={t} mode="curator" />
+                ))}
+              </div>
+
+              <div style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  className={tasksStyles.loadMoreBtn}
+                  onClick={() => {
+                    clearCompletedHelpTasks(profile.userId);
+                  }}
+                >
+                  Очистить архив
+                </button>
+              </div>
+            </section>
+          ) : null}
+
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Рейтинг</h3>
             <div className={s.ratingRow}>
@@ -421,7 +445,6 @@ export default function ProfilePage() {
                 const safeAvg = Number.isFinite(avgNum) ? avgNum : 0;
                 const filled = Math.max(0, Math.min(5, Math.round(safeAvg)));
                 const empty = 5 - filled;
-
                 return (
                   <div className={s.starsBig} aria-label={`Рейтинг ${rating.avg} из 5`}>
                     <span>{"★★★★★".slice(0, filled)}</span>
@@ -435,41 +458,8 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <section className={s.section}>
-            <h3 className={s.sectionTitle}>Отзывы</h3>
-
-            {visibleReviews.length ? (
-              <>
-                <div className={s.reviewsList}>
-                  {visibleReviews.map((r, idx) => (
-                    <div key={`${r.author}_${idx}`} className={s.reviewItem}>
-                      <div className={s.reviewHeader}>
-                        <span className={s.reviewStars}>
-                          {starsText(r.stars)}
-                        </span>
-                        <span className={s.reviewAuthor}>{r.author}</span>
-                      </div>
-                      <div className={s.reviewText}>{r.text}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {allReviews.length > 3 ? (
-                  <button
-                    type="button"
-                    className={s.allReviews}
-                    onClick={() => setReviewsExpanded((v) => !v)}
-                  >
-                    {reviewsExpanded ? "Свернуть отзывы" : "Все отзывы"}
-                  </button>
-                ) : null}
-              </>
-            ) : (
-              <p className={s.muted} style={{ margin: 0 }}>
-                Отзывов пока нет.
-              </p>
-            )}
-          </section>
+          {/* ✅ реальные отзывы из API /api/Comments/user/{userId} */}
+          <PublicReviewsSection key={profile.userId} userId={profile.userId} />
 
           <Link href="/profile/edit" className={s.btnLarge}>
             РЕДАКТИРОВАТЬ ПРОФИЛЬ
@@ -477,11 +467,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <ConfirmDeleteDialog
-        open={deleteOpen}
-        onCancel={onCancelDelete}
-        onConfirm={onConfirmDelete}
-      />
+      <ConfirmDeleteDialog open={deleteOpen} onCancel={onCancelDelete} onConfirm={onConfirmDelete} />
     </>
   );
 }

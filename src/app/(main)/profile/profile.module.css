@@ -214,6 +214,22 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+  justify-content: space-between; /* ✅ дата уйдёт вправо */
+}
+
+.reviewHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.reviewDate {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  color: #6c757d;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .reviewStars {

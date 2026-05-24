@@ -2,7 +2,8 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+
 
 import overlay from "@/src/app/(main)/@modal/modalOverlay.module.css";
 import a from "@/src/app/(main)/animals/new/animalNew.module.css";
@@ -24,6 +25,8 @@ function isTooLarge(file: File) {
 
 export default function EditAnimalPage() {
   const router = useRouter();
+  const sp = useSearchParams();
+  const from = (sp.get("from") || "").trim();
   const params = useParams<{ id: string }>();
   const id = String(params.id || "");
 
@@ -172,7 +175,13 @@ export default function EditAnimalPage() {
         await animalsApi.patch(id, dto);
       }
 
+          // ✅ если пришли из карточки — возвращаемся назад (не создаём дубль /animals/:id в history)
+    if (from === "card") {
+      router.back();
+    } else {
+      // ✅ если edit открыт напрямую — показываем карточку
       router.replace(`/animals/${id}`);
+    }
     } catch (e2) {
       let msg = "Не удалось сохранить изменения";
       if (e2 instanceof ApiError) msg = e2.message;

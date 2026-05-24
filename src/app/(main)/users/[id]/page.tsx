@@ -255,7 +255,7 @@ export default async function PublicUserProfilePage({
             </div>
           </section>
 
-          <PublicReviewsSection showLeaveReviewButton />
+          <PublicReviewsSection userId={profile.userId} showLeaveReviewButton />
         </div>
       </div>
     </main>

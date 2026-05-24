@@ -1,3 +1,4 @@
+// src/app/(main)/animals/[id]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -8,13 +9,28 @@ import s from "../richi/richi.module.css";
 import { animalsApi, type AnimalDto } from "@/src/lib/api/animals";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { ApiError } from "@/src/lib/api/http";
-
 import { unpackAnimalSpecialNeeds } from "@/src/lib/animalHistoryBridge";
 
 const FALLBACK_PHOTO =
   "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=600";
 
 type LoadState = "loading" | "ready" | "not_found" | "unauthorized";
+
+function yearsWordRu(n: number) {
+  const a = Math.abs(n);
+  const mod100 = a % 100;
+  const mod10 = a % 10;
+
+  if (mod100 >= 11 && mod100 <= 14) return "лет";
+  if (mod10 === 1) return "год";
+  if (mod10 >= 2 && mod10 <= 4) return "года";
+  return "лет";
+}
+
+function formatAgeRu(age: number | null | undefined) {
+  if (age == null) return "";
+  return `${age} ${yearsWordRu(age)}`;
+}
 
 export default function AnimalCardPage() {
   const router = useRouter();
@@ -62,6 +78,7 @@ export default function AnimalCardPage() {
           setState("unauthorized");
           return;
         }
+
         setState("not_found");
       }
     })();
@@ -72,7 +89,7 @@ export default function AnimalCardPage() {
   }, [id]);
 
   const onClose = () => router.back();
-  const onEdit = () => router.push(`/animals/${id}/edit`);
+  const onEdit = () => router.push(`/animals/${id}/edit?from=card`);
 
   const showEditButton = useMemo(() => {
     if (readonly) return false;
@@ -125,11 +142,11 @@ export default function AnimalCardPage() {
   const photoUrl = animal.photoUrl || FALLBACK_PHOTO;
   const titleName = animal.name?.trim() ? animal.name.trim() : "Без имени";
 
-  const metaLine = [animal.animalType, animal.age != null ? String(animal.age) : ""]
+  const metaLine = [animal.animalType, formatAgeRu(animal.age)]
     .filter(Boolean)
     .join(", ");
 
-  // ✅ “История” и реальные “Особые потребности” извлекаем из specialNeeds
+  // “История” и реальные “Особые потребности” извлекаем из specialNeeds
   const meta = unpackAnimalSpecialNeeds(animal.specialNeeds);
 
   return (
@@ -170,7 +187,6 @@ export default function AnimalCardPage() {
           </section>
         </main>
 
-        {/* ✅ В readonly (из задач) кнопки "Редактировать" нет */}
         {showEditButton ? (
           <footer className={s.footer}>
             <button type="button" className={s.editBtn} onClick={onEdit}>

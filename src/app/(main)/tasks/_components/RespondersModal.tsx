@@ -1,15 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import styles from "./RespondersModal.module.css";
-
 import { responsesApi } from "@/src/lib/api/responses";
 import { ApiError } from "@/src/lib/api/http";
 import type { ResponseDto } from "@/src/types/response";
 
 const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
 
-// значения из справочника statuses (как ты присылал)
+// значения из справочника statuses
 const STATUS_PENDING = "На рассмотрении";
 const STATUS_ACCEPTED = "Принят";
 const STATUS_DECLINED = "Отклонен";
@@ -17,26 +17,23 @@ const STATUS_DECLINED = "Отклонен";
 function normStatus(s: string | null | undefined) {
   return String(s ?? "").trim();
 }
-
 function isPending(status: string | null | undefined) {
   const s = normStatus(status);
   if (!s) return true;
   if (s === STATUS_PENDING) return true;
   return s.toLowerCase().includes("рассмотр");
 }
-
 function isAccepted(status: string | null | undefined) {
   const s = normStatus(status);
   if (!s) return false;
   if (s === STATUS_ACCEPTED) return true;
   return s.toLowerCase().includes("прин");
 }
-
 function isDeclined(status: string | null | undefined) {
   const s = normStatus(status);
   if (!s) return false;
   if (s === STATUS_DECLINED) return true;
-  return s.toLowerCase().includes("отклон");
+  return s.toLowerCase().includes("откл");
 }
 
 export function RespondersModal({
@@ -103,12 +100,11 @@ export function RespondersModal({
 
     setBusyId(responseId);
     setErrorText(null);
-
     try {
       const updated = await responsesApi.updateStatus(responseId, status);
       setItems((prev) => prev.map((x) => (x.id === responseId ? updated : x)));
 
-      // чтобы лента куратора обновила "Отклики: N" (если бэк считает только pending)
+      // чтобы лента куратора обновила "Отклики: N"
       window.dispatchEvent(new Event(HELP_TASKS_CHANGED_EVENT));
     } catch (e) {
       let msg = "Не удалось обновить статус отклика";
@@ -156,13 +152,26 @@ export function RespondersModal({
               const declined = isDeclined(r.status);
               const disabled = busyId === r.id;
 
+              const senderId = r.sender?.id;
+              const senderName = r.sender?.name?.trim() ? r.sender.name : "Без имени";
+
               return (
                 <div key={r.id} className={styles.item}>
-                  <span className={styles.name} title={r.sender?.name}>
-                    {r.sender?.name || "Без имени"}
-                  </span>
+                  {senderId ? (
+                    <Link
+                      href={`/users/${senderId}`}
+                      className={styles.nameLink}
+                      title={senderName}
+                      onClick={() => onClose()} // чтобы модалка точно закрылась при переходе
+                    >
+                      {senderName}
+                    </Link>
+                  ) : (
+                    <span className={styles.name} title={senderName}>
+                      {senderName}
+                    </span>
+                  )}
 
-                  {/* Pending: показываем кнопки */}
                   {pending ? (
                     <div className={styles.actions}>
                       <button
@@ -183,17 +192,10 @@ export function RespondersModal({
                       </button>
                     </div>
                   ) : accepted ? (
-                    // Accepted: показываем плашку
-                    <span className={`${styles.badge} ${styles.badgeAccepted}`}>
-                      Принято
-                    </span>
+                    <span className={`${styles.badge} ${styles.badgeAccepted}`}>Принято</span>
                   ) : declined ? (
-                    // Declined: показываем плашку
-                    <span className={`${styles.badge} ${styles.badgeDeclined}`}>
-                      Отклонено
-                    </span>
+                    <span className={`${styles.badge} ${styles.badgeDeclined}`}>Отклонено</span>
                   ) : (
-                    // fallback: если бэк пришлёт другой статус
                     <span className={styles.meta}>{normStatus(r.status) || "—"}</span>
                   )}
                 </div>

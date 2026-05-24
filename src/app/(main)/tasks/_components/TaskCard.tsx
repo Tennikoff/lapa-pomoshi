@@ -10,13 +10,11 @@ const PLACEHOLDER_IMG = "https://placehold.co/100x100/eef3f8/777?text=Фото";
 function fmtShortDateLocal(d: Date) {
   return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
-
-/**
- * ✅ Для передержек показываем даты в UTC, чтобы не было сдвигов по таймзоне
- * (и чтобы совпадало с периодом в подробной информации).
- */
 function fmtShortDateUTC(d: Date) {
-  return `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  return `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(
+    2,
+    "0"
+  )}`;
 }
 
 function formatTimeRange(task: HelpTaskDto) {
@@ -24,36 +22,32 @@ function formatTimeRange(task: HelpTaskDto) {
   const b = task.endedAt ? new Date(task.endedAt) : null;
   if (!a || !b) return "—";
 
-  // ✅ передержка: показываем диапазон дат в UTC
+  // foster: UTC date range
   if (task.isTaskOverexposure) {
     return `${fmtShortDateUTC(a)} - ${fmtShortDateUTC(b)}`;
   }
 
-  // задача: только дата (если вдруг пересекает 2 дня — покажем диапазон дат)
   const sameDay =
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
   return sameDay ? fmtShortDateLocal(a) : `${fmtShortDateLocal(a)} - ${fmtShortDateLocal(b)}`;
 }
 
 export function TaskCard({
   task,
-  onEdit,
   mode,
+  onEdit,
   onOpenResponses,
 }: {
   task: HelpTaskDto;
-  onEdit: () => void;
   mode: "curator" | "volunteer";
+  onEdit?: () => void; // ✅ теперь опционально
   onOpenResponses?: () => void;
 }) {
   const router = useRouter();
 
   const firstAnimal = task.animals?.[0] ?? null;
   const img = firstAnimal?.photoUrl || PLACEHOLDER_IMG;
-
   const district = task.locations?.[0] ?? "—";
   const responsesCount = task.countResponses ?? 0;
 
@@ -62,7 +56,7 @@ export function TaskCard({
 
   const onEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onEdit();
+    onEdit?.();
   };
 
   const onResponsesClick = (e: React.MouseEvent) => {
@@ -97,15 +91,13 @@ export function TaskCard({
       <div className={s.fosterResponses}>Отклики: {responsesCount}</div>
     );
 
-  // ====== FOSTER CARD ======
+  const showEdit = mode === "curator" && Boolean(onEdit);
+
+  // ===== FOSTER CARD =====
   if (task.isTaskOverexposure) {
     return (
       <div className={`${s.taskCard} ${s.taskCardFoster}`} {...cardProps}>
-        <img
-          src={img}
-          alt="Фото"
-          className={`${s.taskCardImage} ${s.fosterPhoto}`}
-        />
+        <img src={img} alt="Фото" className={`${s.taskCardImage} ${s.fosterPhoto}`} />
 
         <div className={s.fosterMain}>
           <h3 className={s.cardTitle} title={task.title}>
@@ -126,13 +118,8 @@ export function TaskCard({
 
         {responsesNode}
 
-        {mode === "curator" ? (
-          <button
-            className={s.cardEditBtn}
-            type="button"
-            onClick={onEditClick}
-            aria-label="Редактировать"
-          >
+        {showEdit ? (
+          <button className={s.cardEditBtn} type="button" onClick={onEditClick} aria-label="Редактировать">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
               <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
             </svg>
@@ -142,14 +129,10 @@ export function TaskCard({
     );
   }
 
-  // ====== TASK CARD ======
+  // ===== TASK CARD =====
   return (
     <div className={`${s.taskCard} ${s.taskCardTask}`} {...cardProps}>
-      <img
-        src={img}
-        alt="Фото"
-        className={`${s.taskCardImage} ${s.fosterPhoto}`}
-      />
+      <img src={img} alt="Фото" className={`${s.taskCardImage} ${s.fosterPhoto}`} />
 
       <div className={s.fosterMain}>
         <h3 className={s.cardTitle} title={task.title}>
@@ -185,13 +168,8 @@ export function TaskCard({
 
       {responsesNode}
 
-      {mode === "curator" ? (
-        <button
-          className={s.cardEditBtn}
-          type="button"
-          onClick={onEditClick}
-          aria-label="Редактировать"
-        >
+      {showEdit ? (
+        <button className={s.cardEditBtn} type="button" onClick={onEditClick} aria-label="Редактировать">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
             <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM3 17a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5l-2 2v3H5V7h3l2-2H4a1 1 0 0 0-1 1v10z" />
           </svg>
