@@ -13,10 +13,6 @@ import { FieldError } from "../_components/FieldError";
 import { apiRegister } from "@/src/lib/api/auth";
 import { ApiError } from "@/src/lib/api/http";
 
-/**
- * ВАЖНО: бэкенд требует role ТОЛЬКО:
- * "Волонтёр" или "Организация"
- */
 const ROLE_TO_API: Record<
   RegisterFormValues["role"],
   "Волонтёр" | "Организация"
@@ -27,6 +23,9 @@ const ROLE_TO_API: Record<
 
 export default function RegisterPage() {
   const router = useRouter();
+
+  const AGREEMENT_HREF = "/docs/Пользовательское_соглашение_Лапа_Помощи.docx";
+  const AGREEMENT_FILENAME = "Пользовательское_соглашение_Лапа_Помощи.docx";
 
   const {
     register,
@@ -194,10 +193,20 @@ export default function RegisterPage() {
             )}
           </div>
 
-          <label className={styles.check}>
-            <input type="checkbox" {...register("terms")} />
-            <span>Я принимаю пользовательское соглашение</span>
-          </label>
+          <div className={styles.check}>
+            <input id="terms" type="checkbox" {...register("terms")} />
+            <span>
+              Я принимаю{" "}
+              <a
+                href={AGREEMENT_HREF}
+                download={AGREEMENT_FILENAME}
+                className={styles.titleLink}
+                style={{ textDecoration: "underline" }}
+              >
+                пользовательское соглашение
+              </a>
+            </span>
+          </div>
 
           <div className={styles.termsErrorSlot}>
             {errors.terms?.message ? (
