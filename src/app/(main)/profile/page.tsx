@@ -331,7 +331,8 @@ export default function ProfilePage() {
     }
   };
 
-  const avatarUrl = profile.photoUrl;
+  const NO_PHOTO = "/images/NoPhoto.png";
+  const avatarUrl = (profile.photoUrl ?? "").trim() || NO_PHOTO;
 
   return (
     <>
@@ -340,15 +341,12 @@ export default function ProfilePage() {
           <div className={s.profileHeader}>
             <div
               className={s.avatar}
-              style={
-                avatarUrl
-                  ? {
-                      backgroundImage: `url(${avatarUrl})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }
-                  : undefined
-              }
+              style={{
+                backgroundImage: `url(${avatarUrl})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
             />
             <div className={s.profileInfo}>
               <h1>{displayName}</h1>

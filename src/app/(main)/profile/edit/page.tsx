@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import s from "./editProfile.module.css";
+
 import type { ProfileDto } from "@/src/types/profile";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
 import { isOrgRole } from "@/src/lib/role";
+
 import {
   AVAILABILITY,
   CITY_DEFAULT,
@@ -14,20 +16,25 @@ import {
   PREF_ANIMALS,
   PREF_INTERACTION,
 } from "@/src/lib/constants/volunteerOptions";
+
 import { ORG_NEEDS } from "@/src/lib/constants/orgOptions";
+
 import {
   getVolunteerExtra,
   setVolunteerExtra,
   type VolunteerExtra,
 } from "@/src/lib/storage/volunteerExtra";
+
 import { organizationsApi } from "@/src/lib/api/organizations";
 import { usersApi } from "@/src/lib/api/users";
+
 import {
   normalizeAvailabilities,
   normalizePreferences,
   denormalizeAvailabilities,
   denormalizePreferences,
 } from "@/src/lib/normalizeDictionaries";
+
 import { ApiError } from "@/src/lib/api/http";
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -240,6 +247,10 @@ export default function EditProfilePage() {
 
     const org = isOrgRole(profile.role);
 
+    const NO_PHOTO = "/images/NoPhoto.png";
+    const trimmedAvatarUrl = (avatarUrl ?? "").trim();
+    const effectiveAvatarUrl = trimmedAvatarUrl ? trimmedAvatarUrl : NO_PHOTO;
+
     try {
       if (org) {
         await organizationsApi.patchProfile({
@@ -307,6 +318,12 @@ export default function EditProfilePage() {
 
   const org = isOrgRole(profile.role);
 
+  // ===== NoPhoto fallback (без изменения дизайна) =====
+  const NO_PHOTO = "/images/NoPhoto.png";
+  const trimmedAvatarUrl = (avatarUrl ?? "").trim();
+  const effectiveAvatarUrl = trimmedAvatarUrl ? trimmedAvatarUrl : NO_PHOTO;
+  const isNoPhoto = !trimmedAvatarUrl;
+
   return (
     <div className={s.page}>
       <div className={s.container}>
@@ -323,7 +340,7 @@ export default function EditProfilePage() {
                 }}
                 aria-label="Сменить фото профиля"
               >
-                {avatarUrl ? <img className={s.avatarImg} src={avatarUrl} alt="Аватар" /> : null}
+                <img className={s.avatarImg} src={effectiveAvatarUrl} alt="Аватар" />
 
                 <div className={s.avatarEditButton}>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -373,7 +390,11 @@ export default function EditProfilePage() {
                     </li>
                   </ul>
                   <div className={s.cancelAction}>
-                    <button type="button" className={s.cancelBtn} onClick={() => setSheetOpen(false)}>
+                    <button
+                      type="button"
+                      className={s.cancelBtn}
+                      onClick={() => setSheetOpen(false)}
+                    >
                       Отмена
                     </button>
                   </div>
@@ -400,11 +421,19 @@ export default function EditProfilePage() {
                 <h2 className={s.sectionTitle}>Контактные данные</h2>
                 <div className={s.field}>
                   <label className={s.fieldLabel}>Телефон</label>
-                  <input className={s.input} value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  <input
+                    className={s.input}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
                 </div>
                 <div className={s.field} style={{ marginTop: 12 }}>
                   <label className={s.fieldLabel}>Сайт</label>
-                  <input className={s.input} value={website} onChange={(e) => setWebsite(e.target.value)} />
+                  <input
+                    className={s.input}
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                  />
                 </div>
               </section>
 

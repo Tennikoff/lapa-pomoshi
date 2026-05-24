@@ -14,6 +14,8 @@ export const dynamic = "force-dynamic";
 const DEFAULT_PET_BG =
   "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=300";
 
+const NO_PHOTO = "/images/NoPhoto.png";
+
 type PublicAnimalsResponseDto = {
   animals?: Array<{ id: string; name: string; photoUrl: string | null }>;
 };
@@ -100,6 +102,9 @@ export default async function PublicUserProfilePage({
   const avg = count > 0 ? (sum / count).toFixed(1) : "0.0";
   const rating = { avg, count };
 
+  // ✅ fallback на NoPhoto как в /profile
+  const avatarUrl = (profile.photoUrl ?? "").trim() || NO_PHOTO;
+
   // Питомцы (публично, если ручка доступна без auth)
   let pets: Array<{ id: string; name: string; photoUrl: string | null }> = [];
   try {
@@ -124,15 +129,11 @@ export default async function PublicUserProfilePage({
           <div className={s.profileHeader}>
             <div
               className={s.avatar}
-              style={
-                profile.photoUrl
-                  ? {
-                      backgroundImage: `url(${profile.photoUrl})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }
-                  : undefined
-              }
+              style={{
+                backgroundImage: `url(${avatarUrl})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
             />
             <div className={s.profileInfo}>
               <h1>{displayName}</h1>
@@ -152,11 +153,19 @@ export default async function PublicUserProfilePage({
                 <div className={s.contactDetails}>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Телефон:</span>{" "}
-                    {profile.phone?.trim() ? profile.phone.trim() : <span className={s.muted}>Не указано</span>}
+                    {profile.phone?.trim() ? (
+                      profile.phone.trim()
+                    ) : (
+                      <span className={s.muted}>Не указано</span>
+                    )}
                   </p>
                   <p className={s.contactRow}>
                     <span className={s.contactLabel}>Сайт:</span>{" "}
-                    {profile.website?.trim() ? profile.website.trim() : <span className={s.muted}>Не указано</span>}
+                    {profile.website?.trim() ? (
+                      profile.website.trim()
+                    ) : (
+                      <span className={s.muted}>Не указано</span>
+                    )}
                   </p>
                 </div>
               </section>
@@ -243,10 +252,10 @@ export default async function PublicUserProfilePage({
                 const empty = 5 - filled;
 
                 return (
-                <div className={s.starsBig} aria-label={`Рейтинг ${rating.avg} из 5`}>
-                  <span>{"★★★★★".slice(0, filled)}</span>
-                  <span className={s.starsEmpty}>{"★★★★★".slice(0, empty)}</span>
-                </div>
+                  <div className={s.starsBig} aria-label={`Рейтинг ${rating.avg} из 5`}>
+                    <span>{"★★★★★".slice(0, filled)}</span>
+                    <span className={s.starsEmpty}>{"★★★★★".slice(0, empty)}</span>
+                  </div>
                 );
               })()}
               <div className={s.ratingMeta}>

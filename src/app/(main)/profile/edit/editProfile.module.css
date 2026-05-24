@@ -315,3 +315,9 @@
 .saveButton:hover {
   background: #dda693;
 }
+
+.avatarImgPlaceholder {
+  object-fit: contain;
+  padding: 0;
+  box-sizing: border-box;
+}
