@@ -180,7 +180,7 @@
   color: rgba(255, 184, 0, 0.37); /* как невыделенные звезды в "оставить отзыв" */
 }
 
-/* НОВОЕ: строка рейтинга (звёзды + текст справа) */
+/* Строка рейтинга (звёзды + текст справа) */
 .ratingRow {
   display: flex;
   justify-content: center;
@@ -365,4 +365,60 @@
   /* ✅ важно для flex-wrap: занимает целую строку */
   flex: 0 0 100%;
   width: 100%;
+}
+
+/* Экран "не авторизован" по центру */
+.centerScreen {
+  min-height: calc(100vh - 220px); /* можно подстроить под высоту header/footer */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.centerBox {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+
+  /* ✅регулируй отступ кнопки от текста здесь */
+  --login-btn-gap: 24px;
+}
+
+/* Кнопка ниже текста + свой отступ (перебивает margin у btnLarge) */
+.btnLogin {
+  max-width: 260px;
+  margin: var(--login-btn-gap) auto 0;
+}
+
+/* ===== Reviews: trash button (как у питомцев, но адаптировано под отзывы) ===== */
+.reviewHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.reviewTrashBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.reviewTrashBtn:hover {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.reviewTrashIcon {
+  width: 18px;
+  height: 18px;
+  color: #ffffff;
 }

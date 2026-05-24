@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import s from "./profile.module.css";
@@ -36,6 +36,13 @@ import {
   clearCompletedHelpTasks,
   COMPLETED_HELP_TASKS_CHANGED_EVENT,
 } from "@/src/lib/storage/completedHelpTasks";
+
+// ✅ created tasks count (org) via /my-created
+import { helpTasksApi } from "@/src/lib/api/helpTasks";
+
+const HELP_TASKS_CHANGED_EVENT = "lp_help_tasks_changed";
+const PAGE_SIZE = 50;
+const MAX_TOTAL = 500;
 
 const DEFAULT_PET_BG =
   "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=300";
@@ -75,20 +82,94 @@ export default function ProfilePage() {
   // ✅ completed archive (only used for org UI)
   const [completed, setCompleted] = useState(() => listCompletedHelpTasks(""));
 
+  // ✅ ACTIVE created task ids (org): from /my-created
+  // null = ещё не загрузили / ошибка загрузки
+  const [activeCreatedIds, setActiveCreatedIds] = useState<string[] | null>(null);
+
   // delete pet dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePetId, setDeletePetId] = useState<string | null>(null);
 
-  const loadPets = async () => {
+  const loadPets = useCallback(async () => {
     try {
       const res = await animalsApi.my(0, 50);
-      setPets(res.animals);
+      const nextPets = res.animals ?? [];
+      setPets(nextPets);
 
-      // чтобы после удаления / изменения visible count не превышал длину
-      setVisiblePetsCount((prev) => Math.min(prev, res.animals.length));
+      /**
+       * ✅ ВАЖНО (как ты просил):
+       * Пока "строка" (дефолт 4) не заполнена — показываем всех питомцев без "Загрузить ещё/все".
+       * Поэтому не даём visiblePetsCount падать ниже INITIAL_VISIBLE_PETS при росте списка.
+       *
+       * Логика:
+       * - минимум видимых = INITIAL_VISIBLE_PETS (если пользователь не нажимал "загрузить больше")
+       * - но не больше, чем реально есть питомцев
+       */
+      setVisiblePetsCount((prev) => {
+        const base = Math.max(prev, INITIAL_VISIBLE_PETS);
+        return Math.min(base, nextPets.length);
+      });
     } catch {
       setPets([]);
       setVisiblePetsCount(0);
+    }
+  }, []);
+
+  // ✅ Авто-перезагрузка питомцев при возврате назад из модалки (/animals/new) и т.п.
+  // (без событий — только focus/visibility/popstate)
+  useEffect(() => {
+    if (!profile) return;
+
+    let inFlight = false;
+
+    const reload = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        await loadPets();
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const onVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+
+    // важно: router.back() (закрытие модалки) => history back => popstate
+    window.addEventListener("popstate", reload);
+    document.addEventListener("visibilitychange", onVisibilityOrFocus);
+    window.addEventListener("focus", onVisibilityOrFocus);
+
+    return () => {
+      window.removeEventListener("popstate", reload);
+      document.removeEventListener("visibilitychange", onVisibilityOrFocus);
+      window.removeEventListener("focus", onVisibilityOrFocus);
+    };
+  }, [profile, loadPets]);
+
+  // ✅ Активные созданные задачи: собираем ids через /my-created (пагинация)
+  const loadActiveCreatedIds = async () => {
+    try {
+      const ids = new Set<string>();
+      let offset = 0;
+
+      while (ids.size < MAX_TOTAL) {
+        const res = await helpTasksApi.myCreated(offset, PAGE_SIZE);
+        const chunk = res.tasks ?? [];
+
+        for (const t of chunk) {
+          if (t?.id) ids.add(t.id);
+        }
+
+        if (!res.hasMore || chunk.length === 0) break;
+        offset += PAGE_SIZE;
+      }
+
+      setActiveCreatedIds(Array.from(ids));
+    } catch {
+      // если что-то не так — не ломаем UI, просто оставляем fallback
+      setActiveCreatedIds(null);
     }
   };
 
@@ -107,8 +188,14 @@ export default function ProfilePage() {
         setProfile(p);
 
         if (p) {
-          if (!isOrgRole(p.role)) setVolExtra(getVolunteerExtra(p.userId));
+          const org = isOrgRole(p.role);
+
+          if (!org) setVolExtra(getVolunteerExtra(p.userId));
           else setVolExtra(null);
+
+          // org: загружаем active created ids
+          setActiveCreatedIds(null);
+          if (org) await loadActiveCreatedIds();
 
           await loadPets();
 
@@ -152,11 +239,26 @@ export default function ProfilePage() {
     return () => window.removeEventListener(COMPLETED_HELP_TASKS_CHANGED_EVENT, loadCompleted);
   }, [profile]);
 
+  // ✅ refresh active created ids after create/update/delete/complete tasks
+  useEffect(() => {
+    if (!profile) return;
+    if (!isOrgRole(profile.role)) return;
+
+    const onChanged = () => {
+      loadActiveCreatedIds();
+    };
+
+    window.addEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(HELP_TASKS_CHANGED_EVENT, onChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.userId]);
+
   const onLogout = () => {
     clearAccessToken();
     setToken(null);
     setProfile(null);
     setCompleted([]);
+    setActiveCreatedIds(null);
     router.push("/");
   };
 
@@ -168,14 +270,39 @@ export default function ProfilePage() {
     return { avg, count };
   }, [profile]);
 
+  // ✅ Вариант А: создано всего = активные (my-created) + выполненные (локальный архив), с дедупом по id
+  const createdTotalCount = useMemo(() => {
+    if (!profile || !isOrgRole(profile.role)) return 0;
+
+    const union = new Set<string>();
+
+    // active created ids (если загрузились)
+    for (const id of activeCreatedIds ?? []) union.add(id);
+
+    // completed archive ids
+    for (const t of completed ?? []) {
+      if (t?.id) union.add(t.id);
+    }
+
+    // если activeCreatedIds не загрузились (null), можно дать fallback, чтобы не показывать 0 "в никуда"
+    if (activeCreatedIds === null && union.size === 0) {
+      const fallbackActive = Number(profile.countTasks ?? 0);
+      const completedCount = completed?.length ?? 0;
+      return fallbackActive + completedCount;
+    }
+
+    return union.size;
+  }, [activeCreatedIds, completed, profile]);
+
   if (!loading && !token) {
     return (
       <div className={s.page}>
-        <div className={s.container}>
-          <h2 style={{ marginBottom: 10 }}>Вы не вошли в аккаунт</h2>
-          <p style={{ color: "#6C757D" }}>Войдите, чтобы увидеть профиль.</p>
-          <div style={{ marginTop: 12 }}>
-            <Link href="/login" className={s.btnLarge} style={{ maxWidth: 260 }}>
+        <div className={s.centerScreen}>
+          <div className={s.centerBox}>
+            <h2 style={{ margin: "0 0 6px" }}>Вы не вошли в аккаунт</h2>
+            <p style={{ color: "#6C757D", margin: 0 }}>Войдите, чтобы увидеть профиль.</p>
+
+            <Link href="/login" className={`${s.btnLarge} ${s.btnLogin}`}>
               ВОЙТИ
             </Link>
           </div>
@@ -321,7 +448,9 @@ export default function ProfilePage() {
               <section className={s.section}>
                 <h3 className={s.sectionTitle}>Реквизиты для пожертвований</h3>
                 <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
-                  {profile.donationDetails?.trim() ? profile.donationDetails.trim() : "Не указано"}
+                  {profile.donationDetails?.trim()
+                    ? profile.donationDetails.trim()
+                    : "Не указано"}
                 </p>
               </section>
             </>
@@ -405,7 +534,7 @@ export default function ProfilePage() {
             <h3 className={s.sectionTitle}>Активность</h3>
             <p style={{ color: "#6C757D", fontSize: 14, margin: 0 }}>
               {org
-                ? `Созданные задачи: ${profile.countTasks ?? 0}`
+                ? `Созданные задачи: ${createdTotalCount}`
                 : `Выполненные задачи: ${profile.countTasks ?? 0}`}
             </p>
           </section>
@@ -413,9 +542,7 @@ export default function ProfilePage() {
           {/* ✅ Архив выполненных задач — НЕ показываем блок, если архив пуст */}
           {org && completed.length > 0 ? (
             <section className={s.section}>
-              <h3 className={s.sectionTitle}>
-                Выполненные задачи (архив) — {completed.length}
-              </h3>
+              <h3 className={s.sectionTitle}>Выполненные задачи (архив) — {completed.length}</h3>
 
               <div className={tasksStyles.cardsGrid}>
                 {completed.slice(0, 12).map((t) => (

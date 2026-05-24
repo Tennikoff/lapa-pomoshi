@@ -7,15 +7,16 @@ import { useRouter } from "next/navigation";
 import overlay from "@/src/app/(main)/@modal/modalOverlay.module.css";
 import profileStyles from "@/src/app/(main)/profile/profile.module.css";
 import taskForm from "@/src/app/(main)/tasks/foster/new/fosterNew.module.css";
-
 import btnStyles from "./leaveReviewButton.module.css";
 import m from "./leaveReviewModal.module.css";
 
 import { commentsApi } from "@/src/lib/api/comments";
 import { ApiError } from "@/src/lib/api/http";
 import type { CommentDto } from "@/src/types/comment";
+
 import { getAccessToken } from "@/src/lib/tokenStorage";
 import { fetchCurrentProfile } from "@/src/lib/currentProfile";
+import { ConfirmDeleteDialog } from "@/src/components/modals/ConfirmDeleteDialog";
 
 function starsText(n: number) {
   const x = Math.max(0, Math.min(5, Math.round(n)));
@@ -42,7 +43,7 @@ function StarSvg({ className }: { className?: string }) {
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.81c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+      <path d="M9.049 2.927c.3-.921 1.603-.92 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.81c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
     </svg>
   );
 }
@@ -55,25 +56,28 @@ export function PublicReviewsSection({
   showLeaveReviewButton?: boolean;
 }) {
   const router = useRouter();
-
   const limit = 50;
 
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [items, setItems] = useState<CommentDto[]>([]);
   const [hasMore, setHasMore] = useState(false);
-
   const [reviewsExpanded, setReviewsExpanded] = useState(false);
 
-  // modal state
+  // modal state (leave review)
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState<number>(0);
   const [hover, setHover] = useState<number>(0);
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // hide "leave review" for myself
+  // who am I? (needed for: hide "leave review on myself" + show trash on my reviews)
   const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  // delete review dialog
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -89,7 +93,6 @@ export function PublicReviewsSection({
       let msg = "Не удалось загрузить отзывы";
       if (e instanceof ApiError) msg = e.message;
       else if (e instanceof Error) msg = e.message;
-
       setErrorText(msg);
       setItems([]);
       setHasMore(false);
@@ -106,7 +109,6 @@ export function PublicReviewsSection({
   // ✅ back/forward cache
   useEffect(() => {
     if (!userId) return;
-
     const onPopState = () => load();
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -122,27 +124,25 @@ export function PublicReviewsSection({
 
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
+
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
   }, [userId, load]);
 
-  // determine myUserId for "hide leave review button on myself"
+  // ✅ determine myUserId whenever token exists (for trash visibility too)
   useEffect(() => {
-    if (!showLeaveReviewButton) return;
-
     const token = getAccessToken();
     if (!token) {
       setMyUserId(null);
       return;
     }
-
     (async () => {
       const me = await fetchCurrentProfile();
       setMyUserId(me?.userId ?? null);
     })();
-  }, [showLeaveReviewButton]);
+  }, []);
 
   const close = () => {
     setOpen(false);
@@ -152,14 +152,12 @@ export function PublicReviewsSection({
     setSubmitting(false);
   };
 
-  // ESC close
+  // ESC close (leave review modal)
   useEffect(() => {
     if (!open) return;
-
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
-
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -223,6 +221,40 @@ export function PublicReviewsSection({
     }
   };
 
+  // ===== delete flow =====
+  const onAskDelete = (commentId: string) => {
+    setDeleteCommentId(commentId);
+    setDeleteOpen(true);
+  };
+
+  const onCancelDelete = () => {
+    if (deleting) return;
+    setDeleteOpen(false);
+    setDeleteCommentId(null);
+  };
+
+  const onConfirmDelete = async () => {
+    if (!deleteCommentId) return;
+    if (deleting) return;
+
+    setDeleting(true);
+    try {
+      await commentsApi.delete(deleteCommentId);
+      setDeleteOpen(false);
+      setDeleteCommentId(null);
+
+      await load();
+      router.refresh();
+    } catch (e) {
+      let msg = "Не удалось удалить отзыв";
+      if (e instanceof ApiError) msg = e.message;
+      else if (e instanceof Error) msg = e.message;
+      alert(msg);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const leaveReviewButton = canShowLeaveButton ? (
     <div className={btnStyles.wrap}>
       <button className={btnStyles.btn} type="button" onClick={onOpenLeave}>
@@ -260,25 +292,55 @@ export function PublicReviewsSection({
           {leaveReviewButton}
 
           <div className={profileStyles.reviewsList}>
-            {visibleItems.map((r) => (
-              <div key={r.id} className={profileStyles.reviewItem}>
-                {/* ✅ дата справа */}
-                <div className={profileStyles.reviewHeader}>
-                  <div className={profileStyles.reviewHeaderLeft}>
-                    <span className={profileStyles.reviewStars}>{starsText(r.rating)}</span>
-                    <span className={profileStyles.reviewAuthor}>
-                      {r.sender?.name?.trim() ? r.sender.name : "Без имени"}
-                    </span>
+            {visibleItems.map((r) => {
+              const canDelete = Boolean(myUserId && r.sender?.id && r.sender.id === myUserId);
+
+              return (
+                <div key={r.id} className={profileStyles.reviewItem}>
+                  {/* header: left + (date + trash) right */}
+                  <div className={profileStyles.reviewHeader}>
+                    <div className={profileStyles.reviewHeaderLeft}>
+                      <span className={profileStyles.reviewStars}>{starsText(r.rating)}</span>
+                      <span className={profileStyles.reviewAuthor}>
+                        {r.sender?.name?.trim() ? r.sender.name : "Без имени"}
+                      </span>
+                    </div>
+
+                    <div className={profileStyles.reviewHeaderRight}>
+                      <span className={profileStyles.reviewDate}>
+                        {r.createdAt ? formatDate(r.createdAt) : ""}
+                      </span>
+
+                      {canDelete ? (
+                        <button
+                          type="button"
+                          className={profileStyles.reviewTrashBtn}
+                          onClick={() => onAskDelete(r.id)}
+                          aria-label="Удалить отзыв"
+                          title="Удалить отзыв"
+                        >
+                          <svg
+                            className={profileStyles.reviewTrashIcon}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M3 6h18" />
+                            <path d="M8 6V4h8v2" />
+                            <path d="M6 6l1 16h10l1-16" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                          </svg>
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
 
-                  <span className={profileStyles.reviewDate}>
-                    {r.createdAt ? formatDate(r.createdAt) : ""}
-                  </span>
+                  <div className={profileStyles.reviewText}>{r.description?.trim() || "—"}</div>
                 </div>
-
-                <div className={profileStyles.reviewText}>{r.description?.trim() || "—"}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {items.length > 3 ? (
@@ -299,7 +361,7 @@ export function PublicReviewsSection({
         </>
       ) : null}
 
-      {/* ===== MODAL ===== */}
+      {/* ===== LEAVE REVIEW MODAL ===== */}
       {open ? (
         <div
           className={`${overlay.overlay} ${overlay.center}`}
@@ -370,6 +432,14 @@ export function PublicReviewsSection({
           </div>
         </div>
       ) : null}
+
+      {/* ===== DELETE CONFIRM ===== */}
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        onCancel={onCancelDelete}
+        onConfirm={onConfirmDelete}
+        question="Вы уверены, что хотите удалить отзыв?"
+      />
     </section>
   );
 }

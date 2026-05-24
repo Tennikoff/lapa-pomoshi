@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import profileStyles from "@/src/app/(main)/profile/profile.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import s from "./tasks.module.css";
@@ -404,9 +406,18 @@ export default function TasksPage() {
 
   if (!profile) {
     return (
-      <div className={s.page}>
-        <div className={s.container}>
-          <div className={s.emptyBox}>Вы не вошли в аккаунт. Войдите, чтобы увидеть задачи.</div>
+      <div className={profileStyles.page}>
+        <div className={profileStyles.centerScreen}>
+          <div className={profileStyles.centerBox}>
+            <h2 style={{ margin: "0 0 6px" }}>Вы не вошли в аккаунт</h2>
+            <p style={{ color: "#6C757D", margin: 0 }}>
+              Войдите, чтобы увидеть задачи.
+            </p>
+
+            <Link href="/login" className={`${profileStyles.btnLarge} ${profileStyles.btnLogin}`}>
+              ВОЙТИ
+            </Link>
+          </div>
         </div>
       </div>
     );

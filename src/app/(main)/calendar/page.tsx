@@ -1,6 +1,8 @@
 // src/app/(main)/calendar/page.tsx
 "use client";
 
+import Link from "next/link";
+import profileStyles from "@/src/app/(main)/profile/profile.module.css";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import styles from "./calendar.module.css";
 
@@ -320,12 +322,21 @@ export default function CalendarPage() {
 
   if (meRoleOrg === null) {
     return (
-      <div className={styles.page}>
-        <div className={styles.container}>
-          <h2 className={styles.sectionTitle}>Календарь</h2>
-          <p className={styles.muted}>
-            Войдите в аккаунт, чтобы увидеть свои задачи в календаре.
-          </p>
+      <div className={profileStyles.page}>
+        <div className={profileStyles.centerScreen}>
+          <div className={profileStyles.centerBox}>
+            <h2 style={{ margin: "0 0 6px" }}>Вы не вошли в аккаунт</h2>
+            <p style={{ color: "#6C757D", margin: 0 }}>
+              Войдите, чтобы увидеть календарь.
+            </p>
+
+            <Link
+              href="/login"
+              className={`${profileStyles.btnLarge} ${profileStyles.btnLogin}`}
+            >
+              ВОЙТИ
+            </Link>
+          </div>
         </div>
       </div>
     );

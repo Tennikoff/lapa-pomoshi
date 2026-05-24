@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import profileStyles from "@/src/app/(main)/profile/profile.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "./chat.module.css";
@@ -235,10 +237,17 @@ export default function ChatPage() {
 
   if (!meId) {
     return (
-      <div className={styles.page}>
-        <div className={styles.container}>
-          <div className={styles.emptyBox}>
-            Войдите в аккаунт, чтобы пользоваться чатами.
+      <div className={profileStyles.page}>
+        <div className={profileStyles.centerScreen}>
+          <div className={profileStyles.centerBox}>
+            <h2 style={{ margin: "0 0 6px" }}>Вы не вошли в аккаунт</h2>
+            <p style={{ color: "#6C757D", margin: 0 }}>
+              Войдите, чтобы увидеть чат.
+            </p>
+
+            <Link href="/login" className={`${profileStyles.btnLarge} ${profileStyles.btnLogin}`}>
+              ВОЙТИ
+            </Link>
           </div>
         </div>
       </div>
