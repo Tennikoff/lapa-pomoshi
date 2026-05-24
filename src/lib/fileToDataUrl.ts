@@ -5,4 +5,4 @@ export function fileToDataUrl(file: File): Promise<string> {
     r.onerror = () => reject(new Error("Не удалось прочитать файл"));
     r.readAsDataURL(file);
   });
-}
+} 
