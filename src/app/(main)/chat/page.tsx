@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import profileStyles from "@/src/app/(main)/profile/profile.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
