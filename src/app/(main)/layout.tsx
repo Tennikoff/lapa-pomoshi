@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import type { ReactNode } from "react";
 import landing from "../landing.module.css";
 import styles from "./mainLayout.module.css";
