@@ -1,19 +1,19 @@
+// src/components/landing/LandingPage.tsx
 "use client";
 
 import Link from "next/link";
 import Image from "next/image";
-import { useSyncExternalStore } from "react";
-
+import { useState, useSyncExternalStore } from "react";
 import s from "../../app/landing.module.css";
-
 import { LandingHeader } from "@/src/components/layout/LandingHeader";
 import { LandingFooter } from "@/src/components/layout/LandingFooter";
 import { LeaderCard } from "@/src/components/features/LeaderCard";
 import { NewsItem } from "@/src/components/features/NewsItem";
-
 import { getAccessToken } from "@/src/lib/tokenStorage";
 
 function subscribeAuth(cb: () => void) {
+  // storage — обновление, если токен изменился в другом табе
+  // focus — чтобы подхватывать актуальный токен при возврате на вкладку
   window.addEventListener("storage", cb);
   window.addEventListener("focus", cb);
   return () => {
@@ -30,13 +30,51 @@ function getServerSnapshot() {
   return false;
 }
 
+// 3 новости показываем сразу, по кнопке добавляем ещё 3
+const NEWS_STEP = 3;
+
+// ВАЖНО: первые 3 — самые свежие (как было), следующие 3 — “ещё новости”
+const NEWS_ITEMS: Array<{ date: string; text: string }> = [
+  {
+    date: "15 мая 2026",
+    text: 'В приюте "Добрый дом" открылась новая вольерная площадка. Благо даря помощ и волонтеров теперь 1 0 собак живут в просторны х вольерах с утепленными будками.',
+  },
+  {
+    date: "14 мая 2026",
+    text: 'Вышел новый выпуск "Азбуки волонтера". Полезные совет ы для самых маленьких подопечных.',
+  },
+  {
+    date: "10 мая 2026",
+    text: 'Приглашаем на весен нюю ярмарку в под держку приютов. 20 марта в парке "Сокольн ики" прой дет благотворительная ярмарка. Ждем воло нтеров для помощ и в орга низации.',
+  },
+  {
+    date: "08 мая 2026",
+    text: "Обновили медиатеку: добавили новые материалы по первой помощи и уходу за животными.",
+  },
+  {
+    date: "05 мая 2026",
+    text: "Собрали и доставили срочный груз кормов для нескольких передержек. Спасибо всем, кто помог!",
+  },
+  {
+    date: "01 мая 2026",
+    text: "Запустили улучшения в задачах: быстрее обновляется лента после отклика и изменений куратора.",
+  },
+];
+
 export function LandingPage() {
-  const authed = useSyncExternalStore(subscribeAuth, getAuthSnapshot, getServerSnapshot);
+  const authed = useSyncExternalStore(
+    subscribeAuth,
+    getAuthSnapshot,
+    getServerSnapshot
+  );
+
+  const [visibleNews, setVisibleNews] = useState<number>(NEWS_STEP);
+
+  const canShowMoreNews = visibleNews < NEWS_ITEMS.length;
 
   return (
     <div className={s.page}>
       <LandingHeader />
-
       <main>
         {/* HERO */}
         <section className={s.hero}>
@@ -51,7 +89,6 @@ export function LandingPage() {
                     className={s.heroImgTag}
                   />
                 </div>
-
                 <div className={s.heroImg}>
                   <Image
                     src="/images/Вол3.png"
@@ -61,7 +98,6 @@ export function LandingPage() {
                   />
                 </div>
               </div>
-
               <div className={s.heroCollageCol}>
                 <div className={s.heroImg}>
                   <Image
@@ -71,7 +107,6 @@ export function LandingPage() {
                     className={s.heroImgTag}
                   />
                 </div>
-
                 <div className={s.heroImg}>
                   <Image
                     src="/images/Вол4.png"
@@ -98,11 +133,13 @@ export function LandingPage() {
                   <img src="/images/кися.svg" alt="Иллюстрация кошки" />
                 </div>
 
-                {/* - гость: "Войти" (кликабельная)
-                    - авторизован: "Так держать!" (некликабельная)
-                    - визуал тот же, ширина фиксированная */}
+                {/* гость: "Войти" (кликабельная)
+                    авторизован: "Так держать!" (некликабельная) */}
                 {!authed ? (
-                  <Link href="/login" className={`${s.btn} ${s.btnFixedWidth}`}>
+                  <Link
+                    href="/login"
+                    className={`${s.btn} ${s.btnFixedWidth}`}
+                  >
                     Войти
                   </Link>
                 ) : (
@@ -123,14 +160,11 @@ export function LandingPage() {
           <div className={s.container}>
             <div className={s.galleryInner}>
               <div className={s.galleryHeader}>
-                {/* - гость: 2 кнопки
-                    - авторизован: вместо кнопок текст */}
                 {!authed ? (
                   <>
                     <Link href="/register" className={s.galleryHeaderBtn}>
                       Оказать помощь
                     </Link>
-
                     <Link href="/register" className={s.galleryHeaderBtn}>
                       Нужна помощь
                     </Link>
@@ -170,7 +204,6 @@ export function LandingPage() {
                         className={s.galleryImage}
                       />
                     </div>
-
                     <div className={`${s.galleryImageWrap} ${s.parrot}`}>
                       <Image
                         src="/images/Хомя.png"
@@ -190,7 +223,6 @@ export function LandingPage() {
                         className={s.galleryImage}
                       />
                     </div>
-
                     <div className={`${s.galleryImageWrap} ${s.cat}`}>
                       <Image
                         src="/images/кот в мазуте.png"
@@ -210,15 +242,23 @@ export function LandingPage() {
         <section className={s.leaders}>
           <div className={s.container}>
             <div className={s.leadersWrapper}>
-              <h2 className={s.leadersTitle}>Лидеры помощи марта</h2>
+              <h2 className={s.leadersTitle}>Лидеры помощи мая</h2>
               <div className={s.leadersList}>
                 <LeaderCard
                   image="/images/Кузнецова Анна2.png"
                   name="Кузнецова Анна"
                   tasks={14}
                 />
-                <LeaderCard image="/images/Саитова Ольга.png" name="Саитова Ольга" tasks={11} />
-                <LeaderCard image="/images/Князев Олег.png" name="Князев Олег" tasks={7} />
+                <LeaderCard
+                  image="/images/Саитова Ольга.png"
+                  name="Саитова Ольга"
+                  tasks={11}
+                />
+                <LeaderCard
+                  image="/images/Князев Олег.png"
+                  name="Князев Олег"
+                  tasks={7}
+                />
                 <LeaderCard
                   image="/images/Кузнецова Анна1.png"
                   name="Кузнецова Анна"
@@ -233,29 +273,28 @@ export function LandingPage() {
         <section className={s.news}>
           <div className={s.container}>
             <h2 className={s.newsTitle}>Новости</h2>
-
             <div className={s.newsContent}>
-              <NewsItem
-                date="15 марта 2026"
-                text='В приюте "Добрый дом" открылась новая вольерная площадка. Благодаря помощи волонтеров теперь 10 собак живут в просторных вольерах с утепленными будками.'
-              />
-              <NewsItem
-                date="14 марта 2026"
-                text='Вышел новый выпуск "Азбуки волонтера". Полезные советы для самых маленьких подопечных.'
-              />
-              <NewsItem
-                date="10 марта 2026"
-                text='Приглашаем на весеннюю ярмарку в поддержку приютов. 20 марта в парке "Сокольники" пройдет благотворительная ярмарка. Ждем волонтеров для помощи в организации.'
-              />
+              {NEWS_ITEMS.slice(0, visibleNews).map((n, idx) => (
+                <NewsItem key={`${n.date}_${idx}`} date={n.date} text={n.text} />
+              ))}
 
-              <Link href="/news" className={s.newsMore}>
-                Ещё новости
-              </Link>
+              {canShowMoreNews ? (
+                <button
+                  type="button"
+                  className={s.newsMore}
+                  onClick={() =>
+                    setVisibleNews((v) =>
+                      Math.min(NEWS_ITEMS.length, v + NEWS_STEP)
+                    )
+                  }
+                >
+                  Ещё новости
+                </button>
+              ) : null}
             </div>
           </div>
         </section>
       </main>
-
       <LandingFooter />
     </div>
   );
