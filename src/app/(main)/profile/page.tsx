@@ -503,31 +503,6 @@ export default function ProfilePage() {
             </p>
           </section>
 
-          {/* Архив выполненных задач - НЕ показываем блок, если архив пуст */}
-          {org && completed.length > 0 ? (
-            <section className={s.section}>
-              <h3 className={s.sectionTitle}>Выполненные задачи (архив) — {completed.length}</h3>
-
-              <div className={tasksStyles.cardsGrid}>
-                {completed.slice(0, 12).map((t) => (
-                  <TaskCard key={t.id} task={t} mode="curator" />
-                ))}
-              </div>
-
-              <div style={{ marginTop: 12 }}>
-                <button
-                  type="button"
-                  className={tasksStyles.loadMoreBtn}
-                  onClick={() => {
-                    clearCompletedHelpTasks(profile.userId);
-                  }}
-                >
-                  Очистить архив
-                </button>
-              </div>
-            </section>
-          ) : null}
-
           <section className={s.section}>
             <h3 className={s.sectionTitle}>Рейтинг</h3>
             <div className={s.ratingRow}>

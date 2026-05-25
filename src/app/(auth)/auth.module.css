@@ -7,7 +7,6 @@
   --modal-dim: 0.25;
 }
 
-/* Фон: главная страница (размываем через filter) */
 .modalBg {
   position: fixed;
   inset: 0;
@@ -18,7 +17,6 @@
   pointer-events: none;
 }
 
-/* затемнение */
 .modalOverlay {
   position: fixed;
   inset: 0;
@@ -26,7 +24,6 @@
   background: rgba(0, 0, 0, var(--modal-dim));
 }
 
-/* Центрируем контент модалки */
 .modalContent {
   position: relative;
   z-index: 2;
@@ -66,7 +63,6 @@
 
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
 
-  /* чтобы карточка растягивалась под ошибки */
   height: auto;
   max-height: calc(100vh - 48px);
   overflow-y: auto;
@@ -77,7 +73,6 @@
 .authCardRegister { min-height: 645px; }
 .authCardLogin { min-height: 390px; }
 
-/* VERIFY EMAIL (OTP) */
 .authCardVerify {
   min-height: 320px;
 }
@@ -114,7 +109,6 @@
   margin-bottom: 6px;
 }
 
-/* Радио */
 .radioGroup {
   display: flex;
   gap: 36px;
@@ -150,7 +144,6 @@
   border-radius: 50%;
 }
 
-/* Инпуты */
 .input {
   width: 100%;
   height: 44px;
@@ -164,7 +157,6 @@
 
 .input:focus { box-shadow: 0 0 0 2px #b892e6 inset; }
 
-/* Чекбокс */
 .check {
   display: flex;
   align-items: center;
@@ -193,7 +185,6 @@
   color: #5d2e8c;
 }
 
-/* Кнопка */
 .btn {
   width: 100%;
   height: 48px;
@@ -265,7 +256,6 @@
   margin: 0 0 18px;
 }
 
-/* Группа шириной ровно как OTP-ряд, сама группа по центру карточки */
 .otpGroup {
   width: fit-content;
   margin: 0 auto;
@@ -302,7 +292,6 @@
   box-shadow: 0 0 0 2px rgba(180, 35, 24, 0.35) inset;
 }
 
-/* Ошибка под OTP: начинается от первой ячейки (не по центру) */
 .otpErrorSlot {
   width: 100%;
   display: flex;
@@ -314,14 +303,13 @@
   min-height: 14px;
 }
 
-/* чтобы высота контролировалась padding'ами слота, а не margin'ом текста */
 .otpErrorSlot .errorText {
   margin-top: 0;
 }
 
 .otpErrorExpired {
-  --otp-error-pt: 6px;   /* отступ сверху */
-  --otp-error-pb: 10px;  /* отступ снизу */
+  --otp-error-pt: 6px;
+  --otp-error-pb: 10px;
 }
 
 .otpErrorInvalid {
@@ -329,7 +317,6 @@
   --otp-error-pb: 10px;
 }
 
-/* Resend: выравнивается по первой ячейке (т.к. внутри otpGroup) */
 .resendInfo {
   width: 100%;
   text-align: left;
@@ -376,7 +363,6 @@
   margin-top: 6px;
 }
 
-/* Меньшая карточка ТОЛЬКО для успеха */
 .authCardVerifySuccess {
   min-height: 190px;
   padding-top: 22px;

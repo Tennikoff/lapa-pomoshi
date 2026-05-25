@@ -96,16 +96,13 @@ export default async function PublicUserProfilePage({
 
   const locationTags = profile.location?.trim() ? [profile.location.trim()] : [];
 
-  // ✅ честный рейтинг без фейковых значений
   const count = Number(profile.countRating ?? 0);
   const sum = Number(profile.sumRating ?? 0);
   const avg = count > 0 ? (sum / count).toFixed(1) : "0.0";
   const rating = { avg, count };
 
-  // ✅ fallback на NoPhoto как в /profile
   const avatarUrl = (profile.photoUrl ?? "").trim() || NO_PHOTO;
 
-  // Питомцы (публично, если ручка доступна без auth)
   let pets: Array<{ id: string; name: string; photoUrl: string | null }> = [];
   try {
     const path = org

@@ -14,7 +14,6 @@ export const usersApi = {
     return res as ProfileDto;
   },
 
-  // JSON PATCH (как раньше)
   patchProfile: async (dto: Partial<ProfileDto>): Promise<ProfileDto> => {
     const res = await apiFetch("/api/Users/profile", {
       method: "PATCH",

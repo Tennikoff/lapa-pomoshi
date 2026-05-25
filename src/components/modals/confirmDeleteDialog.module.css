@@ -14,7 +14,7 @@
 }
 
 .dialog {
-  background: #cce3f2;      /* как в твоей верстке */
+  background: #cce3f2;
   border-radius: 24px;
   text-align: center;
 
@@ -43,7 +43,7 @@
 }
 
 .btn {
-  background: #e9b8a7; /* ваши персиковые кнопки */
+  background: #e9b8a7;
   color: #06355e;
   border: none;
 

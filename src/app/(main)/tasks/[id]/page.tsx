@@ -74,7 +74,6 @@ export default function TaskEditPage() {
   const [task, setTask] = useState<HelpTaskDto | null>(null);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
-
   const [completing, setCompleting] = useState(false);
 
   const [locationsDict, setLocationsDict] = useState<DictionaryItemDto[]>([]);
@@ -90,7 +89,6 @@ export default function TaskEditPage() {
   const [animalPreviewUrl, setAnimalPreviewUrl] = useState<string | null>(null);
   const [animalPhotoFile, setAnimalPhotoFile] = useState<File | null>(null);
   const [animalPhotoError, setAnimalPhotoError] = useState<string | null>(null);
-
   const [anName, setAnName] = useState("");
   const [anType, setAnType] = useState("");
   const [anBreed, setAnBreed] = useState("");
@@ -104,10 +102,8 @@ export default function TaskEditPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [district, setDistrict] = useState<string>("");
-
   const [requiredVolunteers, setRequiredVolunteers] = useState<number>(1);
   const [competency, setCompetency] = useState<string>(""); // single
-
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -149,13 +145,13 @@ export default function TaskEditPage() {
           dictionariesApi.locations(),
           dictionariesApi.competencies(),
         ]);
+
         setLocationsDict(locs);
         setCompetenciesDict(comps);
 
         await loadAnimals();
 
         const t = await helpTasksApi.getById(id);
-
         if (t.creator?.id !== me.userId) {
           alert("Нет доступа к редактированию этой задачи");
           router.replace("/tasks");
@@ -269,7 +265,6 @@ export default function TaskEditPage() {
 
     const animalType = anType.trim();
     const name = anName.trim();
-
     if (!animalType) return alert("Выберите тип животного");
     if (!name) return alert("Укажите имя животного");
     if (animalPhotoError) return alert(animalPhotoError);
@@ -305,12 +300,12 @@ export default function TaskEditPage() {
   };
 
   const onAskDelete = () => setDeleteOpen(true);
+
   const onCancelDelete = () => setDeleteOpen(false);
 
   const onConfirmDelete = () => {
     setDeleteOpen(false);
     router.back();
-
     window.setTimeout(async () => {
       try {
         await helpTasksApi.delete(id);
@@ -328,25 +323,17 @@ export default function TaskEditPage() {
       router.replace("/login");
       return;
     }
-
     if (task.creator?.id !== me.userId) {
       alert("Нет доступа к завершению этой задачи");
       return;
     }
-
-    const ok = window.confirm(
-      "Завершить задачу?\n\nВАЖНО: на сервере она будет удалена, но мы сохраним её в вашем локальном архиве выполненных."
-    );
-    if (!ok) return;
 
     if (completing) return;
     setCompleting(true);
 
     try {
       await helpTasksApi.complete(task.id);
-
       addCompletedHelpTask(me.userId, task);
-
       window.dispatchEvent(new Event(HELP_TASKS_CHANGED_EVENT));
       router.back();
     } catch (e) {
@@ -367,7 +354,6 @@ export default function TaskEditPage() {
       router.replace("/login");
       return;
     }
-
     if (task.creator?.id !== me.userId) {
       alert("Нет доступа к редактированию этой задачи");
       return;
@@ -654,18 +640,16 @@ export default function TaskEditPage() {
                     {animalsOpen ? "Скрыть список животных" : "Выбрать из моих животных"}
                   </button>
 
-                  <button
-                    type="button"
-                    className={f.animalActionBtn}
-                    onClick={onOpenCreateAnimal}
-                  >
+                  <button type="button" className={f.animalActionBtn} onClick={onOpenCreateAnimal}>
                     Создать новую карточку
                   </button>
                 </div>
 
                 {animalsOpen ? (
                   animals.length === 0 ? (
-                    <div className={f.emptyNote}>У вас нет животных в базе. Создайте карточку.</div>
+                    <div className={f.emptyNote}>
+                      У вас нет животных в базе. Создайте карточку.
+                    </div>
                   ) : (
                     <>
                       <div className={f.animalsScroller}>
@@ -681,7 +665,9 @@ export default function TaskEditPage() {
                                 aria-pressed={active}
                                 title={a2.name}
                               >
-                                {a2.photoUrl ? <img className={f.animalImg} src={a2.photoUrl} alt="" /> : null}
+                                {a2.photoUrl ? (
+                                  <img className={f.animalImg} src={a2.photoUrl} alt="" />
+                                ) : null}
                                 <span className={f.animalCardLabel}>{a2.name}</span>
                               </button>
                             );
@@ -909,8 +895,8 @@ export default function TaskEditPage() {
                 </button>
               </div>
 
-              {/* COMPLETE */}
-              <div className={f.deleteRow}>
+              {/* COMPLETE + DELETE (в одной строке) */}
+              <div className={f.actions}>
                 <button
                   type="button"
                   className={f.actionBtn}
@@ -919,10 +905,6 @@ export default function TaskEditPage() {
                 >
                   {completing ? "..." : "ЗАВЕРШИТЬ"}
                 </button>
-              </div>
-
-              {/* DELETE */}
-              <div className={f.deleteRow}>
                 <button type="button" className={f.actionBtn} onClick={onAskDelete}>
                   УДАЛИТЬ
                 </button>

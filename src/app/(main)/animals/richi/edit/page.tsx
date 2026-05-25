@@ -37,7 +37,6 @@ export default function EditRichiAnimalCardPage() {
       return;
     }
 
-    // TODO: позже подключим API сохранения
     console.log("ANIMAL CARD UPDATE (RICHI)", Object.fromEntries(fd.entries()));
     alert("Карточка животного сохранена (пока mock)");
     router.push("/animals/richi");

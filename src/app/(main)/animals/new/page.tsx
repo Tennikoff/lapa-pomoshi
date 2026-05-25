@@ -31,7 +31,6 @@ export default function NewAnimalPage() {
 
   const [animalTypeValue, setAnimalTypeValue] = useState<string>("");
 
-  // cleanup objectURL
   useEffect(() => {
     return () => {
       if (previewUrl && previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
@@ -44,7 +43,6 @@ export default function NewAnimalPage() {
     const file = e.target.files?.[0] ?? null;
     if (!file) return;
 
-    // instant size check
     if (isTooLarge(file)) {
       const objectUrl = URL.createObjectURL(file);
       setPreviewUrl((prev) => {
