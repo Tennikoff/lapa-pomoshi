@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import type { ReactNode } from "react";
 import styles from "./auth.module.css";
 import { LandingPage } from "../../components/landing/LandingPage";
